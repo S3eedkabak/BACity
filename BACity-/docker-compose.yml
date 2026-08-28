@@ -1,0 +1,64 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-events}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-events}
+      POSTGRES_DB: ${POSTGRES_DB:-bratislava_events}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-events}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  opensearch:
+    image: opensearchproject/opensearch:2.15.0
+    environment:
+      - discovery.type=single-node
+      - plugins.security.disabled=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+
+  api:
+    build:
+      context: ./services/api
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./services/api:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  worker:
+    build:
+      context: ./services/crawler
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ./services/crawler:/app
+    command: python -m crawler.worker
+
+volumes:
+  pgdata:
