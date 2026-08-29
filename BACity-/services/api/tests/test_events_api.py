@@ -93,3 +93,42 @@ def test_venue_events(client, sample_venue, sample_event):
     resp = client.get(f"/venues/{sample_venue.id}/events")
     assert resp.status_code == 200
     assert len(resp.json()) == 1
+    
+
+def test_save_and_unsave_event_flow(client, sample_event):
+    client.post("/auth/register", json={"email": "saver@example.com", "password": "pw123456"})
+    token = client.post("/auth/login", json={
+        "email": "saver@example.com", "password": "pw123456",
+    }).json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    resp = client.post(f"/events/{sample_event.id}/save", headers=headers)
+    assert resp.status_code == 201
+    assert resp.json()["saved"] is True
+
+    resp = client.get("/users/me/saved-events", headers=headers)
+    assert resp.status_code == 200
+    assert len(resp.json()) == 1
+    assert resp.json()[0]["title"] == "Techno Night"
+
+    resp = client.delete(f"/events/{sample_event.id}/save", headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["saved"] is False
+
+    resp = client.get("/users/me/saved-events", headers=headers)
+    assert resp.json() == []
+
+
+def test_save_event_requires_auth(client, sample_event):
+    resp = client.post(f"/events/{sample_event.id}/save")
+    assert resp.status_code == 401
+
+
+def test_save_nonexistent_event_404s(client):
+    import uuid
+    client.post("/auth/register", json={"email": "saver2@example.com", "password": "pw123456"})
+    token = client.post("/auth/login", json={
+        "email": "saver2@example.com", "password": "pw123456",
+    }).json()["access_token"]
+    resp = client.post(f"/events/{uuid.uuid4()}/save", headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 404

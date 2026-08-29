@@ -55,3 +55,7 @@ class EventOut(EventBase):
 class EventListResponse(BaseModel):
     total: int
     items: list[EventOut]
+
+class SaveEventResponse(BaseModel):
+    event_id: UUID
+    saved: bool

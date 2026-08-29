@@ -2,12 +2,15 @@ from typing import Optional
 from uuid import UUID
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.crud import event as event_crud
-from app.schemas.event import EventOut, EventListResponse
+from app.crud import saved_event as saved_event_crud
+from app.schemas.event import EventOut, EventListResponse, SaveEventResponse
+from app.api.deps import get_current_user
+from app.models.user import User
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -59,3 +62,25 @@ def get_event(event_id: UUID, db: Session = Depends(get_db)):
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     return event
+
+
+@router.post("/{event_id}/save", response_model=SaveEventResponse, status_code=status.HTTP_201_CREATED)
+def save_event(
+    event_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not event_crud.get_event(db, event_id):
+        raise HTTPException(status_code=404, detail="Event not found")
+    saved_event_crud.save_event(db, user_id=current_user.id, event_id=event_id)
+    return SaveEventResponse(event_id=event_id, saved=True)
+
+
+@router.delete("/{event_id}/save", response_model=SaveEventResponse)
+def unsave_event(
+    event_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    saved_event_crud.unsave_event(db, user_id=current_user.id, event_id=event_id)
+    return SaveEventResponse(event_id=event_id, saved=False)
