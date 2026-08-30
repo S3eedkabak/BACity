@@ -28,9 +28,9 @@ def create_event(
     """
     existing = db.scalar(
         select(Event).where(
-            event_crud.Event.source_url == payload.source_url,
-            event_crud.Event.title == payload.title,
-            event_crud.Event.start_time == payload.start_time,
+            Event.source_url == payload.source_url,
+            Event.title == payload.title,
+            Event.start_time == payload.start_time,
         )
     )
     if existing:
