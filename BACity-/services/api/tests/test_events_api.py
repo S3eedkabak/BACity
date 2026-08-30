@@ -1,3 +1,35 @@
+
+
+def test_crawler_can_ingest_event_and_is_idempotent(client):
+    payload = {
+        "title": "Bratislava Test Concert",
+        "description": "Created by the crawler ingestion contract.",
+        "start_time": (datetime.utcnow() + timedelta(days=3)).isoformat(),
+        "timezone": "Europe/Bratislava",
+        "address": "Bratislava, Slovakia",
+        "category": "Music",
+        "tags": ["music"],
+        "price": 0,
+        "currency": "EUR",
+        "source_url": "https://visitbratislava.com/events/bratislava-test-concert",
+        "language": "en",
+        "extraction_confidence": 0.95,
+        "source_reliability": 0.9,
+    }
+
+    first = client.post("/events", json=payload)
+    assert first.status_code == 201
+    event_id = first.json()["id"]
+
+    second = client.post("/events", json=payload)
+    assert second.status_code == 201
+    assert second.json()["id"] == event_id
+
+    listed = client.get("/events").json()
+    assert listed["total"] == 1
+    assert listed["items"][0]["title"] == "Bratislava Test Concert"
+
+
 def test_health(client):
     resp = client.get("/health")
     assert resp.status_code == 200
