@@ -85,6 +85,7 @@ def _to_event_create_payload(item) -> dict:
         "source_url": item.source_url,
         "language": item.language,
         "extraction_confidence": item.extraction_confidence,
+        "source_reliability": 0.9 if "visitbratislava.com" in item.source_url else 0.7,
     }
 
 
