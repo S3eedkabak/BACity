@@ -4,15 +4,52 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from sqlalchemy import select
 
 from app.database import get_db
 from app.crud import event as event_crud
 from app.crud import saved_event as saved_event_crud
-from app.schemas.event import EventOut, EventListResponse, SaveEventResponse
+from app.schemas.event import EventOut, EventListResponse, SaveEventResponse, EventCreate
 from app.api.deps import get_current_user
 from app.models.user import User
+from app.models.event import Event, EventStatus
 
 router = APIRouter(prefix="/events", tags=["events"])
+
+
+@router.post("", response_model=EventOut, status_code=status.HTTP_201_CREATED)
+def create_event(
+    payload: EventCreate,
+    db: Session = Depends(get_db),
+):
+    """
+    Ingest endpoint for the crawler. Idempotent on source URL + title + start time
+    so repeated crawls do not flood the database with duplicate rows.
+    """
+    existing = db.scalar(
+        select(Event).where(
+            event_crud.Event.source_url == payload.source_url,
+            event_crud.Event.title == payload.title,
+            event_crud.Event.start_time == payload.start_time,
+        )
+    )
+    if existing:
+        for field, value in payload.model_dump(exclude={"venue_id", "source_id"}).items():
+            if hasattr(existing, field) and value is not None:
+                setattr(existing, field, value)
+        db.commit()
+        db.refresh(existing)
+        return existing
+
+    event = event_crud.Event(
+        **payload.model_dump(),
+        status=EventStatus.fresh,
+        source_reliability=payload.source_reliability,
+    )
+    db.add(event)
+    db.commit()
+    db.refresh(event)
+    return event
 
 
 @router.get("", response_model=EventListResponse)
