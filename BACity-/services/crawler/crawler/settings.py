@@ -3,6 +3,9 @@ respect robots.txt, throttle aggressively, identify the bot honestly."""
 import os
 
 BOT_NAME = "bratislava_events_bot"
+
+# Phase 1 live source: the official Visit Bratislava events site.
+ALLOWED_DOMAINS = ["visitbratislava.com", "www.visitbratislava.com"]
 SPIDER_MODULES = ["crawler.spiders"]
 NEWSPIDER_MODULE = "crawler.spiders"
 
