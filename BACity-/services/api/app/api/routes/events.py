@@ -44,7 +44,6 @@ def create_event(
     event = event_crud.Event(
         **payload.model_dump(),
         status=EventStatus.fresh,
-        source_reliability=payload.source_reliability,
     )
     db.add(event)
     db.commit()
