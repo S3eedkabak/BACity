@@ -1,15 +1,15 @@
-// Minimal design tokens — swap for a fuller theme (dark mode, spacing
-// scale, typography) once the visual design pass happens.
 export const colors = {
-    background: "#0B0C10",
-    surface: "#16181D",
-    surfaceAlt: "#1F222A",
-    border: "#2A2D36",
-    text: "#F4F5F7",
-    textMuted: "#9CA1AC",
-    primary: "#6C5CE7",
-    primaryMuted: "#3C3568",
-    accent: "#00D9C0",
-    free: "#2ECC71",
-    danger: "#FF6B6B",
-  };
+  background: "#0A0A0F",
+  surface: "#12131A",
+  surfaceAlt: "#1B1D27",
+  border: "#272A35",
+  text: "#F7F7FA",
+  textMuted: "#8D92A1",
+  primary: "#7C6CFF",
+  primaryMuted: "#3D376F",
+  accent: "#63E6BE",
+  free: "#63E6BE",
+  danger: "#FF6B7A",
+  white: "#FFFFFF",
+  black: "#0A0A0F",
+};
