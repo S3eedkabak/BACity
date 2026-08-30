@@ -8,11 +8,43 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.crud import event as event_crud
 from app.crud import saved_event as saved_event_crud
-from app.schemas.event import EventOut, EventListResponse, SaveEventResponse
+from app.schemas.event import EventOut, EventListResponse, SaveEventResponse, EventCreate
 from app.api.deps import get_current_user
 from app.models.user import User
+from app.models.event import Event, EventStatus
 
 router = APIRouter(prefix="/events", tags=["events"])
+
+
+@router.post("", response_model=EventOut, status_code=status.HTTP_201_CREATED)
+def create_event(
+    payload: EventCreate,
+    db: Session = Depends(get_db),
+):
+    """Ingest an event from the crawler. Idempotent on source URL, title,
+    and start time so repeated crawls do not create duplicate rows."""
+    existing = db.query(Event).filter(
+        Event.source_url == payload.source_url,
+        Event.title == payload.title,
+        Event.start_time == payload.start_time,
+    ).first()
+
+    if existing:
+        for field, value in payload.model_dump(exclude={"venue_id", "source_id"}).items():
+            if hasattr(existing, field) and value is not None:
+                setattr(existing, field, value)
+        db.commit()
+        db.refresh(existing)
+        return existing
+
+    event = Event(
+        **payload.model_dump(),
+        status=EventStatus.fresh,
+    )
+    db.add(event)
+    db.commit()
+    db.refresh(event)
+    return event
 
 
 @router.get("", response_model=EventListResponse)
