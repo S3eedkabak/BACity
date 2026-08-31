@@ -1,12 +1,7 @@
-/**
- * Auth state (spec section 37). Zustand for the in-memory store, Expo
- * SecureStore so the JWT survives an app restart. Deliberately minimal —
- * no refresh tokens yet, matching the backend's single-token JWT flow
- * (services/api/app/core/security.py).
- */
 import { create } from "zustand";
 import * as SecureStore from "expo-secure-store";
 import * as authApi from "../api/auth";
+import { setSessionToken } from "./tokenSession";
 
 const TOKEN_KEY = "bratislava_events_token";
 
@@ -27,23 +22,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: true,
 
   hydrate: async () => {
-    const token = await SecureStore.getItemAsync(TOKEN_KEY);
-    if (token) {
+    try {
+      const token = await SecureStore.getItemAsync(TOKEN_KEY);
+      if (!token) return;
+      setSessionToken(token);
       set({ token });
       try {
         const user = await authApi.getMe();
         set({ user });
       } catch {
-        // stored token is invalid/expired — drop it
         await SecureStore.deleteItemAsync(TOKEN_KEY);
+        setSessionToken(null);
         set({ token: null, user: null });
       }
+    } finally {
+      set({ isLoading: false });
     }
-    set({ isLoading: false });
   },
 
   login: async (email, password) => {
     const { access_token } = await authApi.login(email, password);
+    setSessionToken(access_token);
     await SecureStore.setItemAsync(TOKEN_KEY, access_token);
     set({ token: access_token });
     const user = await authApi.getMe();
@@ -57,6 +56,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: async () => {
     await SecureStore.deleteItemAsync(TOKEN_KEY);
+    setSessionToken(null);
     set({ token: null, user: null });
   },
 
