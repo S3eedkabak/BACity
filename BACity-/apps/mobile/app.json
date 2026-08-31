@@ -7,42 +7,21 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",
-    "splash": {
-      "backgroundColor": "#0B0C10"
-    },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "splash": { "backgroundColor": "#0B0C10" },
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.bratislavaevents.app",
-      "config": {
-        "googleMapsApiKey": "YOUR_IOS_GOOGLE_MAPS_KEY"
-      },
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
+      "infoPlist": { "ITSAppUsesNonExemptEncryption": false }
     },
     "android": {
       "package": "com.bratislavaevents.app",
-      "config": {
-        "googleMaps": {
-          "apiKey": "YOUR_ANDROID_GOOGLE_MAPS_KEY"
-        }
-      }
+      "config": { "googleMaps": { "apiKey": "YOUR_ANDROID_GOOGLE_MAPS_KEY" } }
     },
-    "plugins": [
-      "expo-router",
-      "expo-secure-store",
-      "expo-font"
-    ],
+    "plugins": ["expo-router", "expo-secure-store", "expo-font"],
     "extra": {
-      "router": {
-        "origin": false
-      },
-      "eas": {
-        "projectId": "2bcd249b-9540-4b58-9f09-90a245e0be6e"
-      }
+      "router": { "origin": false },
+      "eas": { "projectId": "2bcd249b-9540-4b58-9f09-90a245e0be6a" }
     }
   }
 }
