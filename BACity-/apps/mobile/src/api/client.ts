@@ -1,15 +1,11 @@
 /**
- * Thin fetch wrapper around the FastAPI backend (services/api).
+ * Thin fetch wrapper around the FastAPI backend.
  *
- * Base URL comes from EXPO_PUBLIC_API_URL so it can point at:
- *   - http://localhost:8000        (iOS simulator)
- *   - http://10.0.2.2:8000         (Android emulator)
- *   - http://<your-lan-ip>:8000    (physical device on the same network)
- *   - a deployed API origin in production
- *
- * See .env.example at the mobile app root.
+ * Auth tokens live in tokenSession.ts rather than importing the Zustand
+ * auth store here. This intentionally removes the client -> store -> auth
+ * -> client circular dependency.
  */
-import { useAuthStore } from "../store/authStore";
+import { getSessionToken } from "../store/tokenSession";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -25,26 +21,28 @@ export class ApiError extends Error {
 interface RequestOptions {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
-  auth?: boolean; // attach Bearer token if the user is logged in
+  auth?: boolean;
   params?: Record<string, string | number | boolean | undefined>;
 }
 
 function buildQuery(params?: RequestOptions["params"]): string {
   if (!params) return "";
-  const usable = Object.entries(params).filter(([, v]) => v !== undefined && v !== "");
+  const usable = Object.entries(params).filter(([, value]) => value !== undefined && value !== "");
   if (usable.length === 0) return "";
-  const search = new URLSearchParams(
-    usable.map(([k, v]) => [k, String(v)])
-  );
+  const search = new URLSearchParams(usable.map(([key, value]) => [key, String(value)]));
   return `?${search.toString()}`;
 }
 
-export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+export async function apiRequest<T>(
+  path: string,
+  options: RequestOptions = {}
+): Promise<T> {
   const { method = "GET", body, auth = false, params } = options;
 
   const headers: Record<string, string> = { "Content-Type": "application/json" };
+
   if (auth) {
-    const token = useAuthStore.getState().token;
+    const token = getSessionToken();
     if (token) headers.Authorization = `Bearer ${token}`;
   }
 
@@ -60,7 +58,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       const errBody = await res.json();
       detail = errBody.detail ?? detail;
     } catch {
-      // response wasn't JSON — keep statusText
+      // Keep the HTTP status text when the body is not JSON.
     }
     throw new ApiError(res.status, detail);
   }
