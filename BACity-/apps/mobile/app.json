@@ -21,7 +21,7 @@
     "plugins": ["expo-router", "expo-secure-store", "expo-font"],
     "extra": {
       "router": { "origin": false },
-      "eas": { "projectId": "2bcd249b-9540-4b58-9f09-90a245e0be6a" }
+      "eas": { "projectId": "2bcd249b-9540-4b58-9f09-90a245e0be6e" }
     }
   }
 }
