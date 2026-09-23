@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useEvents, useSearchEvents } from "../../src/hooks/useEvents";
 import { EventCard } from "../../src/components/EventCard";
@@ -36,7 +43,7 @@ export default function ExploreScreen() {
       <FlatList
         data={items ?? []}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.results}
+        contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <>
@@ -45,14 +52,14 @@ export default function ExploreScreen() {
                 <Text style={styles.eyebrow}>THE CITY IS YOURS</Text>
                 <Text style={styles.heading}>Explore</Text>
               </View>
-              <View style={styles.sparkle}>
-                <Ionicons name="sparkles" size={17} color={colors.primary} />
+              <View style={styles.headerButton}>
+                <Ionicons name="sparkles-outline" size={20} color={colors.primary} />
               </View>
             </View>
 
             <View style={styles.searchBar}>
               <View style={styles.searchIcon}>
-                <Ionicons name="search" size={18} color={colors.primary} />
+                <Ionicons name="search" size={19} color={colors.primary} />
               </View>
               <TextInput
                 style={styles.input}
@@ -63,7 +70,7 @@ export default function ExploreScreen() {
                 autoCorrect={false}
               />
               {query.length > 0 && (
-                <Pressable onPress={() => setQuery("")}>
+                <Pressable onPress={() => setQuery("")} hitSlop={10}>
                   <Ionicons name="close-circle" size={19} color={colors.textMuted} />
                 </Pressable>
               )}
@@ -103,15 +110,25 @@ export default function ExploreScreen() {
             )}
 
             <View style={styles.resultHeader}>
-              <Text style={styles.resultTitle}>
-                {isSearching ? "Search results" : "What's on"}
-              </Text>
-              <Text style={styles.resultCount}>{items?.length ?? 0} events</Text>
+              <View>
+                <Text style={styles.resultTitle}>
+                  {isSearching ? "Search results" : "What's on"}
+                </Text>
+                <Text style={styles.resultSubtitle}>
+                  {isSearching ? "Matching your search" : "Fresh plans around the city"}
+                </Text>
+              </View>
+              <View style={styles.countPill}>
+                <Text style={styles.resultCount}>{items?.length ?? 0}</Text>
+              </View>
             </View>
 
             {isLoading && <LoadingState />}
             {isError && (
-              <EmptyState title="Couldn't reach the city" subtitle="Check that the API is running." />
+              <EmptyState
+                title="Couldn't reach the city"
+                subtitle="Check that the API is running."
+              />
             )}
           </>
         }
@@ -120,7 +137,11 @@ export default function ExploreScreen() {
           !isLoading && !isError ? (
             <EmptyState
               title={isSearching ? "No matches yet" : "No events here yet"}
-              subtitle={isSearching ? "Try a different word or category." : "Fresh events will appear after the next crawl."}
+              subtitle={
+                isSearching
+                  ? "Try a different word or category."
+                  : "Fresh events will appear after the next crawl."
+              }
             />
           ) : null
         }
@@ -131,7 +152,7 @@ export default function ExploreScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  results: { paddingHorizontal: 18, paddingTop: 10, paddingBottom: 115 },
+  content: { paddingHorizontal: 18, paddingTop: 12, paddingBottom: 108 },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -151,10 +172,10 @@ const styles = StyleSheet.create({
     letterSpacing: -1.2,
     marginTop: 2,
   },
-  sparkle: {
-    width: 42,
-    height: 42,
-    borderRadius: 15,
+  headerButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
     backgroundColor: colors.primarySoft,
     alignItems: "center",
     justifyContent: "center",
@@ -211,11 +232,26 @@ const styles = StyleSheet.create({
   chipTextActive: { color: colors.white },
   resultHeader: {
     flexDirection: "row",
-    alignItems: "baseline",
+    alignItems: "center",
     justifyContent: "space-between",
     marginTop: 25,
-    marginBottom: 11,
+    marginBottom: 12,
   },
-  resultTitle: { color: colors.text, fontFamily: fonts.black, fontSize: 19 },
-  resultCount: { color: colors.textMuted, fontFamily: fonts.medium, fontSize: 10 },
+  resultTitle: { color: colors.text, fontFamily: fonts.black, fontSize: 20 },
+  resultSubtitle: {
+    color: colors.textMuted,
+    fontFamily: fonts.regular,
+    fontSize: 10,
+    marginTop: 2,
+  },
+  countPill: {
+    minWidth: 32,
+    height: 32,
+    paddingHorizontal: 9,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  resultCount: { color: colors.white, fontFamily: fonts.black, fontSize: 11 },
 });
