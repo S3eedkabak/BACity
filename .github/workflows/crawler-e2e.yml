@@ -24,17 +24,17 @@ jobs:
         continue-on-error: true
         run: |
           set -o pipefail
-          python -m pip install -r services/crawler/requirements.txt 2>&1 | tee crawler-install.log
+          python -m pip install -r BACity-/services/crawler/requirements.txt 2>&1 | tee crawler-install.log
 
       - name: Stop on crawler install failure
         if: steps.crawler_install.outcome == 'failure'
         run: exit 1
 
       - name: Install API
-        run: python -m pip install -r services/api/requirements.txt
+        run: python -m pip install -r BACity-/services/api/requirements.txt
 
       - name: Start API
-        working-directory: services/api
+        working-directory: BACity-/services/api
         env:
           DATABASE_URL: sqlite:///./dev.db
         run: |
@@ -53,7 +53,7 @@ jobs:
           PY
 
       - name: Live crawl all prototype sources
-        working-directory: services/crawler
+        working-directory: BACity-/services/crawler
         env:
           API_BASE_URL: http://127.0.0.1:8000
         run: |
@@ -123,6 +123,6 @@ jobs:
           name: crawler-e2e-logs
           path: |
             crawler-install.log
-            services/crawler/crawler-live.log
-            services/api/api.log
+            BACity-/services/crawler/crawler-live.log
+            BACity-/services/api/api.log
           if-no-files-found: ignore
