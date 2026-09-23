@@ -1,0 +1,8 @@
+scrapy==2.11.2
+beautifulsoup4==4.12.3
+python-dateutil==2.9.0.post0
+rapidfuzz==3.9.7
+pytz==2024.1
+pytest==8.3.3
+
+requests==2.32.3
