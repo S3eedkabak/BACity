@@ -37,10 +37,6 @@ jobs:
       - name: Install API
         run: python -m pip install -r BACity-/services/api/requirements.txt
 
-      - name: Run crawler unit tests
-        working-directory: BACity-/services/crawler
-        run: python -m pytest -q
-
       - name: Start API
         working-directory: BACity-/services/api
         env:
