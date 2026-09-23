@@ -128,3 +128,50 @@ def extract_best_effort(html: str, source_url: str) -> list[RawEvent]:
     if og_event:
         return [og_event]
     return extract_generic_html(html, source_url)
+
+
+def extract_event_cards(html: str, source_url: str) -> list[RawEvent]:
+    """Extract multiple event cards from listing pages using repeated date-bearing nodes."""
+    soup = BeautifulSoup(html, "html.parser")
+    events: list[RawEvent] = []
+    seen: set[tuple[str, str]] = set()
+
+    for node in soup.find_all(["article", "li", "div"]):
+        text = node.get_text(" ", strip=True)
+        match = DATE_HINT_RE.search(text)
+        if not match or len(text) > 2500:
+            continue
+
+        title_tag = node.find(["h1", "h2", "h3", "h4", "a"])
+        title = title_tag.get_text(" ", strip=True) if title_tag else ""
+        if not title or title.lower() in {"program", "events", "event", "more", "viac"}:
+            continue
+
+        key = (title.lower(), match.group(0))
+        if key in seen:
+            continue
+        seen.add(key)
+
+        venue_tag = _find_by_class_hint(node, VENUE_CLASS_HINTS)
+        address_tag = _find_by_class_hint(node, ADDRESS_CLASS_HINTS)
+        price_tag = _find_by_class_hint(node, PRICE_CLASS_HINTS)
+
+        events.append(
+            RawEvent(
+                title=title,
+                start_raw=match.group(0).strip(),
+                venue_name=venue_tag.get_text(" ", strip=True) if venue_tag else None,
+                address=address_tag.get_text(" ", strip=True) if address_tag else None,
+                price_raw=price_tag.get_text(" ", strip=True) if price_tag else None,
+                image_url=(
+                    node.find("img").get("src")
+                    if node.find("img") and node.find("img").get("src")
+                    else None
+                ),
+                source_url=source_url,
+                extraction_method="event_card",
+                extraction_confidence=0.55 if venue_tag else 0.45,
+            )
+        )
+
+    return events
