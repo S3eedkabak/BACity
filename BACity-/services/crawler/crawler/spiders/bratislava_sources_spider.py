@@ -53,9 +53,21 @@ class BratislavaSourcesSpider(scrapy.Spider):
         source: SourceSeed = response.meta["source"]
         depth = response.meta.get("crawl_depth", 0)
 
-        yield from self._extract(response, source)
+        events = list(self._extract(response, source))
+        for event in events:
+            yield event
 
-        if depth >= self.max_crawl_depth:
+        if source.domain == "snd.sk" and not events:
+            for iframe in response.css("iframe::attr(src)").getall():
+                frame_url = response.urljoin(iframe)
+                yield scrapy.Request(
+                    frame_url,
+                    callback=self.parse,
+                    errback=self.errback_source,
+                    meta={"source": source, "crawl_depth": depth, "snd_frame": True},
+                )
+
+        if depth >= self.max_crawl_depth or response.meta.get("snd_frame"):
             return
 
         seen = set()
