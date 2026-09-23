@@ -10,6 +10,8 @@ class RawEvent:
     description: Optional[str] = None
     venue_name: Optional[str] = None
     address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     price_raw: Optional[str] = None
     image_url: Optional[str] = None
     category_hint: Optional[str] = None
