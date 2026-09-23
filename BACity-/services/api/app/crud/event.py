@@ -129,3 +129,25 @@ def nearby_events(
     scored = [s for s in scored if s[0] <= radius_km]
     scored.sort(key=lambda s: s[0])
     return [e for _, e in scored[:limit]]
+
+
+def viewport_events(
+    db: Session,
+    *,
+    min_lat: float,
+    max_lat: float,
+    min_lng: float,
+    max_lng: float,
+    limit: int = 200,
+) -> list[Event]:
+    """Return only mapped events inside the current map viewport."""
+    stmt = (
+        select(Event)
+        .where(Event.latitude.isnot(None), Event.longitude.isnot(None))
+        .where(Event.status.in_([EventStatus.fresh, EventStatus.stale]))
+        .where(Event.latitude.between(min_lat, max_lat))
+        .where(Event.longitude.between(min_lng, max_lng))
+        .order_by(Event.start_time.asc())
+        .limit(limit)
+    )
+    return list(db.scalars(stmt))
