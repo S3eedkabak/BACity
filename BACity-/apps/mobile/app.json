@@ -5,9 +5,9 @@
     "scheme": "bratislava-events",
     "version": "0.1.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "icon": "./assets/icon.png",
-    "splash": { "backgroundColor": "#0B0C10" },
+    "splash": { "backgroundColor": "#FFF8F5" },
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
