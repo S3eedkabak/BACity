@@ -8,18 +8,17 @@ from crawler.items import RawEvent
 
 DATE_HINT_RE = re.compile(
     r"(?:"
-    r"d{1,2}[./]s*d{1,2}[./]s*(?:d{4})?(?:s+d{1,2}[:.]d{2})?"
+    r"\d{1,2}[./]\s*\d{1,2}[./]\s*(?:\d{4})?(?:\s+\d{1,2}[:.]\d{2})?"
     r"|"
-    r"d{1,2}.s*(?:–|-)s*d{1,2}.s*[A-Za-zÀ-ž]+(?:s+d{4})?"
+    r"\d{1,2}\.\s*(?:–|-)\s*\d{1,2}\.\s*[A-Za-zÀ-ž]+(?:\s+\d{4})?"
     r"|"
-    r"d{1,2}.s*[A-Za-zÀ-ž]+(?:s+d{4})?(?:[,s]+d{1,2}[:.]d{2})?"
+    r"\d{1,2}\.\s*[A-Za-zÀ-ž]+(?:\s+\d{4})?(?:[,\s]+\d{1,2}[:.]\d{2})?"
     r"|"
-    r"d{1,2}/d{1,2}(?:/d{2,4})?(?:s+d{1,2}[:.]d{2})?"
+    r"\d{1,2}/\d{1,2}(?:/\d{2,4})?(?:\s+\d{1,2}[:.]\d{2})?"
     r")",
     re.IGNORECASE,
 )
 
-EVENT_CLASS_HINTS = ("event", "akcia", "podujatie", "program", "event-card")
 DATE_CLASS_HINTS = ("date", "datum", "dátum", "time", "cas", "čas", "term")
 VENUE_CLASS_HINTS = ("venue", "location", "miesto", "place", "lokal")
 ADDRESS_CLASS_HINTS = ("address", "adresa")
@@ -60,16 +59,22 @@ def extract_opengraph_event(html: str, source_url: str) -> Optional[RawEvent]:
     if not title:
         return None
 
+    if title.strip().lower() in {"program", "events", "event", "what's on", "whats on"}:
+        return None
+
     body_text = soup.get_text(" ", strip=True)
     match = DATE_HINT_RE.search(body_text)
+    if not match:
+        return None
+
     return RawEvent(
         title=title,
-        start_raw=match.group(0).strip() if match else "",
+        start_raw=match.group(0).strip(),
         description=_meta(soup, "og:description"),
         image_url=_meta(soup, "og:image"),
         source_url=source_url,
         extraction_method="opengraph",
-        extraction_confidence=0.45 if match else 0.15,
+        extraction_confidence=0.45,
     )
 
 
@@ -98,8 +103,6 @@ def extract_generic_html(html: str, source_url: str) -> list[RawEvent]:
     venue_name = venue_tag.get_text(" ", strip=True) if venue_tag else None
     address = address_tag.get_text(" ", strip=True) if address_tag else None
 
-    # Stará Tržnica and similar venue pages expose the venue/address in a
-    # footer rather than an event-card element.
     if "staratrznica.sk" in source_url:
         venue_name = venue_name or "Stará tržnica"
         address = address or "Námestie SNP 25, 811 01 Bratislava"
@@ -122,6 +125,6 @@ def extract_generic_html(html: str, source_url: str) -> list[RawEvent]:
 
 def extract_best_effort(html: str, source_url: str) -> list[RawEvent]:
     og_event = extract_opengraph_event(html, source_url)
-    if og_event and og_event.start_raw:
+    if og_event:
         return [og_event]
     return extract_generic_html(html, source_url)
