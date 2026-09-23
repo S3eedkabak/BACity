@@ -31,6 +31,7 @@ class BratislavaSourcesSpider(scrapy.Spider):
             seed_urls = [source.event_url]
             if source.domain == "snd.sk":
                 seed_urls = [
+                    source.base_url,
                     f"https://snd.sk/program/{now.year}/{now.month:02d}",
                     f"https://snd.sk/program/{next_year}/{next_month:02d}",
                 ]
