@@ -91,7 +91,7 @@ class BratislavaSourcesSpider(scrapy.Spider):
 
     def _extract(self, response, source: SourceSeed):
         if source.domain == "snd.sk":
-            events = extract_snd_events(response.text, response.url)
+            events = extract_snd_events(response.text, response.url, datetime.now().year)
         else:
             events = extract_jsonld_events(response.text, response.url)
             if not events:
