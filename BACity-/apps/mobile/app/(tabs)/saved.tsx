@@ -16,15 +16,20 @@ export default function SavedScreen() {
   if (!token) {
     return (
       <View style={styles.guest}>
-        <View style={styles.guestBlob}>
-          <Ionicons name="heart" size={28} color={colors.white} />
+        <View style={styles.guestShape}>
+          <View style={styles.guestIcon}>
+            <Ionicons name="heart" size={25} color={colors.white} />
+          </View>
         </View>
         <Text style={styles.eyebrow}>YOUR PLANS</Text>
         <Text style={styles.title}>Keep the good stuff.</Text>
         <Text style={styles.subtitle}>
           Save events you love and build a little list of things worth doing.
         </Text>
-        <Pressable style={styles.loginButton} onPress={() => router.push("/(tabs)/profile")}>
+        <Pressable
+          style={styles.loginButton}
+          onPress={() => router.push("/(tabs)/profile")}
+        >
           <Text style={styles.loginText}>Log in to save events</Text>
           <Ionicons name="arrow-forward" size={17} color={colors.white} />
         </Pressable>
@@ -33,7 +38,9 @@ export default function SavedScreen() {
   }
 
   if (isLoading) return <LoadingState />;
-  if (isError) return <EmptyState title="Couldn't load saved events" subtitle="Try again in a moment." />;
+  if (isError) {
+    return <EmptyState title="Couldn't load saved events" subtitle="Try again in a moment." />;
+  }
 
   return (
     <FlatList
@@ -56,7 +63,12 @@ export default function SavedScreen() {
       }
       renderItem={({ item }) => <EventCard event={item} />}
       ListEmptyComponent={
-        <EmptyState title="Nothing saved yet" subtitle="Your best finds will collect here." />
+        <View style={styles.emptyWrap}>
+          <View style={styles.emptyIcon}>
+            <Ionicons name="heart-outline" size={24} color={colors.primary} />
+          </View>
+          <EmptyState title="Nothing saved yet" subtitle="Your best finds will collect here." />
+        </View>
       }
     />
   );
@@ -64,7 +76,7 @@ export default function SavedScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 18, paddingTop: 10, paddingBottom: 115 },
+  content: { padding: 18, paddingTop: 12, paddingBottom: 108 },
   header: { paddingBottom: 18 },
   eyebrow: {
     color: colors.primaryDark,
@@ -81,33 +93,47 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   countPill: {
-    minWidth: 27,
-    height: 27,
-    paddingHorizontal: 8,
-    borderRadius: 14,
+    minWidth: 30,
+    height: 30,
+    paddingHorizontal: 9,
+    borderRadius: 15,
     backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 6,
   },
   count: { color: colors.white, fontFamily: fonts.black, fontSize: 11 },
-  headerText: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, marginTop: 2 },
+  headerText: {
+    color: colors.textMuted,
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    marginTop: 2,
+  },
   guest: {
     flex: 1,
     backgroundColor: colors.background,
     alignItems: "center",
     justifyContent: "center",
-    padding: 32,
+    padding: 30,
   },
-  guestBlob: {
-    width: 74,
-    height: 74,
-    borderRadius: 28,
+  guestShape: {
+    width: 106,
+    height: 106,
+    borderRadius: 38,
+    backgroundColor: colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+    transform: [{ rotate: "-6deg" }],
+    marginBottom: 20,
+  },
+  guestIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 24,
     backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 20,
-    transform: [{ rotate: "-6deg" }],
+    transform: [{ rotate: "6deg" }],
   },
   title: {
     color: colors.text,
@@ -115,7 +141,6 @@ const styles = StyleSheet.create({
     fontSize: 29,
     textAlign: "center",
     letterSpacing: -0.8,
-    marginTop: 2,
   },
   subtitle: {
     color: colors.textMuted,
@@ -137,4 +162,14 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   loginText: { color: colors.white, fontFamily: fonts.semibold, fontSize: 12 },
+  emptyWrap: { alignItems: "center" },
+  emptyIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 17,
+    backgroundColor: colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: -2,
+  },
 });
