@@ -178,6 +178,25 @@ def search_events(
     return event_crud.search_events(db, query=q, limit=limit)
 
 
+@router.get("/viewport", response_model=list[EventOut])
+def viewport_events(
+    min_lat: float,
+    max_lat: float,
+    min_lng: float,
+    max_lng: float,
+    limit: int = Query(200, le=500),
+    db: Session = Depends(get_db),
+):
+    return event_crud.viewport_events(
+        db,
+        min_lat=min_lat,
+        max_lat=max_lat,
+        min_lng=min_lng,
+        max_lng=max_lng,
+        limit=limit,
+    )
+
+
 @router.get("/nearby", response_model=list[EventOut])
 def nearby_events(
     lat: float,
