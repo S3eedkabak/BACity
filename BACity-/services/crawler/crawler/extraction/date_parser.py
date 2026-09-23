@@ -30,26 +30,26 @@ _DAY_NAMES = (
 
 _MONTH_NAME_RE = "|".join(sorted(map(re.escape, _MONTHS), key=len, reverse=True))
 _SK_NAMED_DATE_RE = re.compile(
-    rf"(?P<day>d{{1,2}}).s*(?:–|-|až)?s*"
-    rf"(?:(?P<end_day>d{{1,2}}).s*)?"
+    rf"(?P<day>\d{{1,2}})\.\s*(?:–|-|až)?\s*"
+    rf"(?:(?P<end_day>\d{{1,2}})\.\s*)?"
     rf"(?P<month>{_MONTH_NAME_RE})"
-    rf"(?:s+(?P<year>d{{4}}))?"
-    rf"(?:[,s]+(?P<hour>d{{1,2}})(?:[:.](?P<minute>d{{2}})))?",
+    rf"(?:\s+(?P<year>\d{{4}}))?"
+    rf"(?:[,\s]+(?P<hour>\d{{1,2}})(?:[:.](?P<minute>\d{{2}})))?",
     re.IGNORECASE,
 )
 _SK_DOT_DATE_RE = re.compile(
-    r"(?P<day>d{1,2}).s*(?P<month>d{1,2}).s*"
-    r"(?:(?P<year>d{4}))?"
-    r"(?:[,s]+(?P<hour>d{1,2})[:.](?P<minute>d{2}))?"
+    r"(?P<day>\d{1,2})\.\s*(?P<month>\d{1,2})\.\s*"
+    r"(?:(?P<year>\d{4}))?"
+    r"(?:[,\s]+(?P<hour>\d{1,2})[:.](?P<minute>\d{2}))?"
 )
-_ISO_RE = re.compile(r"^d{4}-d{2}-d{2}(?:[T ]d{2}:d{2}(?::d{2})?.*)?$")
+_ISO_RE = re.compile(r"^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?.*)?$")
 
 
 def _strip_noise(text: str) -> str:
-    cleaned = text.replace(" ", " ").replace("@", " ")
+    cleaned = text.replace("\xa0", " ").replace("@", " ")
     for day in _DAY_NAMES:
-        cleaned = re.sub(rf"{re.escape(day)}", " ", cleaned, flags=re.IGNORECASE)
-    return re.sub(r"s+", " ", cleaned).strip(" ,")
+        cleaned = re.sub(rf"\b{re.escape(day)}\b", " ", cleaned, flags=re.IGNORECASE)
+    return re.sub(r"\s+", " ", cleaned).strip(" ,")
 
 
 def _localize(dt: datetime, tz):
@@ -120,7 +120,7 @@ def parse_price(raw: Optional[str]) -> tuple[Optional[float], Optional[str]]:
     ):
         return 0.0, "EUR"
 
-    match = re.search(r"(d+(?:[.,]d+)?)", text)
+    match = re.search(r"(\d+(?:[.,]\d+)?)", text)
     if not match:
         return None, None
 
