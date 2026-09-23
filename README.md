@@ -1,6 +1,19 @@
 
 # BACity
 
+[![Crawler Tests](https://github.com/S3eedkabak/BACity/actions/workflows/crawler-tests.yml/badge.svg?branch=main)](https://github.com/S3eedkabak/BACity/actions/workflows/crawler-tests.yml)
+[![Crawler E2E](https://github.com/S3eedkabak/BACity/actions/workflows/crawler-e2e.yml/badge.svg?branch=main)](https://github.com/S3eedkabak/BACity/actions/workflows/crawler-e2e.yml)
+[![Python](https://img.shields.io/badge/Python-3.x-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![React Native](https://img.shields.io/badge/React%20Native-0.74-61DAFB?logo=react&logoColor=black)](https://reactnative.dev/)
+[![Expo](https://img.shields.io/badge/Expo-51-000020?logo=expo&logoColor=white)](https://expo.dev/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.x-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Scrapy](https://img.shields.io/badge/Scrapy-2.11-60A839?logo=scrapy&logoColor=white)](https://scrapy.org/)
+[![Playwright](https://img.shields.io/badge/Playwright-1.x-2EAD33?logo=playwright&logoColor=white)](https://playwright.dev/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![PostGIS](https://img.shields.io/badge/PostGIS-geospatial-336791?logo=postgresql&logoColor=white)](https://postgis.net/)
+
+
 **BACity is a work-in-progress event discovery platform for Bratislava, Slovakia.**
 
 The project is being built around one simple idea: make it easier to discover what is happening in Bratislava by automatically collecting real events from public sources, normalizing them into a common format, and presenting them through a mobile application.
