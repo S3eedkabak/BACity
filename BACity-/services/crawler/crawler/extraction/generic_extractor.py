@@ -78,6 +78,8 @@ def extract_generic_html(html: str, source_url: str) -> list[RawEvent]:
     title = _first_title(soup)
     if not title:
         return []
+    if title.strip().lower() in {"program", "events", "event", "what's on", "whats on"}:
+        return []
 
     date_tag = _find_by_class_hint(soup, DATE_CLASS_HINTS)
     venue_tag = _find_by_class_hint(soup, VENUE_CLASS_HINTS)
