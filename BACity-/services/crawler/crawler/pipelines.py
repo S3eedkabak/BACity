@@ -8,12 +8,12 @@ from crawler.processing.validate import validate_event
 logger = logging.getLogger(__name__)
 
 _KNOWN_VENUES = {
-    "stará tržnica": "Námestie SNP 25, 811 01 Bratislava",
-    "stará trznica": "Námestie SNP 25, 811 01 Bratislava",
-    "slovak national theatre": "Pribinova 17, 811 09 Bratislava",
-    "slovenské národné divadlo": "Pribinova 17, 811 09 Bratislava",
-    "slovak national gallery": "Rázusovo nábrežie 2, 811 02 Bratislava",
-    "slovenská národná galéria": "Rázusovo nábrežie 2, 811 02 Bratislava",
+    "stará tržnica": ("Námestie SNP 25, 811 01 Bratislava", 48.1445782, 17.1112316),
+    "stará trznica": ("Námestie SNP 25, 811 01 Bratislava", 48.1445782, 17.1112316),
+    "slovak national theatre": ("Pribinova 17, 811 09 Bratislava", 48.1412844, 17.1235008),
+    "slovenské národné divadlo": ("Pribinova 17, 811 09 Bratislava", 48.1412844, 17.1235008),
+    "slovak national gallery": ("Rázusovo nábrežie 2, 811 02 Bratislava", 48.1403302, 17.1086376),
+    "slovenská národná galéria": ("Rázusovo nábrežie 2, 811 02 Bratislava", 48.1403302, 17.1086376),
 }
 
 
@@ -39,8 +39,16 @@ class GeocodePipeline:
         self.user_agent = spider.settings.get("GEOCODER_USER_AGENT")
 
     def process_item(self, item, spider):
-        if item.address is None and item.venue_name:
-            item.address = _KNOWN_VENUES.get(item.venue_name.strip().lower())
+        if item.venue_name:
+            known = _KNOWN_VENUES.get(item.venue_name.strip().lower())
+            if known:
+                address, latitude, longitude = known
+                item.address = item.address or address
+                item.latitude = item.latitude or latitude
+                item.longitude = item.longitude or longitude
+
+        if item.latitude is not None and item.longitude is not None:
+            return item
 
         query = item.address or item.venue_name
         if not query:
