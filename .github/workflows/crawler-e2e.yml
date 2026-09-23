@@ -1,0 +1,118 @@
+name: Crawler E2E
+
+on:
+  push:
+    branches:
+      - frontend-redesign
+  workflow_dispatch:
+
+jobs:
+  crawler-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install crawler
+        run: python -m pip install -r services/crawler/requirements.txt
+
+      - name: Install API
+        run: python -m pip install -r services/api/requirements.txt
+
+      - name: Start API
+        working-directory: services/api
+        env:
+          DATABASE_URL: sqlite:///./dev.db
+        run: |
+          nohup python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 > api.log 2>&1 &
+          python - <<'PY'
+          import time, requests
+          for _ in range(30):
+              try:
+                  if requests.get("http://127.0.0.1:8000/health", timeout=2).ok:
+                      break
+              except requests.RequestException:
+                  pass
+              time.sleep(1)
+          else:
+              raise SystemExit("API did not become ready")
+          PY
+
+      - name: Live crawl all prototype sources
+        working-directory: services/crawler
+        env:
+          API_BASE_URL: http://127.0.0.1:8000
+        run: |
+          python -m scrapy crawl bratislava_sources -s LOG_FILE=crawler-live.log
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+
+          log = Path("crawler-live.log").read_text(encoding="utf-8")
+          lines = [line for line in log.splitlines() if "SOURCE_COUNTS=" in line]
+          if not lines:
+              raise SystemExit("Crawler did not report SOURCE_COUNTS")
+
+          counts = ast.literal_eval(lines[-1].split("SOURCE_COUNTS=", 1)[1])
+          expected = {
+              "Visit Bratislava",
+              "Stará Tržnica",
+              "Slovak National Theatre",
+              "Slovak National Gallery",
+              "Bratislava City",
+              "GoOut Bratislava",
+          }
+          missing = expected - counts.keys()
+          if missing:
+              raise SystemExit(f"Sources with zero extracted events: {sorted(missing)}")
+
+          print("Verified source extraction:", counts)
+          PY
+
+      - name: Verify API and map data
+        run: |
+          python - <<'PY'
+          import requests
+
+          base = "http://127.0.0.1:8000"
+          events = requests.get(f"{base}/events", params={"limit": 100}, timeout=10)
+          events.raise_for_status()
+          body = events.json()
+
+          if body["total"] == 0:
+              raise SystemExit("Crawler stored zero events in the API")
+
+          mapped = [
+              event for event in body["items"]
+              if event.get("latitude") is not None and event.get("longitude") is not None
+          ]
+          if not mapped:
+              raise SystemExit("No stored events have map coordinates")
+
+          nearby = requests.get(
+              f"{base}/events/nearby",
+              params={"lat": 48.1486, "lng": 17.1077, "radius_km": 10, "limit": 100},
+              timeout=10,
+          )
+          nearby.raise_for_status()
+          if not nearby.json():
+              raise SystemExit("Nearby event query returned no mapped events")
+
+          print(f"Verified API ingestion: {body['total']} events, {len(mapped)} mapped")
+          print(f"Verified nearby endpoint: {len(nearby.json())} events")
+          PY
+
+      - name: Upload crawl logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crawler-e2e-logs
+          path: |
+            services/crawler/crawler-live.log
+            services/api/api.log
+          if-no-files-found: ignore
