@@ -3,8 +3,12 @@ import {
   Camera,
   MapView,
   PointAnnotation,
+  UserLocation,
+  UserTrackingMode,
+  type CameraRef,
 } from "@maplibre/maplibre-react-native";
 import { router } from "expo-router";
+import { useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useEvents } from "../../src/hooks/useEvents";
 import { LoadingState } from "../../src/components/LoadingState";
@@ -17,14 +21,101 @@ const BRATISLAVA = {
 };
 
 const OPEN_FREE_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
+const NEARBY_RADIUS_KM = 3;
+
+type Coordinates = {
+  latitude: number;
+  longitude: number;
+};
+
+function distanceKm(a: Coordinates, b: Coordinates) {
+  const earthRadiusKm = 6371;
+  const lat1 = (a.latitude * Math.PI) / 180;
+  const lat2 = (b.latitude * Math.PI) / 180;
+  const deltaLat = ((b.latitude - a.latitude) * Math.PI) / 180;
+  const deltaLng = ((b.longitude - a.longitude) * Math.PI) / 180;
+
+  const haversine =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) ** 2;
+
+  return 2 * earthRadiusKm * Math.asin(Math.sqrt(haversine));
+}
 
 export default function MapScreen() {
   const { data, isLoading } = useEvents({ limit: 100 });
-  const pins = (data?.items ?? []).filter(
-    (event) => event.latitude != null && event.longitude != null
+  const cameraRef = useRef<CameraRef>(null);
+  const [nearMeActive, setNearMeActive] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState<Coordinates | null>(
+    null
   );
 
+  const pins = useMemo(
+    () =>
+      (data?.items ?? []).filter(
+        (event) => event.latitude != null && event.longitude != null
+      ),
+    [data?.items]
+  );
+
+  const nearbyPins = useMemo(() => {
+    if (!currentLocation) return [];
+    return pins.filter((event) =>
+      distanceKm(currentLocation, {
+        latitude: event.latitude as number,
+        longitude: event.longitude as number,
+      }) <= NEARBY_RADIUS_KM
+    );
+  }, [currentLocation, pins]);
+
   if (isLoading) return <LoadingState />;
+
+  const recenter = () => {
+    if (nearMeActive && currentLocation) {
+      cameraRef.current?.setCamera({
+        centerCoordinate: [
+          currentLocation.longitude,
+          currentLocation.latitude,
+        ],
+        zoomLevel: 15,
+        animationDuration: 700,
+        animationMode: "easeTo",
+      });
+      return;
+    }
+
+    cameraRef.current?.setCamera({
+      centerCoordinate: [BRATISLAVA.longitude, BRATISLAVA.latitude],
+      zoomLevel: 12,
+      animationDuration: 700,
+      animationMode: "easeTo",
+    });
+  };
+
+  const zoom = (direction: "in" | "out") => {
+    cameraRef.current?.setCamera({
+      zoomLevel: direction === "in" ? 14 : 10,
+      animationDuration: 250,
+      animationMode: "easeTo",
+    });
+  };
+
+  const toggleNearMe = () => {
+    const next = !nearMeActive;
+    setNearMeActive(next);
+
+    if (next && currentLocation) {
+      cameraRef.current?.setCamera({
+        centerCoordinate: [
+          currentLocation.longitude,
+          currentLocation.latitude,
+        ],
+        zoomLevel: 15,
+        animationDuration: 700,
+        animationMode: "easeTo",
+      });
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -38,41 +129,90 @@ export default function MapScreen() {
         logoEnabled
       >
         <Camera
+          ref={cameraRef}
           defaultSettings={{
             centerCoordinate: [BRATISLAVA.longitude, BRATISLAVA.latitude],
             zoomLevel: 12,
             pitch: 0,
             heading: 0,
           }}
+          followUserLocation={nearMeActive}
+          followUserMode={UserTrackingMode.Follow}
+          followZoomLevel={15}
         />
 
-        {pins.map((event) => (
-          <PointAnnotation
-            key={event.id}
-            id={event.id}
-            coordinate={[
-              event.longitude as number,
-              event.latitude as number,
-            ]}
-            title={event.title}
-            snippet={event.venue?.name ?? event.address ?? "Bratislava"}
-            onSelected={() => router.push("/event/" + event.id)}
-          >
-            <View style={styles.annotation}>
-              <View style={styles.annotationInner}>
-                <Ionicons name="heart" size={11} color={colors.white} />
+        <UserLocation
+          visible={nearMeActive}
+          animated
+          showsUserHeadingIndicator
+          onUpdate={(location) => {
+            setCurrentLocation({
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+            });
+          }}
+        />
+
+        {pins.map((event) => {
+          const isNearby =
+            currentLocation != null &&
+            distanceKm(currentLocation, {
+              latitude: event.latitude as number,
+              longitude: event.longitude as number,
+            }) <= NEARBY_RADIUS_KM;
+
+          return (
+            <PointAnnotation
+              key={event.id}
+              id={event.id}
+              coordinate={[
+                event.longitude as number,
+                event.latitude as number,
+              ]}
+              title={event.title}
+              snippet={event.venue?.name ?? event.address ?? "Bratislava"}
+              onSelected={() => router.push("/event/" + event.id)}
+            >
+              <View
+                style={[
+                  styles.annotation,
+                  nearMeActive && !isNearby && styles.annotationMuted,
+                ]}
+              >
+                <View
+                  style={[
+                    styles.annotationInner,
+                    isNearby && styles.annotationNearby,
+                  ]}
+                >
+                  <Ionicons name="heart" size={11} color={colors.white} />
+                </View>
               </View>
-            </View>
-          </PointAnnotation>
-        ))}
+            </PointAnnotation>
+          );
+        })}
       </MapView>
 
       <View pointerEvents="box-none" style={StyleSheet.absoluteFillObject}>
         <View style={styles.header}>
           <Text style={styles.heading}>Map</Text>
-          <Pressable style={styles.locateButton}>
-            <Ionicons name="navigate" size={18} color={colors.primary} />
-            <Text style={styles.locateText}>Near me</Text>
+          <Pressable
+            onPress={toggleNearMe}
+            style={[styles.locateButton, nearMeActive && styles.locateActive]}
+          >
+            <Ionicons
+              name="navigate"
+              size={18}
+              color={nearMeActive ? colors.white : colors.primary}
+            />
+            <Text
+              style={[
+                styles.locateText,
+                nearMeActive && styles.locateTextActive,
+              ]}
+            >
+              {nearMeActive ? "Nearby" : "Near me"}
+            </Text>
           </Pressable>
         </View>
 
@@ -84,23 +224,52 @@ export default function MapScreen() {
         <View style={styles.counter}>
           <View style={styles.counterDot} />
           <Text style={styles.counterText}>
-            {pins.length} events with a location
+            {nearMeActive
+              ? nearbyPins.length + " nearby"
+              : pins.length + " mapped"}
           </Text>
         </View>
 
-        {!pins.length && (
-          <View style={styles.emptyCard}>
-            <View style={styles.emptyIcon}>
-              <Ionicons name="map-outline" size={22} color={colors.primary} />
-            </View>
-            <View style={styles.emptyCopy}>
-              <Text style={styles.emptyTitle}>The map is waiting</Text>
-              <Text style={styles.emptyText}>
-                Events need coordinates before they can appear here.
-              </Text>
-            </View>
-          </View>
-        )}
+        <View style={styles.controls}>
+          <Pressable
+            accessibilityLabel="Zoom in"
+            onPress={() => zoom("in")}
+            style={styles.controlButton}
+          >
+            <Ionicons name="add" size={20} color={colors.text} />
+          </Pressable>
+          <Pressable
+            accessibilityLabel="Zoom out"
+            onPress={() => zoom("out")}
+            style={styles.controlButton}
+          >
+            <Ionicons name="remove" size={20} color={colors.text} />
+          </Pressable>
+          <Pressable
+            accessibilityLabel="Recenter map"
+            onPress={recenter}
+            style={styles.controlButton}
+          >
+            <Ionicons name="locate" size={19} color={colors.primary} />
+          </Pressable>
+        </View>
+
+        <View style={styles.statusPill}>
+          <Ionicons
+            name={nearMeActive ? "navigate" : "map-outline"}
+            size={13}
+            color={colors.primary}
+          />
+          <Text style={styles.statusText}>
+            {nearMeActive
+              ? nearbyPins.length
+                ? nearbyPins.length + " events near you"
+                : "No nearby events"
+              : pins.length
+                ? pins.length + " events on the map"
+                : "No mapped events yet"}
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -142,10 +311,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
   },
+  locateActive: {
+    backgroundColor: colors.primary,
+  },
   locateText: {
     color: colors.text,
     fontFamily: fonts.semibold,
     fontSize: 10,
+  },
+  locateTextActive: {
+    color: colors.white,
   },
   searchBar: {
     marginTop: 10,
@@ -188,11 +363,34 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium,
     fontSize: 9,
   },
+  controls: {
+    position: "absolute",
+    right: 18,
+    bottom: 174,
+    gap: 8,
+  },
+  controlButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+  },
   annotation: {
     width: 36,
     height: 36,
     alignItems: "center",
     justifyContent: "center",
+  },
+  annotationMuted: {
+    opacity: 0.28,
   },
   annotationInner: {
     width: 28,
@@ -208,46 +406,32 @@ const styles = StyleSheet.create({
     shadowRadius: 7,
     shadowOffset: { width: 0, height: 3 },
   },
-  emptyCard: {
+  annotationNearby: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primaryDark,
+  },
+  statusPill: {
     position: "absolute",
     left: 18,
     right: 18,
-    bottom: 96,
-    minHeight: 100,
-    borderRadius: 24,
-    padding: 16,
-    backgroundColor: colors.surface,
+    bottom: 104,
+    alignSelf: "center",
+    minHeight: 34,
+    paddingHorizontal: 12,
+    borderRadius: 17,
+    backgroundColor: "rgba(255,255,255,0.94)",
     borderWidth: 1,
     borderColor: colors.border,
     flexDirection: "row",
     alignItems: "center",
-    shadowColor: colors.shadow,
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 7 },
-  },
-  emptyIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 17,
-    backgroundColor: colors.primarySoft,
-    alignItems: "center",
     justifyContent: "center",
+    gap: 6,
   },
-  emptyCopy: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  emptyTitle: {
-    color: colors.text,
-    fontFamily: fonts.black,
-    fontSize: 16,
-  },
-  emptyText: {
+  statusText: {
     color: colors.textMuted,
-    fontFamily: fonts.regular,
+    fontFamily: fonts.medium,
     fontSize: 10,
-    lineHeight: 15,
-    marginTop: 4,
   },
 });
