@@ -15,6 +15,8 @@ class BratislavaSourcesSpider(scrapy.Spider):
 
     custom_settings = {"CONCURRENT_REQUESTS_PER_DOMAIN": 2}
     min_sources_with_events = 5
+    max_crawl_depth = 1
+    max_links_per_page = 20
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -42,11 +44,11 @@ class BratislavaSourcesSpider(scrapy.Spider):
 
         yield from self._extract(response, source)
 
-        if depth >= 2:
+        if depth >= self.max_crawl_depth:
             return
 
         seen = set()
-        for anchor in response.css("a[href]"):
+        for anchor in response.css("a[href]")[: self.max_links_per_page]:
             href = anchor.attrib.get("href", "")
             label = anchor.xpath("string(.)").get("").strip()
             absolute = response.urljoin(href).split("#", 1)[0]
