@@ -1,9 +1,4 @@
-"""Single registry-driven spider for the prototype's verified sources.
-
-One spider is intentional: source configuration lives in sources.py, while
-the extraction ladder stays shared. This is the same shape we can extend
-later to a larger source registry or broad web discovery.
-"""
+"""Single registry-driven spider for the prototype's verified sources."""
 from urllib.parse import urlparse
 
 import scrapy
@@ -18,9 +13,7 @@ class BratislavaSourcesSpider(scrapy.Spider):
     name = "bratislava_sources"
     allowed_domains = sorted({source.domain for source in ACTIVE_SOURCES})
 
-    custom_settings = {
-        "CONCURRENT_REQUESTS_PER_DOMAIN": 2,
-    }
+    custom_settings = {"CONCURRENT_REQUESTS_PER_DOMAIN": 2}
 
     def start_requests(self):
         for source in ACTIVE_SOURCES:
@@ -47,26 +40,16 @@ class BratislavaSourcesSpider(scrapy.Spider):
         if depth >= 2:
             return
 
-        links = []
-        for href, text in response.css("a::attr(href), a::text").getall():
-            # CSS returns attributes and text in one stream. Link extraction
-            # below uses a direct node loop to keep href/text paired.
-            _ = href, text
-
+        seen = set()
         for anchor in response.css("a[href]"):
             href = anchor.attrib.get("href", "")
             label = anchor.xpath("string(.)").get("").strip()
             absolute = response.urljoin(href).split("#", 1)[0]
-            if self._is_candidate_link(absolute, label, source):
-                links.append(absolute)
-
-        seen = set()
-        for url in links:
-            if url in seen:
+            if absolute in seen or not self._is_candidate_link(absolute, label, source):
                 continue
-            seen.add(url)
+            seen.add(absolute)
             yield response.follow(
-                url,
+                absolute,
                 callback=self.parse,
                 errback=self.errback_source,
                 meta={"source": source, "crawl_depth": depth + 1},
@@ -96,15 +79,10 @@ class BratislavaSourcesSpider(scrapy.Spider):
             or parsed.hostname.endswith("." + source.domain)
         ):
             return False
-
         haystack = f"{url} {label}".lower()
         return any(hint in haystack for hint in EVENT_LINK_HINTS)
 
-    @staticmethod
-    def errback_source(failure):
+    def errback_source(self, failure):
         response = getattr(failure.value, "response", None)
         url = response.url if response is not None else failure.request.url
-        # Keep a failed source from killing the multi-source crawl.
-        spider = failure.request.callback.__self__ if failure.request.callback else None
-        if spider:
-            spider.logger.warning("Source request failed: %s", url)
+        self.logger.warning("Source request failed: %s", url)
