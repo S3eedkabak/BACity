@@ -39,7 +39,7 @@ class BratislavaSourcesSpider(scrapy.Spider):
                 request_meta = {"source": source, "crawl_depth": 0}
                 if source.requires_js or source.domain == "snd.sk":
                     request_meta["playwright"] = True
-                    if source.domain == "snd.sk":
+                    if source.domain in {"snd.sk", "goout.net"}:
                         request_meta["playwright_context_kwargs"] = {
                             "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/153.0.0.0 Safari/537.36"
                         }
