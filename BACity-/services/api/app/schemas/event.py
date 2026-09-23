@@ -37,6 +37,8 @@ class EventBase(BaseModel):
 class EventCreate(EventBase):
     venue_id: Optional[UUID] = None
     source_id: Optional[UUID] = None
+    venue_name: Optional[str] = None
+    source_name: Optional[str] = None
     extraction_confidence: float = 0.5
     source_reliability: float = 0.5
 
@@ -55,6 +57,7 @@ class EventOut(EventBase):
 class EventListResponse(BaseModel):
     total: int
     items: list[EventOut]
+
 
 class SaveEventResponse(BaseModel):
     event_id: UUID
