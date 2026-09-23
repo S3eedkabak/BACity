@@ -5,4 +5,4 @@ rapidfuzz==3.9.7
 pytz==2024.1
 pytest==8.3.3
 requests==2.32.3
-Twisted<25
+Twisted==24.11.0
