@@ -10,5 +10,11 @@ export function LoadingState() {
 }
 
 const styles = StyleSheet.create({
-  container: { paddingVertical: 48, alignItems: "center" },
+  container: {
+    flex: 1,
+    minHeight: 180,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.background,
+  },
 });
