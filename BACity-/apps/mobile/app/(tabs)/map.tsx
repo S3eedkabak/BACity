@@ -1,18 +1,22 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import MapView, { Marker } from "react-native-maps";
+import {
+  Camera,
+  MapView,
+  PointAnnotation,
+} from "@maplibre/maplibre-react-native";
 import { router } from "expo-router";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useEvents } from "../../src/hooks/useEvents";
 import { LoadingState } from "../../src/components/LoadingState";
 import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
 
-const BRATISLAVA_REGION = {
-  latitude: 48.1486,
+const BRATISLAVA = {
   longitude: 17.1077,
-  latitudeDelta: 0.08,
-  longitudeDelta: 0.08,
+  latitude: 48.1486,
 };
+
+const OPEN_FREE_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 
 export default function MapScreen() {
   const { data, isLoading } = useEvents({ limit: 100 });
@@ -26,33 +30,46 @@ export default function MapScreen() {
     <View style={styles.container}>
       <MapView
         style={StyleSheet.absoluteFillObject}
-        initialRegion={BRATISLAVA_REGION}
-        showsUserLocation={false}
-        showsCompass={false}
-        toolbarEnabled={false}
-        pitchEnabled={false}
+        styleURL={OPEN_FREE_MAP_STYLE}
+        compassEnabled={false}
         rotateEnabled={false}
+        pitchEnabled={false}
+        attributionEnabled
+        logoEnabled
       >
+        <Camera
+          defaultSettings={{
+            centerCoordinate: [BRATISLAVA.longitude, BRATISLAVA.latitude],
+            zoomLevel: 12,
+            pitch: 0,
+            heading: 0,
+          }}
+        />
+
         {pins.map((event) => (
-          <Marker
+          <PointAnnotation
             key={event.id}
-            coordinate={{
-              latitude: event.latitude as number,
-              longitude: event.longitude as number,
-            }}
+            id={event.id}
+            coordinate={[
+              event.longitude as number,
+              event.latitude as number,
+            ]}
             title={event.title}
-            description={event.venue?.name ?? event.address ?? undefined}
-            pinColor={colors.primary}
-            onCalloutPress={() => router.push("/event/" + event.id)}
-          />
+            snippet={event.venue?.name ?? event.address ?? "Bratislava"}
+            onSelected={() => router.push("/event/" + event.id)}
+          >
+            <View style={styles.annotation}>
+              <View style={styles.annotationInner}>
+                <Ionicons name="heart" size={11} color={colors.white} />
+              </View>
+            </View>
+          </PointAnnotation>
         ))}
       </MapView>
 
       <View pointerEvents="box-none" style={StyleSheet.absoluteFillObject}>
         <View style={styles.header}>
-          <View>
-            <Text style={styles.heading}>Map</Text>
-          </View>
+          <Text style={styles.heading}>Map</Text>
           <Pressable style={styles.locateButton}>
             <Ionicons name="navigate" size={18} color={colors.primary} />
             <Text style={styles.locateText}>Near me</Text>
@@ -66,7 +83,9 @@ export default function MapScreen() {
 
         <View style={styles.counter}>
           <View style={styles.counterDot} />
-          <Text style={styles.counterText}>{pins.length} events with a location</Text>
+          <Text style={styles.counterText}>
+            {pins.length} events with a location
+          </Text>
         </View>
 
         {!pins.length && (
@@ -88,7 +107,10 @@ export default function MapScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.mapWater },
+  container: {
+    flex: 1,
+    backgroundColor: colors.mapWater,
+  },
   header: {
     marginTop: 14,
     marginHorizontal: 18,
@@ -105,18 +127,11 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 5 },
   },
-  eyebrow: {
-    color: colors.primaryDark,
-    fontFamily: fonts.semibold,
-    fontSize: 9,
-    letterSpacing: 1.4,
-  },
   heading: {
     color: colors.text,
     fontFamily: fonts.black,
     fontSize: 30,
     letterSpacing: -0.8,
-    marginTop: 1,
   },
   locateButton: {
     height: 40,
@@ -127,7 +142,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
   },
-  locateText: { color: colors.text, fontFamily: fonts.semibold, fontSize: 10 },
+  locateText: {
+    color: colors.text,
+    fontFamily: fonts.semibold,
+    fontSize: 10,
+  },
   searchBar: {
     marginTop: 10,
     marginHorizontal: 18,
@@ -141,7 +160,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  searchText: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12 },
+  searchText: {
+    color: colors.textMuted,
+    fontFamily: fonts.regular,
+    fontSize: 12,
+  },
   counter: {
     alignSelf: "flex-start",
     marginTop: 10,
@@ -154,8 +177,37 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
   },
-  counterDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary },
-  counterText: { color: colors.background, fontFamily: fonts.medium, fontSize: 9 },
+  counterDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.primary,
+  },
+  counterText: {
+    color: colors.background,
+    fontFamily: fonts.medium,
+    fontSize: 9,
+  },
+  annotation: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  annotationInner: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.primary,
+    borderWidth: 3,
+    borderColor: colors.white,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.25,
+    shadowRadius: 7,
+    shadowOffset: { width: 0, height: 3 },
+  },
   emptyCard: {
     position: "absolute",
     left: 18,
@@ -182,8 +234,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  emptyCopy: { flex: 1, marginLeft: 12 },
-  emptyTitle: { color: colors.text, fontFamily: fonts.black, fontSize: 16 },
+  emptyCopy: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  emptyTitle: {
+    color: colors.text,
+    fontFamily: fonts.black,
+    fontSize: 16,
+  },
   emptyText: {
     color: colors.textMuted,
     fontFamily: fonts.regular,
