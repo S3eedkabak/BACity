@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
   },
   empty: {
     position: "absolute",
-    bottom: 34,
+    bottom: 96,
     left: 25,
     right: 25,
     padding: 20,
