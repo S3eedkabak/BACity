@@ -81,7 +81,13 @@ def _find_fuzzy_duplicate(db: Session, payload: EventCreate) -> Optional[Event]:
             continue
 
         candidate_address = _norm(candidate.address)
-        same_venue = bool(target_address and candidate_address and target_address == candidate_address)
+        target_venue = _norm(payload.venue_name)
+        candidate_venue = _norm(candidate.venue.name if candidate.venue else "")
+        same_venue = bool(
+            target_address and candidate_address and target_address == candidate_address
+        )
+        if target_venue and candidate_venue and target_venue == candidate_venue:
+            same_venue = True
         if payload.venue_id and candidate.venue_id == payload.venue_id:
             same_venue = True
 
