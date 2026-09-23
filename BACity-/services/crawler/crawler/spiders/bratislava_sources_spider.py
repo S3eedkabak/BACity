@@ -61,6 +61,7 @@ class BratislavaSourcesSpider(scrapy.Spider):
             yield event
 
         if source.domain == "snd.sk" and not events:
+            self.logger.info("SND_TEXT=%s", response.xpath("string(.)").get("")[:6000])
             for iframe in response.css("iframe::attr(src)").getall():
                 frame_url = response.urljoin(iframe)
                 yield scrapy.Request(
