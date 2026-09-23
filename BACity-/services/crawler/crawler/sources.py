@@ -42,15 +42,6 @@ ACTIVE_SOURCES: tuple[SourceSeed, ...] = (
         language="sk",
     ),
     SourceSeed(
-        "Slovak National Theatre",
-        "snd.sk",
-        "https://snd.sk",
-        "https://snd.sk/program",
-        "theatre",
-        0.97,
-        language="sk",
-    ),
-    SourceSeed(
         "Slovak National Gallery",
         "sng.sk",
         "https://www.sng.sk",
@@ -76,6 +67,19 @@ ACTIVE_SOURCES: tuple[SourceSeed, ...] = (
         "event_platform",
         0.75,
         language="en",
+    ),
+)
+
+DEFERRED_SOURCES: tuple[SourceSeed, ...] = (
+    SourceSeed(
+        "Slovak National Theatre",
+        "snd.sk",
+        "https://snd.sk",
+        "https://snd.sk/program",
+        "theatre",
+        0.97,
+        requires_js=True,
+        language="sk",
     ),
 )
 
