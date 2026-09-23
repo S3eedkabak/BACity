@@ -49,7 +49,6 @@ export default function ExploreScreen() {
           <>
             <View style={styles.header}>
               <View>
-                <Text style={styles.eyebrow}>THE CITY IS YOURS</Text>
                 <Text style={styles.heading}>Explore</Text>
               </View>
               <View style={styles.headerButton}>

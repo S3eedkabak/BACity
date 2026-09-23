@@ -37,7 +37,6 @@ export default function ProfileScreen() {
               {(user.display_name || user.email)[0].toUpperCase()}
             </Text>
           </View>
-          <Text style={styles.eyebrow}>YOUR BACity</Text>
           <Text style={styles.heading}>{user.display_name || "City explorer"}</Text>
           <Text style={styles.email}>{user.email}</Text>
         </View>
@@ -89,7 +88,6 @@ export default function ProfileScreen() {
         <Ionicons name="person-outline" size={28} color={colors.white} />
       </View>
 
-      <Text style={styles.eyebrow}>{mode === "login" ? "WELCOME BACK" : "JOIN BACITY"}</Text>
       <Text style={styles.heading}>
         {mode === "login" ? "Good to see you." : "Make the city yours."}
       </Text>

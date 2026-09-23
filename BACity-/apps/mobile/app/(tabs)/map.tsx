@@ -51,7 +51,6 @@ export default function MapScreen() {
       <View pointerEvents="box-none" style={StyleSheet.absoluteFillObject}>
         <View style={styles.header}>
           <View>
-            <Text style={styles.eyebrow}>OUT AND ABOUT</Text>
             <Text style={styles.heading}>Map</Text>
           </View>
           <Pressable style={styles.locateButton}>

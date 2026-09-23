@@ -51,7 +51,6 @@ export default function SavedScreen() {
       showsVerticalScrollIndicator={false}
       ListHeaderComponent={
         <View style={styles.header}>
-          <Text style={styles.eyebrow}>YOUR PICKS</Text>
           <View style={styles.headingRow}>
             <Text style={styles.heading}>Saved</Text>
             <View style={styles.countPill}>
