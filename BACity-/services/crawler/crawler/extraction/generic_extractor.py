@@ -160,8 +160,8 @@ def extract_event_cards(html: str, source_url: str) -> list[RawEvent]:
             RawEvent(
                 title=title,
                 start_raw=match.group(0).strip(),
-                venue_name=venue_tag.get_text(" ", strip=True) if venue_tag else None,
-                address=address_tag.get_text(" ", strip=True) if address_tag else None,
+                venue_name=venue_name,
+                address=address,
                 price_raw=price_tag.get_text(" ", strip=True) if price_tag else None,
                 image_url=(
                     node.find("img").get("src")
