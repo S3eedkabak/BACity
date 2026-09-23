@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 import scrapy
 
 from crawler.extraction.generic_extractor import extract_best_effort, extract_event_cards
+from crawler.extraction.goout_extractor import extract_goout_events
 from crawler.extraction.jsonld_extractor import extract_jsonld_events
 from crawler.extraction.snd_extractor import extract_snd_events
 from crawler.sources import ACTIVE_SOURCES, EVENT_LINK_HINTS, SourceSeed
@@ -28,6 +29,16 @@ class BratislavaSourcesSpider(scrapy.Spider):
         next_month = 1 if now.month == 12 else now.month + 1
         next_year = now.year + 1 if now.month == 12 else now.year
         for source in ACTIVE_SOURCES:
+            if source.domain == "goout.net":
+                yield scrapy.Request(
+                    "https://goout.net/services/feeder/v1/events.json"
+                    "?source=goout&city=bratislava&language=en"
+                    "&unapproved=false&clearDomain=true",
+                    callback=self.parse_goout,
+                    errback=self.errback_source,
+                    meta={"source": source, "crawl_depth": 0},
+                )
+                continue
             seed_urls = [source.event_url]
             if source.domain == "snd.sk":
                 seed_urls = [
@@ -140,3 +151,19 @@ class BratislavaSourcesSpider(scrapy.Spider):
         response = getattr(failure.value, "response", None)
         url = response.url if response is not None else failure.request.url
         self.logger.warning("Source request failed: %s", url)
+
+    def parse_goout(self, response):
+        source: SourceSeed = response.meta["source"]
+        try:
+            data = response.json()
+        except ValueError:
+            self.logger.warning("GoOut feeder returned non-JSON response")
+            return
+
+        events = extract_goout_events(data, response.url)
+        self.source_counts[source.name] += len(events)
+        for event in events:
+            event.source_name = source.name
+            event.source_reliability = source.reliability_score
+            event.language = source.language
+            yield event
