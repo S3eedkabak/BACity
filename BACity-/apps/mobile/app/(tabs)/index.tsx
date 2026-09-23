@@ -1,11 +1,29 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo } from "react";
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ImageBackground,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { router } from "expo-router";
 import { useEvents } from "../../src/hooks/useEvents";
 import { EventDeck } from "../../src/components/EventDeck";
 import { EmptyState } from "../../src/components/EmptyState";
 import { LoadingState } from "../../src/components/LoadingState";
+import { categoryImages } from "../../src/theme/categoryImages";
 import { colors } from "../../src/theme/colors";
+import { fonts } from "../../src/theme/fonts";
+
+const CATEGORIES = [
+  { label: "Party", image: categoryImages.party, icon: "musical-notes-outline" as const },
+  { label: "Museums", image: categoryImages.museum, icon: "color-palette-outline" as const },
+  { label: "Markets", image: categoryImages.market, icon: "basket-outline" as const },
+  { label: "Workshops", image: categoryImages.workshop, icon: "construct-outline" as const },
+];
 
 function greeting() {
   const hour = new Date().getHours();
@@ -19,36 +37,112 @@ export default function HomeScreen() {
   const events = useMemo(() => data?.items ?? [], [data]);
 
   if (isLoading) return <LoadingState />;
-  if (isError) return <EmptyState title={"Couldn" + "’t load BACity"} subtitle="Check that the API is running and try again." />;
+  if (isError) {
+    return (
+      <EmptyState
+        title={"Couldn't load BACity"}
+        subtitle="Check that the API is running and pull down to retry."
+      />
+    );
+  }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.accent} />}
-      showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefetching}
+          onRefresh={refetch}
+          tintColor={colors.primary}
+        />
+      }
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.topRow}>
         <View>
-          <Text style={styles.eyebrow}>{greeting()}</Text>
-          <Text style={styles.logo}>BACity<Text style={styles.logoDot}>.</Text></Text>
+          <Text style={styles.greeting}>{greeting()}</Text>
+          <Text style={styles.logo}>
+            BA<Text style={styles.logoAccent}>City</Text>
+          </Text>
         </View>
-        <View style={styles.locationPill}>
-          <Ionicons name="location" size={14} color={colors.accent} />
+        <Pressable style={styles.location} onPress={() => router.push("/(tabs)/profile")}>
+          <Ionicons name="location" size={14} color={colors.primary} />
           <Text style={styles.locationText}>Bratislava</Text>
-        </View>
+          <Ionicons name="chevron-down" size={13} color={colors.textMuted} />
+        </Pressable>
       </View>
 
-      <View style={styles.intro}>
-        <Text style={styles.heading}>Find your next{"\n"}thing to do.</Text>
-        <Text style={styles.subheading}>Swipe through what’s happening around the city.</Text>
+      <View style={styles.heroCopy}>
+        <Text style={styles.heroTitle}>What's your{"\n"}vibe today?</Text>
+        <Text style={styles.heroSubtitle}>
+          Find something worth leaving the house for.
+        </Text>
       </View>
 
-      {events.length ? <EventDeck events={events} /> : <EmptyState title="The city is quiet" subtitle="Run the crawler and fresh events will appear here." />}
-
-      <View style={styles.tip}>
-        <View style={styles.tipIcon}><Ionicons name="hand-left-outline" size={18} color={colors.accent} /></View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.tipTitle}>Your feed gets smarter</Text>
-          <Text style={styles.tipText}>Save what you love. Pass on what you do not. Your choices become your taste profile.</Text>
+      <Pressable style={styles.searchCta} onPress={() => router.push("/(tabs)/explore")}>
+        <View style={styles.searchIcon}>
+          <Ionicons name="search" size={19} color={colors.primary} />
         </View>
+        <Text style={styles.searchText}>Search events, places, vibes...</Text>
+        <View style={styles.searchArrow}>
+          <Ionicons name="arrow-forward" size={17} color={colors.white} />
+        </View>
+      </Pressable>
+
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Pick a mood</Text>
+        <Text style={styles.sectionHint}>browse</Text>
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.categoryRow}
+      >
+        {CATEGORIES.map((category) => (
+          <Pressable
+            key={category.label}
+            style={styles.categoryTile}
+            onPress={() => router.push("/(tabs)/explore")}
+          >
+            <ImageBackground
+              source={{ uri: category.image }}
+              style={styles.categoryImage}
+              imageStyle={styles.categoryImageRadius}
+            >
+              <View style={styles.categoryShade} />
+              <View style={styles.categoryIcon}>
+                <Ionicons name={category.icon} size={17} color={colors.white} />
+              </View>
+              <Text style={styles.categoryLabel}>{category.label}</Text>
+            </ImageBackground>
+          </Pressable>
+        ))}
+      </ScrollView>
+
+      <View style={[styles.sectionHeader, styles.eventsHeader]}>
+        <View>
+          <Text style={styles.sectionTitle}>Happening now</Text>
+          <Text style={styles.sectionSub}>Real events, fresh from the city.</Text>
+        </View>
+        <Pressable onPress={() => router.push("/(tabs)/explore")}>
+          <Text style={styles.seeAll}>See all</Text>
+        </Pressable>
+      </View>
+
+      {events.length ? (
+        <EventDeck events={events} />
+      ) : (
+        <EmptyState
+          title="The city is quiet"
+          subtitle="Run the crawler and fresh events will appear here."
+        />
+      )}
+
+      <View style={styles.footerNote}>
+        <View style={styles.footerDot} />
+        <Text style={styles.footerText}>Curated for Bratislava</Text>
       </View>
     </ScrollView>
   );
@@ -56,18 +150,160 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  content: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 30 },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 24 },
-  eyebrow: { color: colors.textMuted, fontSize: 12, fontWeight: "700", letterSpacing: 0.4 },
-  logo: { color: colors.text, fontSize: 28, fontWeight: "900", letterSpacing: -1.3, marginTop: 1 },
-  logoDot: { color: colors.accent },
-  locationPill: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 11, paddingVertical: 8, borderRadius: 99, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  locationText: { color: colors.text, fontSize: 12, fontWeight: "700" },
-  intro: { marginBottom: 6 },
-  heading: { color: colors.text, fontSize: 34, lineHeight: 37, fontWeight: "900", letterSpacing: -1.1 },
-  subheading: { color: colors.textMuted, fontSize: 14, lineHeight: 20, marginTop: 8, maxWidth: 310 },
-  tip: { flexDirection: "row", gap: 12, padding: 15, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, marginTop: 4 },
-  tipIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.surfaceAlt, alignItems: "center", justifyContent: "center" },
-  tipTitle: { color: colors.text, fontSize: 13, fontWeight: "800" },
-  tipText: { color: colors.textMuted, fontSize: 11, lineHeight: 17, marginTop: 3 },
+  content: { paddingHorizontal: 18, paddingTop: 10, paddingBottom: 110 },
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 22,
+  },
+  greeting: {
+    color: colors.textMuted,
+    fontFamily: fonts.medium,
+    fontSize: 11,
+    letterSpacing: 0.2,
+  },
+  logo: {
+    color: colors.text,
+    fontFamily: fonts.black,
+    fontSize: 29,
+    letterSpacing: -1.2,
+    marginTop: 1,
+  },
+  logoAccent: { color: colors.primary },
+  location: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+    borderRadius: 99,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  locationText: { color: colors.text, fontFamily: fonts.semibold, fontSize: 11 },
+  heroCopy: { marginBottom: 17 },
+  heroTitle: {
+    color: colors.text,
+    fontFamily: fonts.black,
+    fontSize: 38,
+    lineHeight: 39,
+    letterSpacing: -1.6,
+  },
+  heroSubtitle: {
+    color: colors.textMuted,
+    fontFamily: fonts.regular,
+    fontSize: 14,
+    marginTop: 9,
+  },
+  searchCta: {
+    height: 58,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    marginBottom: 24,
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
+  },
+  searchIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  searchText: {
+    flex: 1,
+    color: colors.textMuted,
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    marginLeft: 10,
+  },
+  searchArrow: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    marginBottom: 11,
+  },
+  sectionTitle: {
+    color: colors.text,
+    fontFamily: fonts.black,
+    fontSize: 19,
+    letterSpacing: -0.5,
+  },
+  sectionHint: {
+    color: colors.primary,
+    fontFamily: fonts.semibold,
+    fontSize: 10,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  categoryRow: { gap: 10, paddingRight: 8 },
+  categoryTile: {
+    width: 116,
+    height: 128,
+    borderRadius: 21,
+    overflow: "hidden",
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
+  },
+  categoryImage: { flex: 1, justifyContent: "space-between", padding: 11 },
+  categoryImageRadius: { borderRadius: 21 },
+  categoryShade: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(35,25,29,0.28)",
+  },
+  categoryIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,127,134,0.9)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  categoryLabel: {
+    color: colors.white,
+    fontFamily: fonts.black,
+    fontSize: 14,
+  },
+  eventsHeader: { marginTop: 27, alignItems: "flex-end" },
+  sectionSub: {
+    color: colors.textMuted,
+    fontFamily: fonts.regular,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  seeAll: { color: colors.primaryDark, fontFamily: fonts.semibold, fontSize: 11 },
+  footerNote: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    marginTop: 10,
+  },
+  footerDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.primary,
+  },
+  footerText: { color: colors.textMuted, fontFamily: fonts.medium, fontSize: 10 },
 });
