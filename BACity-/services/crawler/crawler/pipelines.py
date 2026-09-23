@@ -1,4 +1,6 @@
 import logging
+import time
+
 import requests
 
 from crawler.items import RawEvent
@@ -87,6 +89,7 @@ class GeocodePipeline:
             )
             response.raise_for_status()
             results = response.json()
+            time.sleep(1.0)
             if results:
                 coords = (float(results[0]["lat"]), float(results[0]["lon"]))
                 self.cache[cache_key] = coords
