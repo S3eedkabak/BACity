@@ -20,7 +20,7 @@ from crawler.extraction.generic_extractor import extract_best_effort
 class StaraTrznicaSpider(scrapy.Spider):
     name = "stara_trznica"
     allowed_domains = ["staratrznica.sk"]
-    start_urls = ["https://staratrznica.sk/program"]
+    start_urls = ["https://staratrznica.sk/sk/program"]
 
     def parse(self, response):
         events = extract_jsonld_events(response.text, response.url)
