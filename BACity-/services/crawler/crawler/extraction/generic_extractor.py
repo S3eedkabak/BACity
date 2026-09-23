@@ -156,6 +156,32 @@ def extract_event_cards(html: str, source_url: str) -> list[RawEvent]:
         address_tag = _find_by_class_hint(node, ADDRESS_CLASS_HINTS)
         price_tag = _find_by_class_hint(node, PRICE_CLASS_HINTS)
 
+        venue_name = venue_tag.get_text(" ", strip=True) if venue_tag else None
+        address = address_tag.get_text(" ", strip=True) if address_tag else None
+
+        if not venue_name:
+            lines = [
+                line.strip()
+                for line in node.get_text("\n", strip=True).splitlines()
+                if line.strip()
+            ]
+            ignored = {
+                title.strip().lower(),
+                match.group(0).strip().lower(),
+                "tickets",
+                "sold out",
+                "free",
+            }
+            candidates = [
+                line for line in lines
+                if line.lower() not in ignored
+                and len(line) >= 3
+                and not DATE_HINT_RE.fullmatch(line)
+                and not line.lower().startswith(("event", "events", "program"))
+            ]
+            if candidates:
+                venue_name = candidates[-1][:200]
+
         events.append(
             RawEvent(
                 title=title,
