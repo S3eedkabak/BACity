@@ -1,4 +1,5 @@
 """Single registry-driven spider for the prototype's verified sources."""
+from datetime import datetime
 from urllib.parse import urlparse
 
 import scrapy
@@ -23,14 +24,22 @@ class BratislavaSourcesSpider(scrapy.Spider):
         self.source_counts = {source.name: 0 for source in ACTIVE_SOURCES}
 
     def start_requests(self):
+        now = datetime.now()
         for source in ACTIVE_SOURCES:
-            yield scrapy.Request(
-                source.event_url,
-                callback=self.parse,
-                errback=self.errback_source,
-                meta={"source": source, "crawl_depth": 0},
-            )
-            if source.base_url != source.event_url:
+            seed_urls = [source.event_url]
+            if source.domain == "snd.sk":
+                seed_urls = [
+                    f"https://snd.sk/program/{now.year}/{now.month:02d}",
+                    f"https://snd.sk/program/{now.year + (1 if now.month == 12 else 0)}/{1 if now.month == 12 else now.month + 1:02d}",
+                ]
+            for seed_url in dict.fromkeys(seed_urls):
+                yield scrapy.Request(
+                    seed_url,
+                    callback=self.parse,
+                    errback=self.errback_source,
+                    meta={"source": source, "crawl_depth": 0},
+                )
+            if source.base_url != source.event_url and source.domain != "snd.sk":
                 yield scrapy.Request(
                     source.base_url,
                     callback=self.parse,
@@ -86,6 +95,8 @@ class BratislavaSourcesSpider(scrapy.Spider):
             parsed.hostname == source.domain
             or parsed.hostname.endswith("." + source.domain)
         ):
+            return False
+        if source.domain == "goout.net" and not parsed.path.startswith("/en/bratislava/"):
             return False
         haystack = f"{url} {label}".lower()
         return any(hint in haystack for hint in EVENT_LINK_HINTS)
