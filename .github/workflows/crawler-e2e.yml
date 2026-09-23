@@ -96,11 +96,6 @@ jobs:
           events.raise_for_status()
           body = events.json()
 
-          print("API events response:", body)
-          import sqlite3
-          con = sqlite3.connect("BACity-/services/api/dev.db")
-          print("DB status rows:", con.execute("select status, count(*) from events group by status").fetchall())
-          con.close()
           if body["total"] == 0:
               raise SystemExit("Crawler stored zero events in the API")
 
