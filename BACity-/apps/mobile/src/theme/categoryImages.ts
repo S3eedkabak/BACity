@@ -6,7 +6,7 @@ export const categoryImages: Record<string, string> = {
   museum:
     "https://images.unsplash.com/photo-1761563071832-e548e022a706?auto=format&fit=crop&fm=jpg&q=80&w=1200",
   market:
-    "https://cdn.sita.sk/sites/32/2018/09/dobry-trh-na-panenskej-2.jpg",
+    "https://images.unsplash.com/photo-1743397015920-e4682a813b24?auto=format&fit=crop&fm=jpg&q=80&w=1200",
   workshop:
     "https://images.unsplash.com/photo-1770910196320-59fc1254680e?auto=format&fit=crop&fm=jpg&q=80&w=1200",
 };
