@@ -82,9 +82,18 @@ def extract_jsonld_events(html: str, source_url: str) -> list[RawEvent]:
                 location = location[0]
             venue_name = _text(location) if isinstance(location, dict) else _text(location)
             address = None
+            latitude = None
+            longitude = None
             if isinstance(location, dict):
                 addr = location.get("address")
                 address = _text(addr)
+                geo = location.get("geo") or {}
+                if isinstance(geo, dict):
+                    try:
+                        latitude = float(geo.get("latitude")) if geo.get("latitude") is not None else None
+                        longitude = float(geo.get("longitude")) if geo.get("longitude") is not None else None
+                    except (TypeError, ValueError):
+                        latitude = longitude = None
 
             price_raw, currency = _price_from_offers(node.get("offers"))
 
@@ -95,6 +104,8 @@ def extract_jsonld_events(html: str, source_url: str) -> list[RawEvent]:
                 description=_text(node.get("description")),
                 venue_name=venue_name,
                 address=address,
+                latitude=latitude,
+                longitude=longitude,
                 price_raw=f"{price_raw} {currency}".strip() if price_raw else None,
                 image_url=_text(node.get("image")),
                 source_url=source_url,
