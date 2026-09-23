@@ -30,7 +30,7 @@ export default function MapScreen() {
     <View style={styles.container}>
       <MapView
         style={StyleSheet.absoluteFillObject}
-        styleURL={OPEN_FREE_MAP_STYLE}
+        mapStyle={OPEN_FREE_MAP_STYLE}
         compassEnabled={false}
         rotateEnabled={false}
         pitchEnabled={false}
