@@ -1,6 +1,7 @@
 name: Crawler E2E
 
 on:
+  pull_request:
   push:
     branches:
       - frontend-redesign
