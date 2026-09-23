@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 
 import scrapy
 
-from crawler.extraction.generic_extractor import extract_best_effort
+from crawler.extraction.generic_extractor import extract_best_effort, extract_event_cards
 from crawler.extraction.jsonld_extractor import extract_jsonld_events
 from crawler.extraction.snd_extractor import extract_snd_events
 from crawler.sources import ACTIVE_SOURCES, EVENT_LINK_HINTS, SourceSeed
@@ -99,6 +99,8 @@ class BratislavaSourcesSpider(scrapy.Spider):
             events = extract_snd_events(response.text, response.url, datetime.now().year)
         else:
             events = extract_jsonld_events(response.text, response.url)
+            if not events:
+                events = extract_event_cards(response.text, response.url)
             if not events:
                 events = extract_best_effort(response.text, response.url)
 
