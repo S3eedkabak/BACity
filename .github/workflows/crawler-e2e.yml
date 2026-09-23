@@ -20,7 +20,15 @@ jobs:
           python-version: "3.11"
 
       - name: Install crawler
-        run: python -m pip install -r services/crawler/requirements.txt
+        id: crawler_install
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python -m pip install -r services/crawler/requirements.txt 2>&1 | tee crawler-install.log
+
+      - name: Stop on crawler install failure
+        if: steps.crawler_install.outcome == 'failure'
+        run: exit 1
 
       - name: Install API
         run: python -m pip install -r services/api/requirements.txt
@@ -114,6 +122,7 @@ jobs:
         with:
           name: crawler-e2e-logs
           path: |
+            crawler-install.log
             services/crawler/crawler-live.log
             services/api/api.log
           if-no-files-found: ignore
