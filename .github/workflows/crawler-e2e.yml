@@ -30,6 +30,10 @@ jobs:
         if: steps.crawler_install.outcome == 'failure'
         run: exit 1
 
+      - name: Install Playwright browser
+        working-directory: BACity-/services/crawler
+        run: python -m playwright install chromium
+
       - name: Install API
         run: python -m pip install -r BACity-/services/api/requirements.txt
 
