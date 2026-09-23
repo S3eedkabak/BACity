@@ -1,20 +1,4 @@
-"""
-Normalizes the wide variety of date/time strings real Bratislava sources
-use (spec section 20 / 26) into timezone-aware UTC datetimes.
-
-Handles, among others:
-    "28 August 2026, 20:00"
-    "28/08/2026 20:00"
-    "Aug 28 @ 8 PM"
-    "Piatok 28. 8. od 20:00"      (Slovak: "Friday 28.8 from 20:00")
-    "28. 8. 2026, 20:00"
-    ISO 8601 straight through ("2026-08-28T20:00:00+02:00")
-
-Strategy: strip known Slovak day-name / filler words, then try dateutil's
-general parser (handles the large majority of English/ISO formats), and
-fall back to an explicit "DD. MM.[ YYYY][, ]HH:MM" regex for the Slovak
-dot-separated style dateutil doesn't reliably parse (e.g. "28. 8.").
-"""
+"""Date and price normalization for Slovak and English event sources."""
 import re
 from datetime import datetime
 from typing import Optional
@@ -24,103 +8,122 @@ from dateutil import parser as dateutil_parser
 
 DEFAULT_TZ = pytz.timezone("Europe/Bratislava")
 
-# Matches unambiguous ISO 8601 date(time) strings, e.g. "2026-12-01" or
-# "2026-12-01T20:00:00+01:00". These must NOT go through the dayfirst=True
-# fuzzy parser below: dateutil's dayfirst flag can incorrectly swap
-# month/day on already-unambiguous YYYY-MM-DD strings (verified bug:
-# parse("2026-12-01T20:00:00+01:00", dayfirst=True) silently returns
-# Jan 12 instead of Dec 1). isoparse() handles this format correctly and
-# is what schema.org/JSON-LD startDate values use almost universally.
-_ISO_RE = re.compile(r"^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2})?)?")
+_MONTHS = {
+    "január": 1, "januara": 1, "jan": 1,
+    "február": 2, "februara": 2, "feb": 2,
+    "marec": 3, "marca": 3, "mar": 3,
+    "apríl": 4, "aprila": 4, "apr": 4,
+    "máj": 5, "maja": 5, "may": 5,
+    "jún": 6, "juna": 6, "jun": 6,
+    "júl": 7, "jula": 7, "jul": 7,
+    "august": 8, "augusta": 8, "aug": 8,
+    "september": 9, "septembra": 9, "sep": 9,
+    "október": 10, "oktobra": 10, "oct": 10,
+    "november": 11, "novembra": 11, "nov": 11,
+    "december": 12, "decembra": 12, "dec": 12,
+}
 
-SK_DAY_NAMES = [
+_DAY_NAMES = (
     "pondelok", "utorok", "streda", "štvrtok", "stvrtok", "piatok",
     "sobota", "nedeľa", "nedela",
-]
-FILLER_WORDS = ["od", "o ", "at "]
-
-_SK_DATE_RE = re.compile(
-    r"""
-    (?P<day>\d{1,2})\.\s*
-    (?P<month>\d{1,2})\.
-    (?:\s*(?P<year>\d{4}))?
-    [,\s]*
-    (?:(?:od\s*)?(?P<hour>\d{1,2}):(?P<minute>\d{2}))?
-    """,
-    re.IGNORECASE | re.VERBOSE,
 )
 
+_MONTH_NAME_RE = "|".join(sorted(map(re.escape, _MONTHS), key=len, reverse=True))
+_SK_NAMED_DATE_RE = re.compile(
+    rf"(?P<day>d{{1,2}}).s*(?:–|-|až)?s*"
+    rf"(?:(?P<end_day>d{{1,2}}).s*)?"
+    rf"(?P<month>{_MONTH_NAME_RE})"
+    rf"(?:s+(?P<year>d{{4}}))?"
+    rf"(?:[,s]+(?P<hour>d{{1,2}})(?:[:.](?P<minute>d{{2}})))?",
+    re.IGNORECASE,
+)
+_SK_DOT_DATE_RE = re.compile(
+    r"(?P<day>d{1,2}).s*(?P<month>d{1,2}).s*"
+    r"(?:(?P<year>d{4}))?"
+    r"(?:[,s]+(?P<hour>d{1,2})[:.](?P<minute>d{2}))?"
+)
+_ISO_RE = re.compile(r"^d{4}-d{2}-d{2}(?:[T ]d{2}:d{2}(?::d{2})?.*)?$")
 
-def _strip_slovak_noise(text: str) -> str:
-    cleaned = text.strip()
-    for day in SK_DAY_NAMES:
-        cleaned = re.sub(rf"\b{day}\b", "", cleaned, flags=re.IGNORECASE)
-    cleaned = cleaned.replace("@", " ")
-    return cleaned.strip(" ,")
+
+def _strip_noise(text: str) -> str:
+    cleaned = text.replace(" ", " ").replace("@", " ")
+    for day in _DAY_NAMES:
+        cleaned = re.sub(rf"{re.escape(day)}", " ", cleaned, flags=re.IGNORECASE)
+    return re.sub(r"s+", " ", cleaned).strip(" ,")
+
+
+def _localize(dt: datetime, tz):
+    return dt if dt.tzinfo else tz.localize(dt)
 
 
 def parse_event_datetime(
     raw: str, *, reference_year: Optional[int] = None, tz=DEFAULT_TZ
 ) -> Optional[datetime]:
-    """Best-effort parse of a single date/time string into a tz-aware datetime.
-    Returns None (rather than raising) on unparseable input — callers should
-    treat that as a validation failure, not a crash (spec section 12: a
-    failed source/page must not take down the pipeline)."""
     if not raw or not raw.strip():
         return None
 
-    cleaned = _strip_slovak_noise(raw)
+    cleaned = _strip_noise(raw)
     reference_year = reference_year or datetime.now(tz).year
 
-    # 0. Unambiguous ISO 8601 -- parse directly, skip the dayfirst-fuzzy
-    # path entirely (see _ISO_RE comment above for why this matters).
-    if _ISO_RE.match(cleaned.strip()):
+    if _ISO_RE.match(cleaned):
         try:
-            parsed = dateutil_parser.isoparse(cleaned.strip())
-            if parsed.tzinfo is None:
-                return tz.localize(parsed)
-            return parsed
+            parsed = dateutil_parser.isoparse(cleaned)
+            return _localize(parsed, tz)
         except ValueError:
-            pass  # fall through to the general-purpose paths below
+            pass
 
-    # 1. Slovak dot-separated style: "28. 8." / "28. 8. 2026, 20:00"
-    m = _SK_DATE_RE.search(cleaned)
-    if m and m.group("day") and m.group("month"):
+    match = _SK_NAMED_DATE_RE.search(cleaned)
+    if match:
         try:
-            day = int(m.group("day"))
-            month = int(m.group("month"))
-            year = int(m.group("year")) if m.group("year") else reference_year
-            hour = int(m.group("hour")) if m.group("hour") else 0
-            minute = int(m.group("minute")) if m.group("minute") else 0
-            naive = datetime(year, month, day, hour, minute)
-            return tz.localize(naive)
-        except ValueError:
-            pass  # fall through to dateutil
+            day = int(match.group("day"))
+            month = _MONTHS[match.group("month").lower()]
+            year = int(match.group("year") or reference_year)
+            hour = int(match.group("hour") or 0)
+            minute = int(match.group("minute") or 0)
+            return tz.localize(datetime(year, month, day, hour, minute))
+        except (KeyError, ValueError):
+            pass
 
-    # 2. Everything else: ISO 8601, "28/08/2026 20:00", "Aug 28 8 PM", etc.
+    match = _SK_DOT_DATE_RE.search(cleaned)
+    if match:
+        try:
+            return tz.localize(
+                datetime(
+                    int(match.group("year") or reference_year),
+                    int(match.group("month")),
+                    int(match.group("day")),
+                    int(match.group("hour") or 0),
+                    int(match.group("minute") or 0),
+                )
+            )
+        except ValueError:
+            pass
+
     try:
         parsed = dateutil_parser.parse(cleaned, dayfirst=True, fuzzy=True)
-    except (ValueError, OverflowError):
+    except (ValueError, OverflowError, TypeError):
         return None
 
-    if parsed.tzinfo is None:
-        return tz.localize(parsed)
-    return parsed
+    return _localize(parsed, tz)
 
 
 def parse_price(raw: Optional[str]) -> tuple[Optional[float], Optional[str]]:
-    """'€10' / '10 EUR' / 'Free' / 'zdarma' / 'voľný vstup' -> (amount, currency)."""
     if raw is None:
         return None, None
     text = raw.strip().lower()
     if not text:
         return None, None
-    if any(w in text for w in ["free", "zdarma", "voľný vstup", "volny vstup", "vstup zdarma"]):
+
+    if any(
+        word in text
+        for word in ("free", "zdarma", "voľný vstup", "volny vstup", "vstup zdarma")
+    ):
         return 0.0, "EUR"
 
-    match = re.search(r"(\d+[.,]?\d*)", text)
+    match = re.search(r"(d+(?:[.,]d+)?)", text)
     if not match:
         return None, None
+
     amount = float(match.group(1).replace(",", "."))
-    currency = "EUR" if ("€" in raw or "eur" in text) else None
+    currency = "EUR" if ("€" in text or "eur" in text) else None
     return amount, currency
