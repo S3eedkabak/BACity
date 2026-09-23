@@ -17,10 +17,10 @@ _MONTHS = {
     "jún": 6, "juna": 6, "jun": 6,
     "júl": 7, "jula": 7, "jul": 7,
     "august": 8, "augusta": 8, "aug": 8,
-    "september": 9, "septembra": 9, "sep": 9,
-    "október": 10, "oktobra": 10, "oct": 10,
-    "november": 11, "novembra": 11, "nov": 11,
-    "december": 12, "decembra": 12, "dec": 12,
+    "september": 9, "septembra": 9, "sep": 9, "sept": 9,
+    "október": 10, "oktobra": 10, "oct": 10, "october": 10, "oct": 10,
+    "november": 11, "novembra": 11, "nov": 11, "november": 11,
+    "december": 12, "decembra": 12, "dec": 12, "december": 12,
 }
 
 _DAY_NAMES = (
