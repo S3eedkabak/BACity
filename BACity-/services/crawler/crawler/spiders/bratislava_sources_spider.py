@@ -25,12 +25,14 @@ class BratislavaSourcesSpider(scrapy.Spider):
 
     def start_requests(self):
         now = datetime.now()
+        next_month = 1 if now.month == 12 else now.month + 1
+        next_year = now.year + 1 if now.month == 12 else now.year
         for source in ACTIVE_SOURCES:
             seed_urls = [source.event_url]
             if source.domain == "snd.sk":
                 seed_urls = [
                     f"https://snd.sk/program/{now.year}/{now.month:02d}",
-                    f"https://snd.sk/program/{now.year + (1 if now.month == 12 else 0)}/{1 if now.month == 12 else now.month + 1:02d}",
+                    f"https://snd.sk/program/{next_year}/{next_month:02d}",
                 ]
             for seed_url in dict.fromkeys(seed_urls):
                 yield scrapy.Request(
