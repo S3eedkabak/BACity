@@ -35,11 +35,14 @@ class BratislavaSourcesSpider(scrapy.Spider):
                     f"https://snd.sk/program/{next_year}/{next_month:02d}",
                 ]
             for seed_url in dict.fromkeys(seed_urls):
+                request_meta = {"source": source, "crawl_depth": 0}
+                if source.requires_js or source.domain == "snd.sk":
+                    request_meta["playwright"] = True
                 yield scrapy.Request(
                     seed_url,
                     callback=self.parse,
                     errback=self.errback_source,
-                    meta={"source": source, "crawl_depth": 0},
+                    meta=request_meta,
                 )
             if source.base_url != source.event_url and source.domain != "snd.sk":
                 yield scrapy.Request(
