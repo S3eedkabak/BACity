@@ -1,6 +1,7 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../../src/theme/colors";
+import { fonts } from "../../src/theme/fonts";
 
 export default function TabsLayout() {
   return (
@@ -9,30 +10,66 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarStyle: {
           position: "absolute",
-          left: 14,
-          right: 14,
-          bottom: 12,
-          height: 64,
-          borderRadius: 22,
+          left: 16,
+          right: 16,
+          bottom: 14,
+          height: 68,
+          paddingTop: 7,
+          paddingBottom: 7,
+          borderRadius: 24,
           borderTopWidth: 0,
-          backgroundColor: colors.surface,
-          shadowColor: "#000",
-          shadowOpacity: 0.3,
+          backgroundColor: colors.text,
+          shadowColor: colors.shadow,
+          shadowOpacity: 0.2,
           shadowRadius: 18,
           shadowOffset: { width: 0, height: 8 },
-          elevation: 12,
+          elevation: 10,
         },
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.textMuted,
-        tabBarLabelStyle: { fontSize: 10, fontWeight: "700", marginBottom: 5 },
-        tabBarIconStyle: { marginTop: 4 },
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: "#B9B0B5",
+        tabBarLabelStyle: {
+          fontFamily: fonts.semibold,
+          fontSize: 10,
+          marginBottom: 1,
+        },
+        tabBarIconStyle: { marginTop: 1 },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: "Discover", tabBarIcon: ({ color, size }) => <Ionicons name="sparkles" color={color} size={size} /> }} />
-      <Tabs.Screen name="explore" options={{ title: "Explore", tabBarIcon: ({ color, size }) => <Ionicons name="search" color={color} size={size} /> }} />
-      <Tabs.Screen name="map" options={{ title: "Map", tabBarIcon: ({ color, size }) => <Ionicons name="map-outline" color={color} size={size} /> }} />
-      <Tabs.Screen name="saved" options={{ title: "Saved", tabBarIcon: ({ color, size }) => <Ionicons name="bookmark-outline" color={color} size={size} /> }} />
-      <Tabs.Screen name="profile" options={{ title: "You", tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" color={color} size={size} /> }} />
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: "Home",
+          tabBarIcon: ({ color, size }) => <Ionicons name="sparkles" color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="explore"
+        options={{
+          title: "Explore",
+          tabBarIcon: ({ color, size }) => <Ionicons name="search" color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="map"
+        options={{
+          title: "Map",
+          tabBarIcon: ({ color, size }) => <Ionicons name="map-outline" color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="saved"
+        options={{
+          title: "Saved",
+          tabBarIcon: ({ color, size }) => <Ionicons name="heart-outline" color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "You",
+          tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" color={color} size={size} />,
+        }}
+      />
     </Tabs>
   );
 }
