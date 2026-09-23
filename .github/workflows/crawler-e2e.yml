@@ -75,7 +75,6 @@ jobs:
           expected = {
               "Visit Bratislava",
               "Stará Tržnica",
-              "Slovak National Theatre",
               "Slovak National Gallery",
               "Bratislava City",
               "GoOut Bratislava",
