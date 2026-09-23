@@ -1,0 +1,33 @@
+name: Crawler Tests
+
+on:
+  push:
+    branches:
+      - frontend-redesign
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        working-directory: BACity-/services/crawler
+        run: python -m pip install -r requirements.txt
+      - name: Test
+        working-directory: BACity-/services/crawler
+        continue-on-error: true
+        run: |
+          python -m pytest -q 2>&1 | tee pytest.log
+          exit ${PIPESTATUS[0]}
+      - name: Upload test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crawler-test-log
+          path: BACity-/services/crawler/pytest.log
