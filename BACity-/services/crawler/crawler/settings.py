@@ -21,6 +21,7 @@ DOWNLOAD_TIMEOUT = 20
 
 # Scrapy 2.11's current request fingerprinter.
 REQUEST_FINGERPRINTER_IMPLEMENTATION = "2.7"
+TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
 
 ITEM_PIPELINES = {
     "crawler.pipelines.NormalizePipeline": 100,
@@ -39,4 +40,10 @@ GEOCODER_USER_AGENT = os.environ.get(
     USER_AGENT,
 )
 
+DOWNLOAD_HANDLERS = {
+    "http": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
+    "https": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
+}
+PLAYWRIGHT_BROWSER_TYPE = "chromium"
+PLAYWRIGHT_DEFAULT_NAVIGATION_TIMEOUT = 30_000
 PLAYWRIGHT_LAUNCH_OPTIONS = {"headless": True}
