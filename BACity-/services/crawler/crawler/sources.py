@@ -66,6 +66,7 @@ ACTIVE_SOURCES: tuple[SourceSeed, ...] = (
         "https://goout.net/en/bratislava/events/",
         "event_platform",
         0.75,
+        requires_js=True,
         language="en",
     ),
 )
