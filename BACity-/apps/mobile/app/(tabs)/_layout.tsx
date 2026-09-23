@@ -16,8 +16,8 @@ export default function TabsLayout() {
           height: 68,
           paddingTop: 7,
           paddingBottom: 7,
-          borderRadius: 24,
           borderTopWidth: 0,
+          borderRadius: 24,
           backgroundColor: colors.text,
           shadowColor: colors.shadow,
           shadowOpacity: 0.2,
@@ -39,35 +39,45 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: "Home",
-          tabBarIcon: ({ color, size }) => <Ionicons name="sparkles" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="home" color={color} size={size} />
+          ),
         }}
       />
       <Tabs.Screen
         name="explore"
         options={{
           title: "Explore",
-          tabBarIcon: ({ color, size }) => <Ionicons name="search" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="compass-outline" color={color} size={size + 1} />
+          ),
         }}
       />
       <Tabs.Screen
         name="map"
         options={{
           title: "Map",
-          tabBarIcon: ({ color, size }) => <Ionicons name="map-outline" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="map-outline" color={color} size={size} />
+          ),
         }}
       />
       <Tabs.Screen
         name="saved"
         options={{
           title: "Saved",
-          tabBarIcon: ({ color, size }) => <Ionicons name="heart-outline" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="heart-outline" color={color} size={size} />
+          ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: "You",
-          tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-outline" color={color} size={size} />
+          ),
         }}
       />
     </Tabs>
