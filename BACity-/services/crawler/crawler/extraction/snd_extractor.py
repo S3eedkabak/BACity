@@ -9,9 +9,11 @@ _PERFORMANCE_RE = re.compile(
     r"Miesto konania:\s*(?P<venue>.+?)\s+"
     r"Stav:.*?"
     r"Dátum predstavenia\s+"
+    r"(?:\S+\s+)?"
     r"(?P<date>\d{1,2}\.\d{1,2}\.\d{4})\s+"
     r"(?P<start>\d{1,2}[.:]\d{2})\s+h\s+"
-    r"(?P<end>\d{1,2}[.:]\d{2})\s+h"
+    r"(?P<end>\d{1,2}[.:]\d{2})\s+h",
+    re.IGNORECASE,
 )
 
 
@@ -20,18 +22,12 @@ def extract_snd_events(text: str, source_url: str) -> list[RawEvent]:
     results: list[RawEvent] = []
 
     for match in _PERFORMANCE_RE.finditer(cleaned):
-        title = match.group("title").strip(" ,")
-        venue = match.group("venue").strip(" ,")
-        date = match.group("date")
-        start = match.group("start").replace(".", ":")
-        end = match.group("end").replace(".", ":")
-
         results.append(
             RawEvent(
-                title=title,
-                start_raw=f"{date} {start}",
-                end_raw=f"{date} {end}",
-                venue_name=venue,
+                title=match.group("title").strip(" ,"),
+                start_raw=f"{match.group('date')} {match.group('start').replace('.', ':')}",
+                end_raw=f"{match.group('date')} {match.group('end').replace('.', ':')}",
+                venue_name=match.group("venue").strip(" ,"),
                 address="Pribinova 17, 811 09 Bratislava",
                 source_url=source_url,
                 extraction_method="snd_program",
