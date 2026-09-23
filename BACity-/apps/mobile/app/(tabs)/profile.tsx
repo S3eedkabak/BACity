@@ -31,22 +31,22 @@ export default function ProfileScreen() {
   if (token && user) {
     return (
       <View style={styles.container}>
-        <View style={styles.accountHero}>
+        <View style={styles.hero}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
               {(user.display_name || user.email)[0].toUpperCase()}
             </Text>
           </View>
-          <Text style={styles.eyebrow}>YOUR BACITY</Text>
+          <Text style={styles.eyebrow}>YOUR BACity</Text>
           <Text style={styles.heading}>{user.display_name || "City explorer"}</Text>
           <Text style={styles.email}>{user.email}</Text>
         </View>
 
         <View style={styles.card}>
           <View style={styles.cardIcon}>
-            <Ionicons name="heart" size={18} color={colors.primary} />
+            <Ionicons name="heart" size={19} color={colors.primary} />
           </View>
-          <View style={{ flex: 1 }}>
+          <View style={styles.cardCopy}>
             <Text style={styles.cardTitle}>Your taste</Text>
             <Text style={styles.cardText}>
               {user.interests.length
@@ -54,6 +54,22 @@ export default function ProfileScreen() {
                 : "Save a few events and your taste will start taking shape."}
             </Text>
           </View>
+        </View>
+
+        <View style={styles.menuCard}>
+          {["Notifications", "Preferences", "About BACity"].map((label, index) => (
+            <Pressable key={label} style={styles.menuRow}>
+              <View style={styles.menuIcon}>
+                <Ionicons
+                  name={index === 0 ? "notifications-outline" : index === 1 ? "options-outline" : "information-circle-outline"}
+                  size={18}
+                  color={colors.primary}
+                />
+              </View>
+              <Text style={styles.menuLabel}>{label}</Text>
+              <Ionicons name="chevron-forward" size={17} color={colors.textMuted} />
+            </Pressable>
+          ))}
         </View>
 
         <Pressable style={styles.logout} onPress={logout}>
@@ -67,10 +83,10 @@ export default function ProfileScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.authArt}>
-        <View style={styles.artLineOne} />
-        <View style={styles.artLineTwo} />
+        <View style={styles.artRingOne} />
+        <View style={styles.artRingTwo} />
         <View style={styles.artDot} />
-        <Ionicons name="sparkles" size={24} color={colors.white} />
+        <Ionicons name="person-outline" size={28} color={colors.white} />
       </View>
 
       <Text style={styles.eyebrow}>{mode === "login" ? "WELCOME BACK" : "JOIN BACITY"}</Text>
@@ -149,7 +165,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 24,
   },
-  artLineOne: {
+  artRingOne: {
     position: "absolute",
     width: 270,
     height: 140,
@@ -158,7 +174,7 @@ const styles = StyleSheet.create({
     borderRadius: 120,
     transform: [{ rotate: "-14deg" }],
   },
-  artLineTwo: {
+  artRingTwo: {
     position: "absolute",
     width: 190,
     height: 190,
@@ -174,10 +190,7 @@ const styles = StyleSheet.create({
     borderRadius: 55,
     backgroundColor: "rgba(255,255,255,0.12)",
   },
-  accountHero: {
-    paddingTop: 10,
-    paddingBottom: 16,
-  },
+  hero: { paddingTop: 8, paddingBottom: 18 },
   avatar: {
     width: 72,
     height: 72,
@@ -250,7 +263,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    marginTop: 8,
   },
   cardIcon: {
     width: 42,
@@ -260,13 +272,40 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  cardCopy: { flex: 1 },
   cardTitle: { color: colors.text, fontFamily: fonts.semibold, fontSize: 13 },
   cardText: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 11, lineHeight: 16, marginTop: 3 },
+  menuCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 22,
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: "hidden",
+  },
+  menuRow: {
+    minHeight: 60,
+    paddingHorizontal: 13,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  menuIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 13,
+    backgroundColor: colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  menuLabel: { flex: 1, color: colors.text, fontFamily: fonts.semibold, fontSize: 12 },
   logout: {
     flexDirection: "row",
     gap: 8,
     alignItems: "center",
-    marginTop: 22,
+    marginTop: 18,
     alignSelf: "flex-start",
     padding: 10,
   },
