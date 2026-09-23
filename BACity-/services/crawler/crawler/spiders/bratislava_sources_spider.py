@@ -14,6 +14,11 @@ class BratislavaSourcesSpider(scrapy.Spider):
     allowed_domains = sorted({source.domain for source in ACTIVE_SOURCES})
 
     custom_settings = {"CONCURRENT_REQUESTS_PER_DOMAIN": 2}
+    min_sources_with_events = 5
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.source_counts = {source.name: 0 for source in ACTIVE_SOURCES}
 
     def start_requests(self):
         for source in ACTIVE_SOURCES:
@@ -63,6 +68,7 @@ class BratislavaSourcesSpider(scrapy.Spider):
             if not events:
                 events = extract_best_effort(response.text, response.url)
 
+        self.source_counts[source.name] += len(events)
         for event in events:
             event.source_name = source.name
             event.source_reliability = source.reliability_score
@@ -81,6 +87,16 @@ class BratislavaSourcesSpider(scrapy.Spider):
             return False
         haystack = f"{url} {label}".lower()
         return any(hint in haystack for hint in EVENT_LINK_HINTS)
+
+    def closed(self, reason):
+        active = {name: count for name, count in self.source_counts.items() if count}
+        self.logger.info("SOURCE_COUNTS=%s", active)
+        if len(active) < self.min_sources_with_events:
+            self.logger.error(
+                "Only %d/%d configured sources produced events",
+                len(active),
+                len(ACTIVE_SOURCES),
+            )
 
     def errback_source(self, failure):
         response = getattr(failure.value, "response", None)
