@@ -32,7 +32,7 @@ ITEM_PIPELINES = {
 API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
 GEOCODER_URL = os.environ.get(
     "GEOCODER_URL",
-    "https://nominatim.openstreetmap.org/search",
+    "",
 )
 GEOCODER_USER_AGENT = os.environ.get(
     "GEOCODER_USER_AGENT",
