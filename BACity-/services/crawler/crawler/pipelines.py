@@ -17,6 +17,13 @@ _KNOWN_VENUES = {
 }
 
 
+_KNOWN_ADDRESSES = {
+    "námestie snp 25, 811 01 bratislava": (48.1445782, 17.1112316),
+    "pribinova 17, 811 09 bratislava": (48.1412844, 17.1235008),
+    "rázusovo nábrežie 2, 811 02 bratislava": (48.1403302, 17.1086376),
+}
+
+
 class NormalizePipeline:
     def process_item(self, item: RawEvent, spider):
         normalized = normalize_event(item)
@@ -46,6 +53,11 @@ class GeocodePipeline:
                 item.address = item.address or address
                 item.latitude = item.latitude or latitude
                 item.longitude = item.longitude or longitude
+
+        if item.address:
+            known_coords = _KNOWN_ADDRESSES.get(item.address.strip().lower())
+            if known_coords:
+                item.latitude, item.longitude = known_coords
 
         if item.latitude is not None and item.longitude is not None:
             return item
