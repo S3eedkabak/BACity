@@ -96,6 +96,7 @@ jobs:
           events.raise_for_status()
           body = events.json()
 
+          print("API events response:", body)
           if body["total"] == 0:
               raise SystemExit("Crawler stored zero events in the API")
 
