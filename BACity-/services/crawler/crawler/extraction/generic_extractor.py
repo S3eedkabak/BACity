@@ -196,7 +196,7 @@ def extract_event_cards(html: str, source_url: str) -> list[RawEvent]:
                 ),
                 source_url=source_url,
                 extraction_method="event_card",
-                extraction_confidence=0.55 if venue_tag else 0.45,
+                extraction_confidence=0.55 if venue_name else 0.45,
             )
         )
 
