@@ -8,7 +8,7 @@ _PERFORMANCE_RE = re.compile(
     r"Umelecký súbor:.*?"
     r"Miesto konania:\s*(?P<venue>.+?)\s+"
     r"Stav:.*?"
-    r"Dátum predstavenia:\s*"
+    r"Dátum predstavenia\s*:\s*"
     r"(?:\S+\s+)?"
     r"(?P<date>\d{1,2}\.\d{1,2}\.(?:\d{4})?)\s*"
     r"(?:o\s*)?"
