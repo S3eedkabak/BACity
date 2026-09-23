@@ -20,7 +20,7 @@ _PERFORMANCE_RE = re.compile(
 def _with_year(date_text: str, time_text: str, reference_year: int) -> str:
     if date_text.count(".") < 3:
         date_text = f"{date_text}{reference_year}"
-    return f"{date_text} {time_text.replace(".", ":")}"
+    return f"{date_text} {time_text.replace('.', ':')}"
 
 
 def extract_snd_events(text: str, source_url: str, reference_year: int = 2026) -> list[RawEvent]:
