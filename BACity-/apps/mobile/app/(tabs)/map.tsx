@@ -60,11 +60,12 @@ export default function MapScreen() {
 
   const nearbyPins = useMemo(() => {
     if (!currentLocation) return [];
-    return pins.filter((event) =>
-      distanceKm(currentLocation, {
-        latitude: event.latitude as number,
-        longitude: event.longitude as number,
-      }) <= NEARBY_RADIUS_KM
+    return pins.filter(
+      (event) =>
+        distanceKm(currentLocation, {
+          latitude: event.latitude as number,
+          longitude: event.longitude as number,
+        }) <= NEARBY_RADIUS_KM
     );
   }, [currentLocation, pins]);
 
@@ -73,10 +74,7 @@ export default function MapScreen() {
   const recenter = () => {
     if (nearMeActive && currentLocation) {
       cameraRef.current?.setCamera({
-        centerCoordinate: [
-          currentLocation.longitude,
-          currentLocation.latitude,
-        ],
+        centerCoordinate: [currentLocation.longitude, currentLocation.latitude],
         zoomLevel: 15,
         animationDuration: 700,
         animationMode: "easeTo",
@@ -106,10 +104,7 @@ export default function MapScreen() {
 
     if (next && currentLocation) {
       cameraRef.current?.setCamera({
-        centerCoordinate: [
-          currentLocation.longitude,
-          currentLocation.latitude,
-        ],
+        centerCoordinate: [currentLocation.longitude, currentLocation.latitude],
         zoomLevel: 15,
         animationDuration: 700,
         animationMode: "easeTo",
@@ -194,21 +189,26 @@ export default function MapScreen() {
       </MapView>
 
       <View pointerEvents="box-none" style={StyleSheet.absoluteFillObject}>
-        <View style={styles.header}>
-          <Text style={styles.heading}>Map</Text>
+        <View style={styles.topControls}>
+          <View style={styles.searchBar}>
+            <Ionicons name="search" size={17} color={colors.primary} />
+            <Text style={styles.searchText}>Find events</Text>
+          </View>
+
           <Pressable
+            accessibilityLabel={nearMeActive ? "Show all events" : "Show events near me"}
             onPress={toggleNearMe}
-            style={[styles.locateButton, nearMeActive && styles.locateActive]}
+            style={[styles.nearButton, nearMeActive && styles.nearButtonActive]}
           >
             <Ionicons
               name="navigate"
-              size={18}
+              size={17}
               color={nearMeActive ? colors.white : colors.primary}
             />
             <Text
               style={[
-                styles.locateText,
-                nearMeActive && styles.locateTextActive,
+                styles.nearText,
+                nearMeActive && styles.nearTextActive,
               ]}
             >
               {nearMeActive ? "Nearby" : "Near me"}
@@ -216,14 +216,9 @@ export default function MapScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={18} color={colors.primary} />
-          <Text style={styles.searchText}>Search this area</Text>
-        </View>
-
-        <View style={styles.counter}>
-          <View style={styles.counterDot} />
-          <Text style={styles.counterText}>
+        <View style={styles.countPill}>
+          <View style={styles.countDot} />
+          <Text style={styles.countText}>
             {nearMeActive
               ? nearbyPins.length + " nearby"
               : pins.length + " mapped"}
@@ -280,106 +275,101 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.mapWater,
   },
-  header: {
-    marginTop: 14,
-    marginHorizontal: 18,
-    padding: 15,
-    borderRadius: 22,
-    backgroundColor: colors.surface,
+  topControls: {
+    marginTop: 16,
+    marginHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  searchBar: {
+    flex: 1,
+    height: 46,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    backgroundColor: "rgba(255,255,255,0.96)",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
     borderWidth: 1,
     borderColor: colors.border,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     shadowColor: colors.shadow,
     shadowOpacity: 0.1,
     shadowRadius: 12,
-    shadowOffset: { width: 0, height: 5 },
+    shadowOffset: { width: 0, height: 4 },
   },
-  heading: {
-    color: colors.text,
-    fontFamily: fonts.black,
-    fontSize: 30,
-    letterSpacing: -0.8,
+  searchText: {
+    color: colors.textMuted,
+    fontFamily: fonts.medium,
+    fontSize: 11,
   },
-  locateButton: {
-    height: 40,
-    borderRadius: 15,
-    paddingHorizontal: 11,
-    backgroundColor: colors.primarySoft,
+  nearButton: {
+    height: 46,
+    borderRadius: 16,
+    paddingHorizontal: 13,
+    backgroundColor: "rgba(255,255,255,0.96)",
+    borderWidth: 1,
+    borderColor: colors.border,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
   },
-  locateActive: {
+  nearButtonActive: {
     backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
-  locateText: {
+  nearText: {
     color: colors.text,
     fontFamily: fonts.semibold,
     fontSize: 10,
   },
-  locateTextActive: {
+  nearTextActive: {
     color: colors.white,
   },
-  searchBar: {
-    marginTop: 10,
-    marginHorizontal: 18,
-    height: 50,
-    borderRadius: 18,
-    paddingHorizontal: 15,
-    backgroundColor: colors.surface,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  searchText: {
-    color: colors.textMuted,
-    fontFamily: fonts.regular,
-    fontSize: 12,
-  },
-  counter: {
+  countPill: {
     alignSelf: "flex-start",
-    marginTop: 10,
+    marginTop: 8,
     marginLeft: 18,
-    paddingHorizontal: 12,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: colors.text,
+    height: 26,
+    paddingHorizontal: 10,
+    borderRadius: 13,
+    backgroundColor: "rgba(39,35,41,0.9)",
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 5,
   },
-  counterDot: {
-    width: 6,
-    height: 6,
+  countDot: {
+    width: 5,
+    height: 5,
     borderRadius: 3,
     backgroundColor: colors.primary,
   },
-  counterText: {
-    color: colors.background,
+  countText: {
+    color: colors.white,
     fontFamily: fonts.medium,
-    fontSize: 9,
+    fontSize: 8,
   },
   controls: {
     position: "absolute",
-    right: 18,
+    right: 16,
     bottom: 174,
-    gap: 8,
+    gap: 7,
   },
   controlButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 16,
-    backgroundColor: colors.surface,
+    width: 42,
+    height: 42,
+    borderRadius: 15,
+    backgroundColor: "rgba(255,255,255,0.96)",
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: colors.shadow,
-    shadowOpacity: 0.14,
+    shadowOpacity: 0.12,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
   },
