@@ -16,6 +16,8 @@ import * as eventsApi from "../api/events";
 import { EventOut } from "../types/event";
 import { useAuthStore } from "../store/authStore";
 import { colors } from "../theme/colors";
+import { imageForCategory } from "../theme/categoryImages";
+import { fonts } from "../theme/fonts";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
@@ -32,7 +34,7 @@ function formatDate(iso: string) {
 function priceLabel(event: EventOut) {
   if (event.price === 0) return "FREE";
   if (event.price == null) return "PRICE TBD";
-  return `${event.price} ${event.currency ?? "EUR"}`;
+  return event.price + " " + (event.currency ?? "EUR");
 }
 
 function Card({
@@ -74,9 +76,7 @@ function Card({
         useNativeDriver: true,
       }),
     ]).start(() => {
-      if (direction === "like" && token) {
-        save.mutate();
-      }
+      if (direction === "like" && token) save.mutate();
       onSwiped(direction);
     });
   };
@@ -106,23 +106,16 @@ function Card({
       {...panResponder.panHandlers}
       style={[
         styles.card,
-        {
-          transform: [
-            ...pan.getTranslateTransform(),
-            { scale },
-          ],
-        },
+        { transform: [...pan.getTranslateTransform(), { scale }] },
         position > 0 && styles.behindCard,
       ]}
     >
       <View style={styles.imageWrap}>
-        {event.image_url ? (
-          <Image source={{ uri: event.image_url }} style={styles.image} resizeMode="cover" />
-        ) : (
-          <View style={styles.fallback}>
-            <Ionicons name="sparkles" size={48} color="#FFFFFF" />
-          </View>
-        )}
+        <Image
+          source={{ uri: event.image_url || imageForCategory(event.category) }}
+          style={styles.image}
+          resizeMode="cover"
+        />
         <View style={styles.imageShade} />
 
         <View style={styles.topRow}>
@@ -135,20 +128,13 @@ function Card({
         </View>
 
         {leaving && (
-          <View
-            style={[
-              styles.verdict,
-              leaving === "like" ? styles.likeVerdict : styles.passVerdict,
-            ]}
-          >
-            <Text style={styles.verdictText}>
-              {leaving === "like" ? "SAVED" : "PASS"}
-            </Text>
+          <View style={[styles.verdict, leaving === "like" ? styles.likeVerdict : styles.passVerdict]}>
+            <Text style={styles.verdictText}>{leaving === "like" ? "SAVED" : "PASS"}</Text>
           </View>
         )}
 
         <View style={styles.imageBottom}>
-          <Text style={styles.title}>{event.title}</Text>
+          <Text style={styles.title} numberOfLines={2}>{event.title}</Text>
           <View style={styles.locationLine}>
             <Ionicons name="location-outline" size={15} color="#fff" />
             <Text style={styles.location} numberOfLines={1}>
@@ -165,13 +151,10 @@ function Card({
         </View>
         <View style={styles.infoCopy}>
           <Text style={styles.time}>{date.time}</Text>
-          <Text style={styles.hint}>Swipe right to save · left to pass</Text>
+          <Text style={styles.hint}>Right to save · left to pass</Text>
         </View>
-        <Pressable
-          style={styles.details}
-          onPress={() => router.push(`/event/${event.id}`)}
-        >
-          <Ionicons name="arrow-forward" size={20} color={colors.text} />
+        <Pressable style={styles.details} onPress={() => router.push("/event/" + event.id)}>
+          <Ionicons name="arrow-forward" size={19} color={colors.white} />
         </Pressable>
       </View>
 
@@ -187,11 +170,11 @@ export function EventDeck({ events }: { events: EventOut[] }) {
     return (
       <View style={styles.done}>
         <View style={styles.doneIcon}>
-          <Ionicons name="checkmark" size={30} color={colors.background} />
+          <Ionicons name="checkmark" size={27} color={colors.white} />
         </View>
         <Text style={styles.doneTitle}>You're all caught up</Text>
         <Text style={styles.doneText}>
-          You've seen every event in this batch. Check Explore for more.
+          You've seen this batch. Explore the city for more.
         </Text>
       </View>
     );
@@ -199,121 +182,128 @@ export function EventDeck({ events }: { events: EventOut[] }) {
 
   const visible = events.slice(index, index + 2);
 
-  const handleSwiped = (direction: "like" | "pass") => {
-    setIndex((current) => current + 1);
-  };
-
   return (
     <View style={styles.deck}>
-      {visible
-        .slice()
-        .reverse()
-        .map((event, reversed) => {
-          const position = visible.length - 1 - reversed;
-          return (
-            <Card
-              key={event.id}
-              event={event}
-              position={position}
-              total={events.length}
-              onSwiped={handleSwiped}
-            />
-          );
-        })}
+      {visible.slice().reverse().map((event, reversed) => {
+        const position = visible.length - 1 - reversed;
+        return (
+          <Card
+            key={event.id}
+            event={event}
+            position={position}
+            total={events.length}
+            onSwiped={() => setIndex((current) => current + 1)}
+          />
+        );
+      })}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  deck: { height: 590, width: "100%", alignItems: "center", justifyContent: "center" },
+  deck: { height: 560, width: "100%", alignItems: "center", justifyContent: "center" },
   card: {
     position: "absolute",
     width: "100%",
-    height: 570,
+    height: 540,
     borderRadius: 28,
     backgroundColor: colors.surface,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOpacity: 0.35,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 10,
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
   },
-  behindCard: { transform: [{ scale: 0.96 }, { translateY: 12 }] },
-  imageWrap: { height: 405, overflow: "hidden", backgroundColor: colors.surfaceAlt },
+  behindCard: { transform: [{ scale: 0.96 }, { translateY: 10 }] },
+  imageWrap: { height: 385, overflow: "hidden", backgroundColor: colors.primarySoft },
   image: { width: "100%", height: "100%" },
-  imageShade: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.24)" },
-  fallback: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.surfaceAlt,
-  },
+  imageShade: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(32,23,28,0.24)" },
   topRow: {
     position: "absolute",
-    top: 18,
-    left: 18,
-    right: 18,
+    top: 16,
+    left: 16,
+    right: 16,
     flexDirection: "row",
     justifyContent: "space-between",
   },
   categoryPill: {
-    backgroundColor: "rgba(10,10,16,0.72)",
+    backgroundColor: "rgba(39,35,41,0.78)",
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 99,
   },
-  categoryText: { color: "#fff", fontSize: 11, fontWeight: "800", letterSpacing: 0.7 },
-  pricePill: { backgroundColor: "#fff", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 99 },
-  priceText: { color: "#111", fontSize: 11, fontWeight: "800" },
-  imageBottom: { position: "absolute", left: 20, right: 20, bottom: 20 },
-  title: { color: "#fff", fontSize: 29, lineHeight: 33, fontWeight: "900", letterSpacing: -0.7 },
-  locationLine: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 9 },
-  location: { color: "rgba(255,255,255,0.88)", fontSize: 13, flex: 1 },
+  categoryText: { color: "#fff", fontFamily: fonts.semibold, fontSize: 10 },
+  pricePill: { backgroundColor: colors.white, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 99 },
+  priceText: { color: colors.text, fontFamily: fonts.semibold, fontSize: 10 },
+  imageBottom: { position: "absolute", left: 18, right: 18, bottom: 18 },
+  title: {
+    color: "#fff",
+    fontFamily: fonts.black,
+    fontSize: 27,
+    lineHeight: 30,
+    letterSpacing: -0.7,
+  },
+  locationLine: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 8 },
+  location: { color: "rgba(255,255,255,0.9)", fontFamily: fonts.medium, fontSize: 12, flex: 1 },
   verdict: {
     position: "absolute",
-    top: 145,
-    paddingHorizontal: 22,
-    paddingVertical: 10,
+    top: 135,
+    paddingHorizontal: 20,
+    paddingVertical: 9,
     borderRadius: 12,
     borderWidth: 3,
   },
-  likeVerdict: { left: 24, borderColor: "#65E6A6" },
-  passVerdict: { right: 24, borderColor: "#FF6B7A" },
-  verdictText: { color: "#fff", fontSize: 20, fontWeight: "900" },
-  info: { flex: 1, flexDirection: "row", alignItems: "center", paddingHorizontal: 18, gap: 12 },
+  likeVerdict: { left: 22, borderColor: "#A5E7CB" },
+  passVerdict: { right: 22, borderColor: "#FFB0B5" },
+  verdictText: { color: "#fff", fontFamily: fonts.black, fontSize: 18 },
+  info: { flex: 1, flexDirection: "row", alignItems: "center", paddingHorizontal: 17, gap: 11 },
   dateBox: {
-    width: 56,
-    height: 56,
+    width: 55,
+    height: 55,
     borderRadius: 16,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: colors.primarySoft,
     alignItems: "center",
     justifyContent: "center",
   },
-  dateDay: { color: colors.accent, fontSize: 9, fontWeight: "900" },
-  dateNumber: { color: colors.text, fontSize: 14, fontWeight: "800", marginTop: 2 },
+  dateDay: { color: colors.primaryDark, fontFamily: fonts.black, fontSize: 8 },
+  dateNumber: { color: colors.text, fontFamily: fonts.semibold, fontSize: 13, marginTop: 2 },
   infoCopy: { flex: 1 },
-  time: { color: colors.text, fontSize: 15, fontWeight: "800" },
-  hint: { color: colors.textMuted, fontSize: 11, marginTop: 3 },
+  time: { color: colors.text, fontFamily: fonts.black, fontSize: 14 },
+  hint: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 10, marginTop: 3 },
   details: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.surfaceAlt,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
   },
-  counter: { position: "absolute", right: 18, bottom: 8, color: colors.textMuted, fontSize: 10 },
-  done: { height: 400, alignItems: "center", justifyContent: "center", padding: 40 },
+  counter: {
+    position: "absolute",
+    right: 17,
+    bottom: 7,
+    color: colors.textMuted,
+    fontFamily: fonts.medium,
+    fontSize: 9,
+  },
+  done: { height: 350, alignItems: "center", justifyContent: "center", padding: 35 },
   doneIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.accent,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 16,
+    marginBottom: 15,
   },
-  doneTitle: { color: colors.text, fontSize: 21, fontWeight: "900" },
-  doneText: { color: colors.textMuted, fontSize: 14, textAlign: "center", lineHeight: 21, marginTop: 8 },
+  doneTitle: { color: colors.text, fontFamily: fonts.black, fontSize: 20 },
+  doneText: {
+    color: colors.textMuted,
+    fontFamily: fonts.regular,
+    fontSize: 13,
+    textAlign: "center",
+    lineHeight: 19,
+    marginTop: 7,
+  },
 });
