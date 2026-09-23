@@ -1,3 +1,4 @@
+from difflib import SequenceMatcher
 from typing import Optional
 from uuid import UUID
 from datetime import datetime
@@ -12,8 +13,82 @@ from app.schemas.event import EventOut, EventListResponse, SaveEventResponse, Ev
 from app.api.deps import get_current_user
 from app.models.user import User
 from app.models.event import Event, EventStatus
+from app.models.venue import Venue
 
 router = APIRouter(prefix="/events", tags=["events"])
+
+
+def _norm(value: Optional[str]) -> str:
+    return " ".join((value or "").lower().split())
+
+
+def _resolve_venue(db: Session, payload: EventCreate) -> Optional[Venue]:
+    if payload.venue_id:
+        return db.get(Venue, payload.venue_id)
+
+    if not payload.venue_name and not payload.address:
+        return None
+
+    name = payload.venue_name or payload.address or "Unknown venue"
+    address = payload.address
+
+    venue = (
+        db.query(Venue)
+        .filter(
+            Venue.name == name,
+            Venue.address == address,
+        )
+        .first()
+    )
+    if venue:
+        if payload.latitude is not None:
+            venue.latitude = payload.latitude
+        if payload.longitude is not None:
+            venue.longitude = payload.longitude
+        return venue
+
+    venue = Venue(
+        name=name,
+        address=address,
+        city="Bratislava",
+        latitude=payload.latitude,
+        longitude=payload.longitude,
+    )
+    db.add(venue)
+    db.flush()
+    return venue
+
+
+def _find_fuzzy_duplicate(db: Session, payload: EventCreate) -> Optional[Event]:
+    candidates = (
+        db.query(Event)
+        .filter(
+            Event.start_time == payload.start_time,
+            Event.status.in_([EventStatus.fresh, EventStatus.stale]),
+        )
+        .limit(200)
+        .all()
+    )
+
+    target_title = _norm(payload.title)
+    target_address = _norm(payload.address)
+
+    for candidate in candidates:
+        title_similarity = SequenceMatcher(
+            None, target_title, _norm(candidate.title)
+        ).ratio()
+        if title_similarity < 0.90:
+            continue
+
+        candidate_address = _norm(candidate.address)
+        same_venue = bool(target_address and candidate_address and target_address == candidate_address)
+        if payload.venue_id and candidate.venue_id == payload.venue_id:
+            same_venue = True
+
+        if same_venue:
+            return candidate
+
+    return None
 
 
 @router.post("", response_model=EventOut, status_code=status.HTTP_201_CREATED)
@@ -21,24 +96,41 @@ def create_event(
     payload: EventCreate,
     db: Session = Depends(get_db),
 ):
-    """Ingest an event from the crawler. Idempotent on source URL, title,
-    and start time so repeated crawls do not create duplicate rows."""
-    existing = db.query(Event).filter(
-        Event.source_url == payload.source_url,
-        Event.title == payload.title,
-        Event.start_time == payload.start_time,
-    ).first()
+    """Ingest a crawler event idempotently and with basic cross-source dedup."""
+    exact = (
+        db.query(Event)
+        .filter(
+            Event.source_url == payload.source_url,
+            Event.title == payload.title,
+            Event.start_time == payload.start_time,
+        )
+        .first()
+    )
+    existing = exact or _find_fuzzy_duplicate(db, payload)
+
+    venue = _resolve_venue(db, payload)
 
     if existing:
-        for field, value in payload.model_dump(exclude={"venue_id", "source_id"}).items():
+        update_values = payload.model_dump(
+            exclude={"venue_id", "venue_name", "source_name"}
+        )
+        for field, value in update_values.items():
             if hasattr(existing, field) and value is not None:
                 setattr(existing, field, value)
+        if venue:
+            existing.venue_id = venue.id
+            if existing.address is None:
+                existing.address = venue.address
         db.commit()
         db.refresh(existing)
         return existing
 
+    values = payload.model_dump(
+        exclude={"venue_name", "source_name", "venue_id"}
+    )
     event = Event(
-        **payload.model_dump(),
+        **values,
+        venue_id=venue.id if venue else payload.venue_id,
         status=EventStatus.fresh,
     )
     db.add(event)
@@ -72,8 +164,11 @@ def list_events(
 
 
 @router.get("/search", response_model=list[EventOut])
-def search_events(q: str = Query(..., min_length=1), limit: int = Query(20, le=100),
-                   db: Session = Depends(get_db)):
+def search_events(
+    q: str = Query(..., min_length=1),
+    limit: int = Query(20, le=100),
+    db: Session = Depends(get_db),
+):
     return event_crud.search_events(db, query=q, limit=limit)
 
 
@@ -85,7 +180,9 @@ def nearby_events(
     limit: int = Query(50, le=200),
     db: Session = Depends(get_db),
 ):
-    return event_crud.nearby_events(db, lat=lat, lng=lng, radius_km=radius_km, limit=limit)
+    return event_crud.nearby_events(
+        db, lat=lat, lng=lng, radius_km=radius_km, limit=limit
+    )
 
 
 @router.get("/{event_id}", response_model=EventOut)
@@ -96,7 +193,11 @@ def get_event(event_id: UUID, db: Session = Depends(get_db)):
     return event
 
 
-@router.post("/{event_id}/save", response_model=SaveEventResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{event_id}/save",
+    response_model=SaveEventResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 def save_event(
     event_id: UUID,
     db: Session = Depends(get_db),
