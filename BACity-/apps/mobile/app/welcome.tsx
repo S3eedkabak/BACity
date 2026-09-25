@@ -208,10 +208,10 @@ const styles = StyleSheet.create({
     gap: 9,
   },
   primaryText: { color: colors.white, fontFamily: fonts.black, fontSize: 14 },
-  socialRow: { flexDirection: "row", gap: 10 },
+  socialRow: { gap: 9 },
   social: {
-    flex: 1,
-    minHeight: 54,
+    width: "100%",
+    minHeight: 52,
     borderRadius: 18,
     backgroundColor: "rgba(255,255,255,0.94)",
     flexDirection: "row",
