@@ -55,7 +55,7 @@ def test_validate_rejects_low_confidence():
 
 
 def test_validate_flags_medium_confidence_for_advanced_extraction():
-    raw = RawEvent(title="Fuzzy event", start_raw="2026-12-01T20:00:00+01:00",
+    raw = RawEvent(title="Fuzzy event", start_raw="2026-12-01T20:00:00+01:00", venue_name="Fuga",
                     source_url="https://example.com", extraction_confidence=0.4)
     n = normalize_event(raw)
     result = validate_event(n)
@@ -64,7 +64,7 @@ def test_validate_flags_medium_confidence_for_advanced_extraction():
 
 
 def test_validate_accepts_high_confidence_future_event():
-    raw = RawEvent(title="Great Concert", start_raw="2026-12-01T20:00:00+01:00",
+    raw = RawEvent(title="Great Concert", start_raw="2026-12-01T20:00:00+01:00", venue_name="Fuga",
                     source_url="https://example.com", extraction_confidence=0.9)
     n = normalize_event(raw)
     result = validate_event(n)

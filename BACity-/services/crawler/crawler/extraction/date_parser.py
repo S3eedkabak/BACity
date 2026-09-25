@@ -9,6 +9,8 @@ from dateutil import parser as dateutil_parser
 DEFAULT_TZ = pytz.timezone("Europe/Bratislava")
 
 _MONTHS = {
+    "januára": 1, "februára": 2, "apríla": 4, "mája": 5,
+    "júna": 6, "júla": 7, "októbra": 10,
     "január": 1, "januara": 1, "jan": 1,
     "február": 2, "februara": 2, "feb": 2,
     "marec": 3, "marca": 3, "mar": 3,
@@ -47,6 +49,7 @@ _ISO_RE = re.compile(r"^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?.*)?$")
 
 def _strip_noise(text: str) -> str:
     cleaned = text.replace("\xa0", " ").replace("@", " ")
+    cleaned = re.sub(r'\bo\s+(?=\d{1,2}[:.])', '', cleaned)
     for day in _DAY_NAMES:
         cleaned = re.sub(rf"\b{re.escape(day)}\b", " ", cleaned, flags=re.IGNORECASE)
     return re.sub(r"\s+", " ", cleaned).strip(" ,")
@@ -82,7 +85,7 @@ def parse_event_datetime(
             minute = int(match.group("minute") or 0)
             return tz.localize(datetime(year, month, day, hour, minute))
         except (KeyError, ValueError):
-            pass
+            return None
 
     match = _SK_DOT_DATE_RE.search(cleaned)
     if match:
@@ -97,7 +100,7 @@ def parse_event_datetime(
                 )
             )
         except ValueError:
-            pass
+            return None
 
     try:
         parsed = dateutil_parser.parse(cleaned, dayfirst=True, fuzzy=True)
@@ -125,5 +128,5 @@ def parse_price(raw: Optional[str]) -> tuple[Optional[float], Optional[str]]:
         return None, None
 
     amount = float(match.group(1).replace(",", "."))
-    currency = "EUR" if ("€" in text or "eur" in text) else None
+    currency = "EUR" if ("€" in text or "eur" in text) else next((c.upper() for c in ('usd', 'czk', 'gbp') if c in text), None)
     return amount, currency

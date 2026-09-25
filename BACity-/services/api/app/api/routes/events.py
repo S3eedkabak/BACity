@@ -1,9 +1,11 @@
-from difflib import SequenceMatcher
 from typing import Optional
 from uuid import UUID
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import Header
+import os
+import secrets
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -12,137 +14,30 @@ from app.crud import saved_event as saved_event_crud
 from app.schemas.event import EventOut, EventListResponse, SaveEventResponse, EventCreate
 from app.api.deps import get_current_user
 from app.models.user import User
-from app.models.event import Event, EventStatus
-from app.models.venue import Venue
 
 router = APIRouter(prefix="/events", tags=["events"])
 
 
-def _norm(value: Optional[str]) -> str:
-    return " ".join((value or "").lower().split())
+def require_ingestion_key(x_ingestion_key: str = Header(default="")):
+    expected = os.getenv("INGESTION_API_KEY", "")
+    if expected and not secrets.compare_digest(expected, x_ingestion_key):
+        raise HTTPException(status_code=401, detail="Invalid ingestion key")
 
 
-def _resolve_venue(db: Session, payload: EventCreate) -> Optional[Venue]:
-    if payload.venue_id:
-        return db.get(Venue, payload.venue_id)
-
-    if not payload.venue_name and not payload.address:
-        return None
-
-    name = payload.venue_name or payload.address or "Unknown venue"
-    address = payload.address
-
-    venue = (
-        db.query(Venue)
-        .filter(
-            Venue.name == name,
-            Venue.address == address,
-        )
-        .first()
-    )
-    if venue:
-        if payload.latitude is not None:
-            venue.latitude = payload.latitude
-        if payload.longitude is not None:
-            venue.longitude = payload.longitude
-        return venue
-
-    venue = Venue(
-        name=name,
-        address=address,
-        city="Bratislava",
-        latitude=payload.latitude,
-        longitude=payload.longitude,
-    )
-    db.add(venue)
-    db.flush()
-    return venue
-
-
-def _find_fuzzy_duplicate(db: Session, payload: EventCreate) -> Optional[Event]:
-    candidates = (
-        db.query(Event)
-        .filter(
-            Event.start_time == payload.start_time,
-            Event.status.in_([EventStatus.fresh, EventStatus.stale]),
-        )
-        .limit(200)
-        .all()
-    )
-
-    target_title = _norm(payload.title)
-    target_address = _norm(payload.address)
-
-    for candidate in candidates:
-        title_similarity = SequenceMatcher(
-            None, target_title, _norm(candidate.title)
-        ).ratio()
-        if title_similarity < 0.90:
-            continue
-
-        candidate_address = _norm(candidate.address)
-        target_venue = _norm(payload.venue_name)
-        candidate_venue = _norm(candidate.venue.name if candidate.venue else "")
-        same_venue = bool(
-            target_address and candidate_address and target_address == candidate_address
-        )
-        if target_venue and candidate_venue and target_venue == candidate_venue:
-            same_venue = True
-        if payload.venue_id and candidate.venue_id == payload.venue_id:
-            same_venue = True
-
-        if same_venue:
-            return candidate
-
-    return None
-
-
-@router.post("", response_model=EventOut, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=EventOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_ingestion_key)])
 def create_event(
     payload: EventCreate,
     db: Session = Depends(get_db),
 ):
-    """Ingest a crawler event idempotently and with basic cross-source dedup."""
-    exact = (
-        db.query(Event)
-        .filter(
-            Event.source_url == payload.source_url,
-            Event.title == payload.title,
-            Event.start_time == payload.start_time,
-        )
-        .first()
-    )
-    existing = exact or _find_fuzzy_duplicate(db, payload)
+    from app.crud.ingestion import ingest
+    return ingest(db, payload)
 
-    venue = _resolve_venue(db, payload)
 
-    if existing:
-        update_values = payload.model_dump(
-            exclude={"venue_id", "venue_name", "source_name"}
-        )
-        for field, value in update_values.items():
-            if hasattr(existing, field) and value is not None:
-                setattr(existing, field, value)
-        if venue:
-            existing.venue_id = venue.id
-            if existing.address is None:
-                existing.address = venue.address
-        db.commit()
-        db.refresh(existing)
-        return existing
-
-    values = payload.model_dump(
-        exclude={"venue_name", "source_name", "venue_id"}
-    )
-    event = Event(
-        **values,
-        venue_id=venue.id if venue else payload.venue_id,
-        status=EventStatus.fresh,
-    )
-    db.add(event)
-    db.commit()
-    db.refresh(event)
-    return event
+@router.post("/maintenance", dependencies=[Depends(require_ingestion_key)])
+def maintenance(db: Session = Depends(get_db)):
+    from app.crud.ingestion import expire_events
+    expire_events(db)
+    return {"status": "ok"}
 
 
 @router.get("", response_model=EventListResponse)

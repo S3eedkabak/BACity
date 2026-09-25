@@ -1,0 +1,10 @@
+work/
+__pycache__/
+*.pyc
+*.db
+*.db-*
+.env
+.pytest_cache/
+pytest-cache-files-*/
+crawler-state/
+*.log

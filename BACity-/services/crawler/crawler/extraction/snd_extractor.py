@@ -19,7 +19,7 @@ _PERFORMANCE_RE = re.compile(
 
 
 def _with_year(date_text: str, time_text: str, reference_year: int) -> str:
-    if date_text.count(".") < 3:
+    if not re.search(r"\d{4}$", date_text):
         date_text = f"{date_text}{reference_year}"
     return f"{date_text} {time_text.replace('.', ':')}"
 

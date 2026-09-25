@@ -7,7 +7,7 @@ NEWSPIDER_MODULE = "crawler.spiders"
 
 USER_AGENT = os.environ.get(
     "CRAWLER_USER_AGENT",
-    "BratislavaEventsBot/0.1 (+https://example.com/bot)",
+    "BACityBot/1.0 (+https://github.com/S3eedkabak/BACity)",
 )
 
 ROBOTSTXT_OBEY = True
@@ -18,6 +18,8 @@ AUTOTHROTTLE_START_DELAY = 1.0
 AUTOTHROTTLE_MAX_DELAY = 10.0
 RETRY_TIMES = 2
 DOWNLOAD_TIMEOUT = 20
+LOG_LEVEL = os.environ.get("CRAWLER_LOG_LEVEL", "INFO")
+TELNETCONSOLE_ENABLED = False
 
 # Scrapy 2.11's current request fingerprinter.
 REQUEST_FINGERPRINTER_IMPLEMENTATION = "2.7"
@@ -25,10 +27,14 @@ TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
 
 ITEM_PIPELINES = {
     "crawler.pipelines.NormalizePipeline": 100,
+    "crawler.pipelines.PreValidatePipeline": 125,
     "crawler.pipelines.GeocodePipeline": 150,
     "crawler.pipelines.ValidatePipeline": 200,
-    "crawler.pipelines.ApiSubmitPipeline": 300,
+    "crawler.pipelines.DurableSubmitPipeline": 300,
 }
+DOWNLOADER_MIDDLEWARES = {"crawler.middleware.PublicNetworkMiddleware": 50}
+DOWNLOAD_MAXSIZE = 5 * 1024 * 1024
+DOWNLOAD_WARNSIZE = 2 * 1024 * 1024
 
 API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
 GEOCODER_URL = os.environ.get(
@@ -40,10 +46,10 @@ GEOCODER_USER_AGENT = os.environ.get(
     USER_AGENT,
 )
 
-DOWNLOAD_HANDLERS = {
+DOWNLOAD_HANDLERS = ({
     "http": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
     "https": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
-}
+} if os.environ.get("CRAWLER_PLAYWRIGHT", "0") == "1" else {})
 PLAYWRIGHT_BROWSER_TYPE = "chromium"
 PLAYWRIGHT_DEFAULT_NAVIGATION_TIMEOUT = 30_000
 PLAYWRIGHT_LAUNCH_OPTIONS = {"headless": True}
