@@ -1,4 +1,3 @@
-import "../global.css";
 import { useEffect, useState } from "react";
 import { Stack } from "expo-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -7,7 +6,6 @@ import { StatusBar } from "expo-status-bar";
 import { useAuthStore } from "../src/store/authStore";
 import { AppLoadingScreen } from "../src/components/AppLoadingScreen";
 import { colors } from "../src/theme/colors";
-import { GluestackUIProvider } from "../src/components/ui/gluestack-ui-provider";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1 } },
@@ -23,14 +21,12 @@ export default function RootLayout() {
   useEffect(() => {
     hydrate();
     const timer = setTimeout(() => setBootVisible(false), MIN_BOOT_MS);
-
     return () => clearTimeout(timer);
   }, [hydrate]);
 
   return (
-    <GluestackUIProvider mode="light">
-      <QueryClientProvider client={queryClient}>
-        <SafeAreaProvider>
+    <QueryClientProvider client={queryClient}>
+      <SafeAreaProvider>
         <StatusBar style="dark" />
         {bootVisible || authLoading ? (
           <AppLoadingScreen />
@@ -50,8 +46,7 @@ export default function RootLayout() {
             <Stack.Screen name="event/[id]" options={{ title: "Event" }} />
           </Stack>
         )}
-        </SafeAreaProvider>
-      </QueryClientProvider>
-    </GluestackUIProvider>
+      </SafeAreaProvider>
+    </QueryClientProvider>
   );
 }
