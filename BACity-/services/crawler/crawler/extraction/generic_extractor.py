@@ -6,14 +6,17 @@ from typing import Optional
 from bs4 import BeautifulSoup
 
 from crawler.items import RawEvent
+from crawler.extraction.date_parser import _MONTH_NAME_RE, parse_event_datetime
+
+MONTH_HINT = rf"(?:{_MONTH_NAME_RE}|january|february|march|april|june|july|august|september|october|november|december)\b"
 
 DATE_HINT_RE = re.compile(
     r"(?:"
-    r"\d{1,2}[./]\s*\d{1,2}[./]\s*(?:\d{4})?(?:\s+\d{1,2}[:.]\d{2})?"
+    r"\d{1,2}[./]\s*\d{1,2}[./]\s*(?:\d{4})?(?:[,\s]+\d{1,2}[:.]\d{2})?"
     r"|"
-    r"\d{1,2}\.\s*(?:–|-)\s*\d{1,2}\.\s*[A-Za-zÀ-ž]+(?:\s+\d{4})?"
+    rf"\d{{1,2}}\.\s*(?:–|-)\s*\d{{1,2}}\.\s*{MONTH_HINT}(?:\s+\d{{4}})?"
     r"|"
-    r"\d{1,2}\.\s*[A-Za-zÀ-ž]+(?:\s+\d{4})?(?:[,\s]+\d{1,2}[:.]\d{2})?"
+    rf"\d{{1,2}}\.\s*{MONTH_HINT}(?:\s+\d{{4}})?(?:[,\s]+\d{{1,2}}[:.]\d{{2}})?"
     r"|"
     r"\d{1,2}/\d{1,2}(?:/\d{2,4})?(?:\s+\d{1,2}[:.]\d{2})?"
     r")",
@@ -24,6 +27,20 @@ DATE_CLASS_HINTS = ("date", "datum", "dátum", "time", "cas", "čas", "term")
 VENUE_CLASS_HINTS = ("venue", "location", "miesto", "place", "lokal")
 ADDRESS_CLASS_HINTS = ("address", "adresa")
 PRICE_CLASS_HINTS = ("price", "cena", "vstupne", "vstupné")
+
+
+def _event_date(soup):
+    # Prefer explicit event start data over incidental dates in titles/navigation.
+    for tag in soup.select('[itemprop="startDate"], time[datetime], meta[property="event:start_time"]'):
+        value = tag.get('datetime') or tag.get('content') or tag.get_text(' ', strip=True)
+        if parse_event_datetime(value):
+            return value
+    date_tag = _find_by_class_hint(soup, DATE_CLASS_HINTS)
+    for text in ([date_tag.get_text(' ', strip=True)] if date_tag else []) + [soup.get_text(' ', strip=True)]:
+        for match in DATE_HINT_RE.finditer(text):
+            if parse_event_datetime(match.group(0)):
+                return match.group(0).strip()
+    return None
 
 
 def _meta(soup: BeautifulSoup, *names: str) -> Optional[str]:
@@ -63,14 +80,13 @@ def extract_opengraph_event(html: str, source_url: str) -> Optional[RawEvent]:
     if title.strip().lower() in {"program", "events", "event", "what's on", "whats on"}:
         return None
 
-    body_text = soup.get_text(" ", strip=True)
-    match = DATE_HINT_RE.search(body_text)
-    if not match:
+    date_text = _event_date(soup)
+    if not date_text:
         return None
 
     return RawEvent(
         title=title,
-        start_raw=match.group(0).strip(),
+        start_raw=date_text,
         description=_meta(soup, "og:description"),
         image_url=_meta(soup, "og:image"),
         source_url=source_url,
@@ -87,16 +103,11 @@ def extract_generic_html(html: str, source_url: str) -> list[RawEvent]:
     if title.strip().lower() in {"program", "events", "event", "what's on", "whats on"}:
         return []
 
-    date_tag = _find_by_class_hint(soup, DATE_CLASS_HINTS)
     venue_tag = _find_by_class_hint(soup, VENUE_CLASS_HINTS)
     address_tag = _find_by_class_hint(soup, ADDRESS_CLASS_HINTS)
     price_tag = _find_by_class_hint(soup, PRICE_CLASS_HINTS)
 
-    body_text = soup.get_text(" ", strip=True)
-    date_text = date_tag.get_text(" ", strip=True) if date_tag else ""
-    if not date_text:
-        match = DATE_HINT_RE.search(body_text)
-        date_text = match.group(0).strip() if match else ""
+    date_text = _event_date(soup)
 
     if not date_text:
         return []
@@ -142,8 +153,10 @@ def extract_event_cards(html: str, source_url: str) -> list[RawEvent]:
 
     for node in soup.find_all(["article", "li", "div"]):
         text = node.get_text(" ", strip=True)
-        match = DATE_HINT_RE.search(text)
-        if not match or len(text) > 2500:
+        if len(text) > 2500:
+            continue
+        date_text = _event_date(node)
+        if not date_text:
             continue
 
         title_tag = node.find(["h1", "h2", "h3", "h4", "a"])
@@ -153,7 +166,7 @@ def extract_event_cards(html: str, source_url: str) -> list[RawEvent]:
         if not title or title.lower() in {"program", "events", "event", "more", "viac"}:
             continue
 
-        key = (title.lower(), match.group(0))
+        key = (title.lower(), date_text)
         if key in seen:
             continue
         seen.add(key)
@@ -171,7 +184,7 @@ def extract_event_cards(html: str, source_url: str) -> list[RawEvent]:
         events.append(
             RawEvent(
                 title=title,
-                start_raw=match.group(0).strip(),
+                start_raw=date_text,
                 venue_name=venue_name,
                 address=address,
                 price_raw=price_tag.get_text(" ", strip=True) if price_tag else None,

@@ -34,7 +34,7 @@ _MONTH_NAME_RE = "|".join(sorted(map(re.escape, _MONTHS), key=len, reverse=True)
 _SK_NAMED_DATE_RE = re.compile(
     rf"(?P<day>\d{{1,2}})\.\s*(?:–|-|až)?\s*"
     rf"(?:(?P<end_day>\d{{1,2}})\.\s*)?"
-    rf"(?P<month>{_MONTH_NAME_RE})"
+    rf"(?P<month>{_MONTH_NAME_RE})\b"
     rf"(?:\s+(?P<year>\d{{4}}))?"
     rf"(?:[,\s]+(?P<hour>\d{{1,2}})(?:[:.](?P<minute>\d{{2}})))?",
     re.IGNORECASE,
@@ -103,7 +103,14 @@ def parse_event_datetime(
             return None
 
     try:
-        parsed = dateutil_parser.parse(cleaned, dayfirst=True, fuzzy=True)
+        # Fuzzy parsing must not fill a missing month/day from today's date:
+        # numbered titles such as "26. Zápisky" are not event dates.
+        parsed = dateutil_parser.parse(cleaned, dayfirst=True, fuzzy=True,
+                                       default=datetime(reference_year, 1, 1))
+        alternate = dateutil_parser.parse(cleaned, dayfirst=True, fuzzy=True,
+                                          default=datetime(reference_year, 2, 2))
+        if (parsed.month, parsed.day) != (alternate.month, alternate.day):
+            return None
     except (ValueError, OverflowError, TypeError):
         return None
 

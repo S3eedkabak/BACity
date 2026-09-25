@@ -36,6 +36,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         setSessionToken(null);
         set({ token: null, user: null });
       }
+    } catch {
+      // SecureStore can fail before the network request; still release startup.
+      setSessionToken(null);
+      set({ token: null, user: null });
     } finally {
       set({ isLoading: false });
     }

@@ -46,11 +46,19 @@ export async function apiRequest<T>(
     if (token) headers.Authorization = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_URL}${path}${buildQuery(params)}`, {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}${buildQuery(params)}`, {
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+    signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!res.ok) {
     let detail = res.statusText;
