@@ -39,7 +39,7 @@ export default function AuthScreen() {
       } else {
         await register(email.trim(), password, displayName.trim() || undefined);
       }
-      router.replace("/(tabs)");
+      router.replace("/(tabs)/discover");
     } catch (e: any) {
       setError(e?.message ?? "Could not continue");
     } finally {
