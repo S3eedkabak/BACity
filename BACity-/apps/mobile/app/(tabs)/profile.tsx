@@ -1,10 +1,9 @@
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../../src/store/authStore";
 import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
-import { Button, ButtonSpinner, ButtonText } from "../../src/components/ui/button";
 
 export default function ProfileScreen() {
   const { user, token, login, register, logout } = useAuthStore();
@@ -129,24 +128,22 @@ export default function ProfileScreen() {
 
       {error && <Text style={styles.error}>{error}</Text>}
 
-      <Button
-        variant="solid"
-        size="lg"
-        style={styles.button}
+      <Pressable
+        style={[styles.button, submitting && styles.buttonDisabled]}
         onPress={handleSubmit}
-        isDisabled={submitting}
+        disabled={submitting}
       >
         {submitting ? (
-          <ButtonSpinner color={colors.white} />
+          <ActivityIndicator color={colors.white} />
         ) : (
           <>
-            <ButtonText style={styles.buttonText}>
+            <Text style={styles.buttonText}>
               {mode === "login" ? "Sign in" : "Create account"}
-            </ButtonText>
+            </Text>
             <Ionicons name="arrow-forward" size={18} color={colors.white} />
           </>
         )}
-      </Button>
+      </Pressable>
 
       <Pressable onPress={() => setMode(mode === "login" ? "register" : "login")}>
         <Text style={styles.switch}>
@@ -206,12 +203,6 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   avatarText: { color: colors.white, fontFamily: fonts.black, fontSize: 27 },
-  eyebrow: {
-    color: colors.primaryDark,
-    fontFamily: fonts.semibold,
-    fontSize: 9,
-    letterSpacing: 1.4,
-  },
   heading: {
     color: colors.text,
     fontFamily: fonts.black,
@@ -250,6 +241,7 @@ const styles = StyleSheet.create({
     gap: 9,
     marginTop: 5,
   },
+  buttonDisabled: { opacity: 0.6 },
   buttonText: { color: colors.white, fontFamily: fonts.black, fontSize: 13 },
   switch: {
     color: colors.primaryDark,
