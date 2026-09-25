@@ -80,8 +80,7 @@ export default function WelcomeScreen() {
 
         <View style={styles.copy}>
           <Text style={styles.eyebrow}>YOUR CITY, LIVE</Text>
-          <Text style={styles.title}>Find the moments{"
-"}you'd otherwise miss.</Text>
+          <Text style={styles.title}>Find the moments{"\\n"}you'd otherwise miss.</Text>
           <Text style={styles.subtitle}>
             Events, local gems and useful city knowledge, all in one place.
           </Text>
