@@ -11,43 +11,38 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1 } },
 });
 
-const MIN_BOOT_MS = 1400;
+const MIN_BRAND_MS = 950;
 
 export default function RootLayout() {
   const hydrate = useAuthStore((s) => s.hydrate);
   const authLoading = useAuthStore((s) => s.isLoading);
   const userId = useAuthStore((s) => s.user?.id);
-  useEffect(() => { queryClient.clear(); }, [userId]);
-  const [bootVisible, setBootVisible] = useState(true);
+  const [brandVisible, setBrandVisible] = useState(true);
 
   useEffect(() => {
-    hydrate();
-    const timer = setTimeout(() => setBootVisible(false), MIN_BOOT_MS);
-
+    void hydrate();
+    const timer = setTimeout(() => setBrandVisible(false), MIN_BRAND_MS);
     return () => clearTimeout(timer);
   }, [hydrate]);
+
+  useEffect(() => {
+    queryClient.clear();
+  }, [userId]);
 
   return (
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
         <StatusBar style="dark" />
-        {bootVisible || authLoading ? (
+        {brandVisible || authLoading ? (
           <AppLoadingScreen />
         ) : (
           <Stack
             screenOptions={{
-              headerStyle: { backgroundColor: colors.background },
-              headerTintColor: colors.text,
-              headerTitleStyle: {
-                fontFamily: "System",
-                fontWeight: "600",
-              },
+              headerShown: false,
+              animation: "fade",
               contentStyle: { backgroundColor: colors.background },
             }}
-          >
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="event/[id]" options={{ title: "Event" }} />
-          </Stack>
+          />
         )}
       </SafeAreaProvider>
     </QueryClientProvider>
