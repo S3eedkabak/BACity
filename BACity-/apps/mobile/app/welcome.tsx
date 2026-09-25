@@ -107,7 +107,7 @@ export default function WelcomeScreen() {
               ) : (
                 <Text style={styles.googleMark}>G</Text>
               )}
-              <Text style={styles.socialText}>Google</Text>
+              <Text style={styles.socialText}>Continue with Google</Text>
             </Pressable>
 
             <Pressable
@@ -120,7 +120,7 @@ export default function WelcomeScreen() {
               ) : (
                 <Ionicons name="logo-apple" size={20} color={colors.text} />
               )}
-              <Text style={styles.socialText}>Apple</Text>
+              <Text style={styles.socialText}>Continue with Apple</Text>
             </Pressable>
           </View>
 
