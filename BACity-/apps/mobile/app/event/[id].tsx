@@ -1,7 +1,6 @@
 import { Discussion } from "../../src/components/Discussion";
-import { useLayoutEffect } from "react";
 import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useLocalSearchParams, useNavigation } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useEvent, useSavedEvents, useToggleSaveEvent } from "../../src/hooks/useEvents";
 import { useAuthStore } from "../../src/store/authStore";
@@ -23,16 +22,11 @@ function formatWhen(iso: string) {
 
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const navigation = useNavigation();
   const token = useAuthStore((s) => s.token);
   const { data: event, isLoading, isError } = useEvent(id);
   const { data: savedEvents } = useSavedEvents();
   const toggleSave = useToggleSaveEvent();
   const isSaved = !!savedEvents?.some((e) => e.id === id);
-
-  useLayoutEffect(() => {
-    navigation.setOptions({ title: "" });
-  }, [navigation]);
 
   if (isLoading) return <LoadingState />;
   if (isError || !event) return <EmptyState title="Event not found" />;
@@ -58,6 +52,10 @@ export default function EventDetailScreen() {
         />
         <View style={styles.heroShade} />
         <View style={styles.heroTop}>
+          <Pressable style={styles.backButton} onPress={() => router.back()}>
+            <Ionicons name="chevron-back" size={20} color={colors.text} />
+          </Pressable>
+          <View style={styles.heroBadges}>
           <View style={styles.categoryPill}>
             <Text style={styles.category}>{event.category}</Text>
           </View>
@@ -66,6 +64,7 @@ export default function EventDetailScreen() {
               <Text style={styles.freeText}>FREE</Text>
             </View>
           )}
+          </View>
         </View>
         <View style={styles.heroText}>
           <Text style={styles.title}>{event.title}</Text>
@@ -148,6 +147,20 @@ const styles = StyleSheet.create({
     right: 16,
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  backButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.94)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  heroBadges: {
+    flexDirection: "row",
+    gap: 7,
+    alignItems: "center",
   },
   categoryPill: {
     backgroundColor: "rgba(39,35,41,0.78)",
