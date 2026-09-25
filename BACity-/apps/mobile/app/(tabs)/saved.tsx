@@ -8,7 +8,6 @@ import { LoadingState } from "../../src/components/LoadingState";
 import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
 import { router } from "expo-router";
-import { Button, ButtonText } from "../../src/components/ui/button";
 
 export default function SavedScreen() {
   const token = useAuthStore((s) => s.token);
@@ -27,15 +26,13 @@ export default function SavedScreen() {
         <Text style={styles.subtitle}>
           Save events you love and build a little list of things worth doing.
         </Text>
-        <Button
-          variant="dark"
-          size="lg"
+        <Pressable
           style={styles.loginButton}
           onPress={() => router.push("/(tabs)/profile")}
         >
-          <ButtonText style={styles.loginText}>Log in to save events</ButtonText>
+          <Text style={styles.loginText}>Log in to save events</Text>
           <Ionicons name="arrow-forward" size={17} color={colors.white} />
-        </Button>
+        </Pressable>
       </View>
     );
   }
@@ -160,6 +157,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 10,
     marginTop: 24,
   },
