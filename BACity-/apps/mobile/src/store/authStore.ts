@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { tokenStorage as SecureStore } from './tokenStorage';
-import { apiRequest } from '../api/client';
+import { tokenStorage as SecureStore } from "./tokenStorage";
+import { apiRequest } from "../api/client";
 import * as authApi from "../api/auth";
 import { setSessionToken } from "./tokenSession";
 
@@ -13,8 +13,17 @@ interface AuthState {
   hydrate: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, displayName?: string) => Promise<void>;
+  completeOAuth: (code: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+}
+
+async function persistSession(accessToken: string, set: (state: Partial<AuthState>) => void) {
+  setSessionToken(accessToken);
+  await SecureStore.setItemAsync(TOKEN_KEY, accessToken);
+  set({ token: accessToken });
+  const user = await authApi.getMe();
+  set({ user });
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -37,7 +46,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ token: null, user: null });
       }
     } catch {
-      // SecureStore can fail before the network request; still release startup.
       setSessionToken(null);
       set({ token: null, user: null });
     } finally {
@@ -47,11 +55,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   login: async (email, password) => {
     const { access_token } = await authApi.login(email, password);
-    setSessionToken(access_token);
-    await SecureStore.setItemAsync(TOKEN_KEY, access_token);
-    set({ token: access_token });
-    const user = await authApi.getMe();
-    set({ user });
+    await persistSession(access_token, set);
   },
 
   register: async (email, password, displayName) => {
@@ -59,8 +63,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await get().login(email, password);
   },
 
+  completeOAuth: async (code) => {
+    const { access_token } = await authApi.exchangeOAuth(code);
+    await persistSession(access_token, set);
+  },
+
   logout: async () => {
-    try { await apiRequest('/auth/logout', { method: 'POST', auth: true }); } catch { /* Always clear this device's session, including expired tokens. */ }
+    try {
+      await apiRequest("/auth/logout", { method: "POST", auth: true });
+    } catch {
+      // Local logout still succeeds if the API is temporarily unavailable.
+    }
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     setSessionToken(null);
     set({ token: null, user: null });
