@@ -5,20 +5,14 @@ import { EventOut } from "../types/event";
 import { colors } from "../theme/colors";
 import { imageForCategory } from "../theme/categoryImages";
 import { fonts } from "../theme/fonts";
+import { AceSurface } from "./ui/AceSurface";
 
 function formatWhen(iso: string) {
   const d = new Date(iso);
   return (
-    d.toLocaleDateString(undefined, {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-    }) +
+    d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }) +
     " · " +
-    d.toLocaleTimeString(undefined, {
-      hour: "2-digit",
-      minute: "2-digit",
-    })
+    d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
   );
 }
 
@@ -33,89 +27,95 @@ export function EventCard({ event }: { event: EventOut }) {
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}
       onPress={() => router.push("/event/" + event.id)}
     >
-      <Image source={{ uri: image }} style={styles.image} />
-      <View style={styles.body}>
-        <View style={styles.metaRow}>
-          <View style={styles.categoryPill}>
-            <Text style={styles.category}>{event.category}</Text>
+      <AceSurface style={styles.card}>
+        <View style={styles.imageWrap}>
+          <Image source={{ uri: image }} style={styles.image} />
+          <View style={styles.imageShade} />
+          <View style={styles.imageBadge}>
+            <Text style={styles.imageBadgeText}>{event.category}</Text>
           </View>
-          <Text style={[styles.price, event.price === 0 && styles.free]}>{price(event)}</Text>
         </View>
-        <Text style={styles.title} numberOfLines={2}>
-          {event.title}
-        </Text>
-        <View style={styles.detail}>
-          <Ionicons name="calendar-outline" size={14} color={colors.primary} />
-          <Text style={styles.detailText}>{formatWhen(event.start_time)}</Text>
+
+        <View style={styles.body}>
+          <View style={styles.metaRow}>
+            <Text style={[styles.price, event.price === 0 && styles.free]}>{price(event)}</Text>
+            <View style={styles.arrow}>
+              <Ionicons name="arrow-up-right" size={14} color={colors.text} />
+            </View>
+          </View>
+
+          <Text style={styles.title} numberOfLines={2}>{event.title}</Text>
+
+          <View style={styles.detail}>
+            <Ionicons name="calendar-outline" size={14} color={colors.primary} />
+            <Text style={styles.detailText}>{formatWhen(event.start_time)}</Text>
+          </View>
+
+          <View style={styles.detail}>
+            <Ionicons name="location-outline" size={14} color={colors.primary} />
+            <Text style={styles.detailText} numberOfLines={1}>
+              {event.venue?.name ?? event.address ?? "Bratislava"}
+            </Text>
+          </View>
         </View>
-        <View style={styles.detail}>
-          <Ionicons name="location-outline" size={14} color={colors.primary} />
-          <Text style={styles.detailText} numberOfLines={1}>
-            {event.venue?.name ?? event.address ?? "Bratislava"}
-          </Text>
-        </View>
-      </View>
-      <View style={styles.chevron}>
-        <Ionicons name="arrow-up-right" size={14} color={colors.text} />
-      </View>
+      </AceSurface>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  pressable: { marginBottom: 13 },
+  pressed: { transform: [{ scale: 0.987 }], opacity: 0.97 },
   card: {
     flexDirection: "row",
-    minHeight: 126,
-    backgroundColor: colors.surface,
-    borderRadius: 22,
-    marginBottom: 12,
+    minHeight: 132,
+    borderRadius: 24,
+  },
+  imageWrap: {
+    width: 112,
+    minHeight: 132,
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: colors.shadow,
-    shadowOpacity: 0.07,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 5 },
-  },
-  pressed: {
-    transform: [{ scale: 0.985 }],
-    opacity: 0.96,
-  },
-  image: {
-    width: 108,
-    height: 126,
     backgroundColor: colors.primarySoft,
   },
-  body: { flex: 1, padding: 12, paddingRight: 30 },
+  image: { width: "100%", height: "100%" },
+  imageShade: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(39,35,41,0.08)",
+  },
+  imageBadge: {
+    position: "absolute",
+    left: 9,
+    top: 9,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 99,
+    backgroundColor: "rgba(39,35,41,0.78)",
+  },
+  imageBadgeText: {
+    color: colors.white,
+    fontFamily: fonts.semibold,
+    fontSize: 8,
+    letterSpacing: 0.3,
+  },
+  body: { flex: 1, padding: 13 },
   metaRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 6,
   },
-  categoryPill: {
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 99,
-  },
-  category: {
-    color: colors.primaryDark,
-    fontFamily: fonts.semibold,
-    fontSize: 8,
-    letterSpacing: 0.4,
-  },
   price: { color: colors.textMuted, fontFamily: fonts.semibold, fontSize: 9 },
   free: { color: colors.free },
   title: {
     color: colors.text,
     fontFamily: fonts.black,
-    fontSize: 15,
-    lineHeight: 18,
-    marginBottom: 7,
+    fontSize: 16,
+    lineHeight: 19,
+    marginBottom: 8,
+    paddingRight: 4,
   },
   detail: {
     flexDirection: "row",
@@ -129,13 +129,10 @@ const styles = StyleSheet.create({
     fontSize: 10,
     flex: 1,
   },
-  chevron: {
-    position: "absolute",
-    right: 10,
-    bottom: 10,
-    width: 27,
-    height: 27,
-    borderRadius: 10,
+  arrow: {
+    width: 30,
+    height: 30,
+    borderRadius: 12,
     backgroundColor: colors.primarySoft,
     alignItems: "center",
     justifyContent: "center",
