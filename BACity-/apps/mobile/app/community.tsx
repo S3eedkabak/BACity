@@ -3,7 +3,7 @@ import { Text, View, Linking } from 'react-native';
 import { router } from 'expo-router';
 import { apiRequest } from '../src/api/client';
 import { useAuthStore } from '../src/store/authStore';
-import { Page, Card, Field, Button, Notice, ui } from '../src/components/CommunityUI';
+import { Page, Card, Field, Button, Chip, Notice, ui } from '../src/components/CommunityUI';
 
 const sections = { recommendations: 'For you', utilities: 'City utilities', places: 'Places', people: 'People', organizations: 'Organizers', submissions: 'Your contributions', notifications: 'Notifications', collections: 'Collections', follows: 'Following', blocks: 'Blocked users', moderation: 'Review queue', reports: 'Reports' };
 type Section = keyof typeof sections;
@@ -37,7 +37,7 @@ export default function Community() {
   return <Page title="Your Bratislava">
     <Text style={ui.text}>Discover local places, contribute useful information, and connect with your neighborhood.</Text>
     <Button title="Add an event, place, or utility" onPress={() => router.push('/contribute')} />
-    <View style={ui.row}>{(Object.keys(sections) as Section[]).filter(s => moderator || !['moderation', 'reports'].includes(s)).map(s => <Button key={s} title={(section === s ? '✓ ' : '') + sections[s]} onPress={() => { setQuery(''); setSection(s); }} />)}</View>
+    <View style={ui.row}>{(Object.keys(sections) as Section[]).filter(s => moderator || !['moderation', 'reports'].includes(s)).map(s => <Chip key={s} title={sections[s]} active={section === s} onPress={() => { setQuery(''); setSection(s); }} />)}</View>
     {section === 'utilities' && <Field label="Utility kind (toilet, water_fountain, wifi, bench…)" value={utilityKind} onChange={setUtilityKind} />}
     {['people', 'places', 'organizations'].includes(section) && <Field label="Search by name" value={query} onChange={setQuery} />}
     <Button title={busy ? 'Loading…' : 'Refresh results'} busy={busy} onPress={load} />
