@@ -50,6 +50,7 @@ export default function ExploreScreen() {
             <View style={styles.header}>
               <View>
                 <Text style={styles.heading}>Explore</Text>
+                <Text style={styles.headingSubtitle}>Find the plan you didn't know you needed.</Text>
               </View>
               <View style={styles.headerButton}>
                 <Ionicons name="sparkles-outline" size={20} color={colors.primary} />
@@ -171,6 +172,12 @@ const styles = StyleSheet.create({
     letterSpacing: -1.2,
     marginTop: 2,
   },
+  headingSubtitle: {
+    color: colors.textMuted,
+    fontFamily: fonts.regular,
+    fontSize: 11,
+    marginTop: 2,
+  },
   headerButton: {
     width: 44,
     height: 44,
@@ -181,7 +188,7 @@ const styles = StyleSheet.create({
   },
   searchBar: {
     height: 58,
-    borderRadius: 20,
+    borderRadius: 22,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -219,8 +226,8 @@ const styles = StyleSheet.create({
   clear: { color: colors.primaryDark, fontFamily: fonts.semibold, fontSize: 11 },
   chips: { gap: 8, paddingRight: 10 },
   chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 9,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
     borderRadius: 99,
     backgroundColor: colors.surface,
     borderWidth: 1,
