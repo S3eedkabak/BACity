@@ -59,7 +59,7 @@ export function EventCard({ event }: { event: EventOut }) {
         </View>
       </View>
       <View style={styles.chevron}>
-        <Ionicons name="arrow-up-right" size={14} color={colors.text} />
+        <Ionicons name="open-outline" size={14} color={colors.text} />
       </View>
     </Pressable>
   );
