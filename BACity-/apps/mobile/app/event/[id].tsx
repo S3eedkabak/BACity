@@ -121,7 +121,7 @@ export default function EventDetailScreen() {
 
       <Pressable style={styles.sourceButton} onPress={() => Linking.openURL(event.source_url)}>
         <Text style={styles.sourceText}>View original event</Text>
-        <Ionicons name="arrow-up-right" size={16} color={colors.primaryDark} />
+        <Ionicons name="open-outline" size={16} color={colors.primaryDark} />
       </Pressable>
     </ScrollView>
   );
