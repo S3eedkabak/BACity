@@ -6,6 +6,7 @@ on common CMSs) emit this directly, so it should catch a large share of
 sources without ever touching heuristics or an LLM.
 """
 import json
+from urllib.parse import urljoin
 from typing import Optional
 
 from bs4 import BeautifulSoup
@@ -23,24 +24,25 @@ def _flatten_jsonld(node):
         for item in node:
             yield from _flatten_jsonld(item)
     elif isinstance(node, dict):
-        if "@graph" in node:
-            yield from _flatten_jsonld(node["@graph"])
-        else:
+        if _is_event_type(node):
             yield node
+        for value in node.values():
+            if isinstance(value, (dict, list)):
+                yield from _flatten_jsonld(value)
 
 
 def _is_event_type(node: dict) -> bool:
     t = node.get("@type")
     if isinstance(t, list):
-        return any(x in EVENT_TYPES for x in t)
-    return t in EVENT_TYPES
+        return any(isinstance(x, str) and x.rsplit('/', 1)[-1] in EVENT_TYPES for x in t)
+    return isinstance(t, str) and t.rsplit('/', 1)[-1] in EVENT_TYPES
 
 
 def _text(value) -> Optional[str]:
     if value is None:
         return None
     if isinstance(value, dict):
-        return value.get("name") or value.get("@id")
+        return value.get("name") or value.get("url") or value.get("contentUrl") or value.get("@id")
     if isinstance(value, list) and value:
         return _text(value[0])
     return str(value)
@@ -87,6 +89,8 @@ def extract_jsonld_events(html: str, source_url: str) -> list[RawEvent]:
             if isinstance(location, dict):
                 addr = location.get("address")
                 address = _text(addr)
+                if isinstance(addr, dict):
+                    address = ', '.join(str(addr[k]) for k in ('streetAddress', 'postalCode', 'addressLocality', 'addressRegion') if addr.get(k)) or address
                 geo = location.get("geo") or {}
                 if isinstance(geo, dict):
                     try:
@@ -98,7 +102,7 @@ def extract_jsonld_events(html: str, source_url: str) -> list[RawEvent]:
             price_raw, currency = _price_from_offers(node.get("offers"))
 
             results.append(RawEvent(
-                title=_text(node.get("name")) or "Untitled event",
+                title=_text(node.get("name")) or "",
                 start_raw=_text(node.get("startDate")) or "",
                 end_raw=_text(node.get("endDate")),
                 description=_text(node.get("description")),
@@ -106,9 +110,11 @@ def extract_jsonld_events(html: str, source_url: str) -> list[RawEvent]:
                 address=address,
                 latitude=latitude,
                 longitude=longitude,
-                price_raw=f"{price_raw} {currency}".strip() if price_raw else None,
-                image_url=_text(node.get("image")),
-                source_url=source_url,
+                price_raw="0 EUR" if node.get("isAccessibleForFree") is True else (f"{price_raw} {currency or 'EUR'}".strip() if price_raw is not None else None),
+                image_url=urljoin(source_url, _text(node.get("image"))) if _text(node.get("image")) else None,
+                source_url=urljoin(source_url, _text(node.get("url")) or source_url),
+                original_source_url=source_url,
+                event_status={'EventCancelled': 'cancelled', 'EventPostponed': 'removed'}.get(str(node.get('eventStatus', '')).rsplit('/', 1)[-1], 'fresh'),
                 extraction_method="jsonld",
                 extraction_confidence=0.95,
             ))

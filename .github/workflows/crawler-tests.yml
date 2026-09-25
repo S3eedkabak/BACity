@@ -1,33 +1,41 @@
 name: Crawler Tests
-
 on:
   push:
-    branches:
-      - frontend-redesign
+    branches: [main, Phase2-CheckPoint]
   pull_request:
-    branches:
-      - main
-
+  workflow_dispatch:
 jobs:
   tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: events
+          POSTGRES_PASSWORD: events
+          POSTGRES_DB: bratislava_events
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U events -d bratislava_events"
+          --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-      - name: Install
+          python-version: '3.12'
+      - name: Install crawler and API
+        run: python -m pip install -r BACity-/services/crawler/requirements.txt -r BACity-/services/api/requirements.txt
+      - name: Crawler and HTTP end-to-end tests
         working-directory: BACity-/services/crawler
-        run: python -m pip install -r requirements.txt
-      - name: Test
-        working-directory: BACity-/services/crawler
-        continue-on-error: true
-        run: |
-          python -m pytest -q 2>&1 | tee pytest.log
-          exit ${PIPESTATUS[0]}
-      - name: Upload test log
+        run: python -m pytest tests -q --junitxml=crawler-results.xml
+      - name: API tests
+        working-directory: BACity-/services/api
+        env:
+          TEST_POSTGRES_URL: postgresql+psycopg2://events:events@localhost:5432/bratislava_events
+        run: python -m pytest tests -q --junitxml=api-results.xml
+      - uses: actions/upload-artifact@v4
         if: always()
-        uses: actions/upload-artifact@v4
         with:
-          name: crawler-test-log
-          path: BACity-/services/crawler/pytest.log
+          name: test-results
+          path: BACity-/services/*/*-results.xml

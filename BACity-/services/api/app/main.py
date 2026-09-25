@@ -1,8 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.database import Base, engine
+from app.database import Base, engine, get_db
 from app.api.routes import events, venues, auth, users
 
 # Import models so they're registered on Base.metadata before create_all
@@ -30,6 +32,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(events.router)
 app.include_router(venues.router)
+app.include_router(events.router, prefix='/v1')
 
 
 @app.on_event("startup")
@@ -40,5 +43,6 @@ def on_startup():
 
 
 @app.get("/health")
-def health():
+def health(db: Session = Depends(get_db)):
+    db.execute(text('SELECT 1'))
     return {"status": "ok"}

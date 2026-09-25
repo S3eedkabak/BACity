@@ -64,7 +64,7 @@ class Event(Base):
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
 
-    category = Column(Enum(EventCategory), nullable=False, default=EventCategory.other)
+    category = Column(Enum(EventCategory, values_callable=lambda cls: [e.value for e in cls]), nullable=False, default=EventCategory.other)
     tags = Column(JSON, nullable=False, default=list)
 
     price = Column(Float, nullable=True)  # null = unknown, 0 = free
@@ -86,3 +86,8 @@ class Event(Base):
     last_verified_at = Column(DateTime, default=datetime.utcnow)
 
     venue = relationship("Venue", back_populates="events")
+    sources = relationship("EventSource", back_populates="event", cascade="all, delete-orphan", lazy="selectin")
+
+    @property
+    def last_seen_at(self):
+        return self.last_verified_at

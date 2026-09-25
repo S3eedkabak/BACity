@@ -1,5 +1,6 @@
 """Fallback extraction for pages without usable JSON-LD."""
 import re
+from urllib.parse import urljoin
 from typing import Optional
 
 from bs4 import BeautifulSoup
@@ -124,10 +125,13 @@ def extract_generic_html(html: str, source_url: str) -> list[RawEvent]:
 
 
 def extract_best_effort(html: str, source_url: str) -> list[RawEvent]:
+    structured = extract_generic_html(html, source_url)
+    if structured:
+        return structured
     og_event = extract_opengraph_event(html, source_url)
     if og_event:
         return [og_event]
-    return extract_generic_html(html, source_url)
+    return []
 
 
 def extract_event_cards(html: str, source_url: str) -> list[RawEvent]:
@@ -143,6 +147,8 @@ def extract_event_cards(html: str, source_url: str) -> list[RawEvent]:
             continue
 
         title_tag = node.find(["h1", "h2", "h3", "h4", "a"])
+        detail_link = title_tag if title_tag and title_tag.name == 'a' else (title_tag.find('a', href=True) if title_tag else None)
+        detail_link = detail_link or (title_tag.find_parent('a', href=True) if title_tag else None) or node.find('a', href=True)
         title = title_tag.get_text(" ", strip=True) if title_tag else ""
         if not title or title.lower() in {"program", "events", "event", "more", "viac"}:
             continue
@@ -159,29 +165,9 @@ def extract_event_cards(html: str, source_url: str) -> list[RawEvent]:
         venue_name = venue_tag.get_text(" ", strip=True) if venue_tag else None
         address = address_tag.get_text(" ", strip=True) if address_tag else None
 
-        if not venue_name:
-            lines = [
-                line.strip()
-                for line in node.get_text("\n", strip=True).splitlines()
-                if line.strip()
-            ]
-            ignored = {
-                title.strip().lower(),
-                match.group(0).strip().lower(),
-                "tickets",
-                "sold out",
-                "free",
-            }
-            candidates = [
-                line for line in lines
-                if line.lower() not in ignored
-                and len(line) >= 3
-                and not DATE_HINT_RE.fullmatch(line)
-                and not line.lower().startswith(("event", "events", "program"))
-            ]
-            if candidates:
-                venue_name = candidates[-1][:200]
-
+        if not venue_name and 'staratrznica.sk' in source_url:
+            venue_name = 'Stará tržnica'
+            address = 'Námestie SNP 25, 811 01 Bratislava'
         events.append(
             RawEvent(
                 title=title,
@@ -194,7 +180,8 @@ def extract_event_cards(html: str, source_url: str) -> list[RawEvent]:
                     if node.find("img") and node.find("img").get("src")
                     else None
                 ),
-                source_url=source_url,
+                source_url=urljoin(source_url, detail_link.get('href', '')) if detail_link else source_url,
+                original_source_url=source_url,
                 extraction_method="event_card",
                 extraction_confidence=0.55 if venue_name else 0.45,
             )

@@ -22,13 +22,14 @@ class BratislavaSourcesSpider(scrapy.Spider):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.sources = ACTIVE_SOURCES
         self.source_counts = {source.name: 0 for source in ACTIVE_SOURCES}
 
     def start_requests(self):
         now = datetime.now()
         next_month = 1 if now.month == 12 else now.month + 1
         next_year = now.year + 1 if now.month == 12 else now.year
-        for source in ACTIVE_SOURCES:
+        for source in self.sources:
             if source.domain == "goout.net":
                 yield scrapy.Request(
                     "https://goout.net/services/feeder/v1/events.json"
@@ -91,7 +92,7 @@ class BratislavaSourcesSpider(scrapy.Spider):
             return
 
         seen = set()
-        for anchor in response.css("a[href]")[: self.max_links_per_page]:
+        for anchor in response.css("a[href]"):
             href = anchor.attrib.get("href", "")
             label = anchor.xpath("string(.)").get("").strip()
             absolute = response.urljoin(href).split("#", 1)[0]
@@ -104,12 +105,20 @@ class BratislavaSourcesSpider(scrapy.Spider):
                 errback=self.errback_source,
                 meta={"source": source, "crawl_depth": depth + 1},
             )
+            if len(seen) >= self.max_links_per_page:
+                break
 
     def _extract(self, response, source: SourceSeed):
         if source.domain == "snd.sk":
             events = extract_snd_events(response.text, response.url, datetime.now().year)
         else:
             events = extract_jsonld_events(response.text, response.url)
+            if not events and source.domain == 'visitbratislava.com':
+                from crawler.extraction.visit_extractor import extract_visit_events
+                events = extract_visit_events(response.text, response.url)
+            if not events:
+                from crawler.extraction.microdata_extractor import extract_microdata_events
+                events = extract_microdata_events(response.text, response.url)
             if not events:
                 events = extract_event_cards(response.text, response.url)
             if not events:

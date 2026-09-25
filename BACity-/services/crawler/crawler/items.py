@@ -22,6 +22,8 @@ class RawEvent:
     source_reliability: float = 0.7
     extraction_method: str = "unknown"
     extraction_confidence: float = 0.5
+    event_status: str = "fresh"
+    original_source_url: Optional[str] = None
 
 
 @dataclass
@@ -45,3 +47,5 @@ class NormalizedEvent:
     source_name: Optional[str]
     source_reliability: float
     extraction_confidence: float
+    event_status: str = "fresh"
+    original_source_url: Optional[str] = None

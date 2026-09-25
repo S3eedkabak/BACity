@@ -13,6 +13,7 @@ def _event(title, start_time, venue_name="Fuga"):
         description=None, venue_name=venue_name, address=None, price=None, currency=None,
         image_url=None, category="Nightlife", tags=[], language="en",
         source_url="https://example.com", extraction_confidence=0.9,
+        latitude=None, longitude=None, source_name="Test", source_reliability=0.9,
     )
 
 
