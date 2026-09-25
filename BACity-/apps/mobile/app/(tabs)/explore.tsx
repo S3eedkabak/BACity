@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useEvents, useSearchEvents } from "../../src/hooks/useEvents";
 import { EventCard } from "../../src/components/EventCard";
 import { EmptyState } from "../../src/components/EmptyState";
@@ -39,7 +40,7 @@ export default function ExploreScreen() {
   const items = isSearching ? (data as any[] | undefined) : (data as any)?.items;
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       <FlatList
         data={items ?? []}
         keyExtractor={(item) => item.id}
@@ -145,7 +146,7 @@ export default function ExploreScreen() {
           ) : null
         }
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
