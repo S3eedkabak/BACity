@@ -9,7 +9,7 @@ export default function EntryScreen() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      router.replace(token && user ? "/(tabs)" : "/welcome");
+      router.replace(token && user ? "/(tabs)/discover" : "/welcome");
     }, 120);
     return () => clearTimeout(timer);
   }, [token, user]);
