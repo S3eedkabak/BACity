@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useMemo } from "react";
 import {
@@ -90,6 +91,7 @@ export default function HomeScreen() {
   if (isLoading) return <LoadingState />;
 
   return (
+    <SafeAreaView style={styles.safe} edges={["top"]}>
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
@@ -187,10 +189,12 @@ export default function HomeScreen() {
         <Ionicons name="arrow-forward" size={18} color={colors.text} />
       </Pressable>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: colors.background },
   container: { flex: 1, backgroundColor: colors.background },
   content: { paddingHorizontal: 18, paddingTop: 12, paddingBottom: 112 },
   topbar: {
