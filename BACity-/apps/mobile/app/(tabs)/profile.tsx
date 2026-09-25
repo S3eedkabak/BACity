@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../../src/store/authStore";
 import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
+import { Button, ButtonSpinner, ButtonText } from "../../src/components/ui/button";
 
 export default function ProfileScreen() {
   const { user, token, login, register, logout } = useAuthStore();
@@ -128,18 +129,24 @@ export default function ProfileScreen() {
 
       {error && <Text style={styles.error}>{error}</Text>}
 
-      <Pressable style={styles.button} onPress={handleSubmit} disabled={submitting}>
+      <Button
+        variant="solid"
+        size="lg"
+        style={styles.button}
+        onPress={handleSubmit}
+        isDisabled={submitting}
+      >
         {submitting ? (
-          <ActivityIndicator color={colors.white} />
+          <ButtonSpinner color={colors.white} />
         ) : (
           <>
-            <Text style={styles.buttonText}>
+            <ButtonText style={styles.buttonText}>
               {mode === "login" ? "Sign in" : "Create account"}
-            </Text>
+            </ButtonText>
             <Ionicons name="arrow-forward" size={18} color={colors.white} />
           </>
         )}
-      </Pressable>
+      </Button>
 
       <Pressable onPress={() => setMode(mode === "login" ? "register" : "login")}>
         <Text style={styles.switch}>
