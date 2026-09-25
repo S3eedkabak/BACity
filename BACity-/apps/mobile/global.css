@@ -1,10 +1,8 @@
-@import "tailwindcss/theme.css" layer(theme);
-@import "tailwindcss/preflight.css" layer(base);
-@import "tailwindcss/utilities.css";
-@import "nativewind/theme";
+@import "tailwindcss";
+@import "uniwind";
 
 @layer theme {
-  :root {
+  :where(.light, .light *) {
     --primary: 255 127 134;
     --primary-foreground: 255 255 255;
     --secondary: 255 240 238;
@@ -22,6 +20,27 @@
     --destructive: 217 87 99;
     --border: 241 216 213;
     --input: 241 216 213;
+    --ring: 255 127 134;
+  }
+
+  :where(.dark, .dark *) {
+    --primary: 255 127 134;
+    --primary-foreground: 255 255 255;
+    --secondary: 64 52 58;
+    --secondary-foreground: 255 248 245;
+    --background: 39 35 41;
+    --foreground: 255 248 245;
+    --card: 49 43 50;
+    --card-foreground: 255 248 245;
+    --popover: 49 43 50;
+    --popover-foreground: 255 248 245;
+    --muted: 64 52 58;
+    --muted-foreground: 205 192 198;
+    --accent: 255 157 161;
+    --accent-foreground: 39 35 41;
+    --destructive: 217 87 99;
+    --border: 91 76 84;
+    --input: 91 76 84;
     --ring: 255 127 134;
   }
 }
