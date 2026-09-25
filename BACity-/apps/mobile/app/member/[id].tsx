@@ -1,30 +1,425 @@
-import { useEffect, useState } from 'react';
-import { Text } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
-import { apiRequest } from '../../src/api/client';
-import { Page, Card, Field, Button, Notice, ui } from '../../src/components/CommunityUI';
+import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { apiRequest } from "../../src/api/client";
+import {
+  Page,
+  Card,
+  Field,
+  Button,
+  Notice,
+  ui,
+} from "../../src/components/CommunityUI";
+import { colors } from "../../src/theme/colors";
+import { fonts } from "../../src/theme/fonts";
 
 export default function Member() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [profile, setProfile] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
-  const [body, setBody] = useState('');
-  const [reason, setReason] = useState('');
-  const [notice, setNotice] = useState('');
+  const [body, setBody] = useState("");
+  const [reason, setReason] = useState("");
+  const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const initials = useMemo(() => {
+    const source = profile?.display_name || profile?.email || "BA";
+    return source
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part: string) => part[0]?.toUpperCase())
+      .join("");
+  }, [profile]);
+
   async function load() {
-    try { setProfile(await apiRequest(`/community/profiles/${id}`, { auth: true })); setMessages(await apiRequest<any[]>(`/community/messages/${id}`, { auth: true })); }
-    catch (e: any) { setNotice(e.message); }
+    try {
+      setProfile(await apiRequest(`/community/profiles/${id}`, { auth: true }));
+      setMessages(
+        await apiRequest<any[]>(`/community/messages/${id}`, { auth: true })
+      );
+    } catch (e: any) {
+      setNotice(e.message);
+    }
   }
-  useEffect(() => { void load(); }, [id]);
+
+  useEffect(() => {
+    void load();
+  }, [id]);
+
   async function act(path: string, payload?: unknown) {
-    setBusy(true); setNotice('');
-    try { await apiRequest(path, { method: 'POST', auth: true, body: payload }); setBody(''); await load(); setNotice('Saved.'); }
-    catch (e: any) { setNotice(e.message); } finally { setBusy(false); }
+    setBusy(true);
+    setNotice("");
+    try {
+      await apiRequest(path, { method: "POST", auth: true, body: payload });
+      setBody("");
+      await load();
+      setNotice("Saved.");
+    } catch (e: any) {
+      setNotice(e.message);
+    } finally {
+      setBusy(false);
+    }
   }
-  return <Page title={profile?.display_name ?? 'Community profile'}><Notice text={notice} />{profile && <>
-    <Card><Text style={ui.text}>{profile.bio}</Text><Text style={ui.muted}>{profile.city} · {profile.neighborhood} · {profile.reputation_level}</Text><Text style={ui.text}>{profile.followers} followers · {profile.following} following</Text><Button title="Follow" busy={busy} onPress={() => act('/community/follows', { target_type: 'user', target_id: id })} /><Button title="Block this person" busy={busy} onPress={() => act(`/community/blocks/${id}`)} /></Card>
-    <Card><Text style={ui.heading}>Conversation</Text><Text style={ui.muted}>Messages require mutual follows unless the recipient allows general messages. Messages are retained for 90 days by default.</Text>{messages.slice().reverse().map(message => <Text key={message.id} style={ui.text}>{message.sender_id === id ? profile.display_name ?? 'Them' : 'You'}: {message.body}</Text>)}<Field label="Message" value={body} onChange={setBody} multiline /><Button title="Send message" busy={busy} onPress={() => act(`/community/messages/${id}`, { body })} /><Button title="Refresh conversation" onPress={load} /></Card>
-    <Card><Field label="Reason for reporting this profile" value={reason} onChange={setReason} multiline /><Button title="Report profile" busy={busy} onPress={() => act('/community/reports', { target_type: 'user', target_id: id, reason })} /></Card>
-  </>}</Page>;
+
+  return (
+    <Page title="Community profile">
+      <Notice text={notice} />
+
+      {profile && (
+        <>
+          <View style={styles.hero}>
+            <View style={styles.avatarWrap}>
+              {profile.avatar_url ? (
+                <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+              ) : (
+                <View style={styles.avatarFallback}>
+                  <Text style={styles.avatarText}>{initials}</Text>
+                </View>
+              )}
+              {!!profile.identity_verified && (
+                <View style={styles.verified}>
+                  <Ionicons name="checkmark" size={13} color={colors.white} />
+                </View>
+              )}
+            </View>
+
+            <Text style={styles.name}>
+              {profile.display_name ?? "BACity member"}
+            </Text>
+
+            <View style={styles.badges}>
+              <View style={styles.badge}>
+                <Ionicons name="location-outline" size={12} color={colors.primaryDark} />
+                <Text style={styles.badgeText}>
+                  {profile.neighborhood || profile.city || "Bratislava"}
+                </Text>
+              </View>
+              {!!profile.reputation_level && (
+                <View style={styles.badge}>
+                  <Ionicons name="sparkles-outline" size={12} color={colors.primaryDark} />
+                  <Text style={styles.badgeText}>{profile.reputation_level}</Text>
+                </View>
+              )}
+            </View>
+
+            {!!profile.bio && <Text style={styles.bio}>{profile.bio}</Text>}
+
+            <View style={styles.stats}>
+              <View style={styles.stat}>
+                <Text style={styles.statValue}>{profile.followers ?? 0}</Text>
+                <Text style={styles.statLabel}>Followers</Text>
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.stat}>
+                <Text style={styles.statValue}>{profile.following ?? 0}</Text>
+                <Text style={styles.statLabel}>Following</Text>
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.stat}>
+                <Text style={styles.statValue}>{profile.reputation ?? 0}</Text>
+                <Text style={styles.statLabel}>Reputation</Text>
+              </View>
+            </View>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.follow,
+                pressed && styles.pressed,
+              ]}
+              disabled={busy}
+              onPress={() =>
+                act("/community/follows", {
+                  target_type: "user",
+                  target_id: id,
+                })
+              }
+            >
+              <Ionicons name="person-add-outline" size={17} color={colors.white} />
+              <Text style={styles.followText}>Follow</Text>
+            </Pressable>
+          </View>
+
+          <Card>
+            <View style={styles.sectionTitleRow}>
+              <View style={styles.sectionIcon}>
+                <Ionicons name="chatbubble-ellipses-outline" size={19} color={colors.primaryDark} />
+              </View>
+              <View style={styles.sectionCopy}>
+                <Text style={styles.sectionTitle}>Conversation</Text>
+                <Text style={styles.sectionSubtitle}>
+                  Mutual follows can message each other. General messages depend on the recipient's settings.
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.thread}>
+              {!messages.length && (
+                <Text style={ui.muted}>No messages yet. Start the conversation.</Text>
+              )}
+              {messages
+                .slice()
+                .reverse()
+                .slice(-20)
+                .map((message) => {
+                  const incoming = message.sender_id === id;
+                  return (
+                    <View
+                      key={message.id}
+                      style={[
+                        styles.bubble,
+                        incoming ? styles.bubbleIncoming : styles.bubbleMine,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.bubbleText,
+                          !incoming && styles.bubbleTextMine,
+                        ]}
+                      >
+                        {message.body}
+                      </Text>
+                    </View>
+                  );
+                })}
+            </View>
+
+            <Field label="Message" value={body} onChange={setBody} multiline />
+            <Button
+              title="Send message"
+              busy={busy}
+              onPress={() => act(`/community/messages/${id}`, { body })}
+            />
+          </Card>
+
+          <Card>
+            <View style={styles.sectionTitleRow}>
+              <View style={styles.sectionIcon}>
+                <Ionicons name="shield-outline" size={19} color={colors.primaryDark} />
+              </View>
+              <View style={styles.sectionCopy}>
+                <Text style={styles.sectionTitle}>Safety controls</Text>
+                <Text style={styles.sectionSubtitle}>
+                  Blocking stops contact. Reports go to moderation for review.
+                </Text>
+              </View>
+            </View>
+            <Field
+              label="Reason for reporting this profile"
+              value={reason}
+              onChange={setReason}
+              multiline
+            />
+            <Button
+              title="Report profile"
+              busy={busy}
+              onPress={() =>
+                act("/community/reports", {
+                  target_type: "user",
+                  target_id: id,
+                  reason,
+                })
+              }
+            />
+            <Pressable
+              disabled={busy}
+              onPress={() => act(`/community/blocks/${id}`)}
+              style={({ pressed }) => [
+                styles.blockButton,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Ionicons name="ban-outline" size={17} color={colors.danger} />
+              <Text style={styles.blockText}>Block this person</Text>
+            </Pressable>
+          </Card>
+        </>
+      )}
+    </Page>
+  );
 }
+
+const styles = StyleSheet.create({
+  hero: {
+    alignItems: "center",
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  avatarWrap: { position: "relative" },
+  avatar: {
+    width: 104,
+    height: 104,
+    borderRadius: 38,
+    backgroundColor: colors.primarySoft,
+  },
+  avatarFallback: {
+    width: 104,
+    height: 104,
+    borderRadius: 38,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: {
+    color: colors.white,
+    fontFamily: fonts.black,
+    fontSize: 34,
+  },
+  verified: {
+    position: "absolute",
+    right: -3,
+    bottom: 5,
+    width: 27,
+    height: 27,
+    borderRadius: 14,
+    backgroundColor: colors.free,
+    borderWidth: 3,
+    borderColor: colors.background,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  name: {
+    marginTop: 14,
+    color: colors.text,
+    fontFamily: fonts.black,
+    fontSize: 28,
+    letterSpacing: -0.8,
+    textAlign: "center",
+  },
+  badges: {
+    marginTop: 8,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 7,
+  },
+  badge: {
+    minHeight: 30,
+    paddingHorizontal: 10,
+    borderRadius: 15,
+    backgroundColor: colors.primarySoft,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  badgeText: {
+    color: colors.primaryDark,
+    fontFamily: fonts.semibold,
+    fontSize: 9,
+  },
+  bio: {
+    maxWidth: 315,
+    marginTop: 12,
+    color: colors.textMuted,
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: "center",
+  },
+  stats: {
+    width: "100%",
+    marginTop: 20,
+    paddingVertical: 14,
+    borderRadius: 23,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  stat: { flex: 1, alignItems: "center" },
+  statValue: {
+    color: colors.text,
+    fontFamily: fonts.black,
+    fontSize: 15,
+  },
+  statLabel: {
+    marginTop: 2,
+    color: colors.textMuted,
+    fontFamily: fonts.regular,
+    fontSize: 9,
+  },
+  divider: { width: 1, height: 28, backgroundColor: colors.border },
+  follow: {
+    minHeight: 50,
+    marginTop: 14,
+    paddingHorizontal: 24,
+    borderRadius: 17,
+    backgroundColor: colors.primary,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  followText: {
+    color: colors.white,
+    fontFamily: fonts.semibold,
+    fontSize: 12,
+  },
+  pressed: { opacity: 0.86, transform: [{ scale: 0.985 }] },
+  sectionTitleRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 11,
+  },
+  sectionIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 15,
+    backgroundColor: colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sectionCopy: { flex: 1 },
+  sectionTitle: {
+    color: colors.text,
+    fontFamily: fonts.black,
+    fontSize: 16,
+  },
+  sectionSubtitle: {
+    marginTop: 3,
+    color: colors.textMuted,
+    fontFamily: fonts.regular,
+    fontSize: 10,
+    lineHeight: 15,
+  },
+  thread: { gap: 7 },
+  bubble: {
+    maxWidth: "84%",
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 15,
+  },
+  bubbleIncoming: {
+    alignSelf: "flex-start",
+    backgroundColor: colors.surfaceAlt,
+  },
+  bubbleMine: {
+    alignSelf: "flex-end",
+    backgroundColor: colors.primary,
+  },
+  bubbleText: {
+    color: colors.text,
+    fontFamily: fonts.regular,
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  bubbleTextMine: { color: colors.white },
+  blockButton: {
+    minHeight: 46,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#F5C7CB",
+    backgroundColor: "#FFF5F6",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+  },
+  blockText: {
+    color: colors.danger,
+    fontFamily: fonts.semibold,
+    fontSize: 11,
+  },
+});
