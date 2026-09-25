@@ -25,7 +25,7 @@ This checkpoint implements the core community workflows on `new-impl-03`. It is 
 - 36 crawler tests passed, including fixture-based HTTP end-to-end tests.
 - Real PostgreSQL migration test passed: existing data → 0004 → rollback to 0003 → 0004.
 - Mobile TypeScript type check passed. Two existing unsupported icon names were corrected.
-- Web export remains unverified in this Windows sandbox (Metro worker process creation was denied; a single-worker retry had not completed at checkpoint). Production container deployment is unverified. No new native-device or browser interaction test has been completed for these screens.
+- Web export passed with `npx expo export --platform web --max-workers 1` (785 modules). Production container deployment is unverified. No new native-device or browser interaction test has been completed for these screens.
 - Existing running Docker services are not evidence that this new implementation is deployed. Migrate and restart deliberately after configuring your environment.
 
 ## Local setup
