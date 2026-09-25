@@ -78,6 +78,23 @@ services:
       start_period: 60s
       retries: 3
 
+  maintenance:
+    build:
+      context: ./services/api
+    env_file: .env
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    command: python -m app.worker
+
+  mailpit:
+    image: axllent/mailpit:v1.20
+    profiles: [dev-mail]
+    ports:
+      - "127.0.0.1:8025:8025"
+      - "127.0.0.1:1025:1025"
+
 volumes:
   pgdata:
   crawlerdata:

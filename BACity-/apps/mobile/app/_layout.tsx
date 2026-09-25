@@ -16,6 +16,8 @@ const MIN_BOOT_MS = 1400;
 export default function RootLayout() {
   const hydrate = useAuthStore((s) => s.hydrate);
   const authLoading = useAuthStore((s) => s.isLoading);
+  const userId = useAuthStore((s) => s.user?.id);
+  useEffect(() => { queryClient.clear(); }, [userId]);
   const [bootVisible, setBootVisible] = useState(true);
 
   useEffect(() => {

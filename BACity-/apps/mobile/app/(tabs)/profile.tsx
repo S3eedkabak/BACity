@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -56,8 +57,8 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.menuCard}>
-          {["Notifications", "Preferences", "About BACity"].map((label, index) => (
-            <Pressable key={label} style={styles.menuRow}>
+          {["Community & notifications", "Account & preferences", "Organizer dashboard"].map((label, index) => (
+            <Pressable key={label} style={styles.menuRow} onPress={() => router.push(index === 0 ? "/community" : index === 1 ? "/account" : "/organizer")}>
               <View style={styles.menuIcon}>
                 <Ionicons
                   name={index === 0 ? "notifications-outline" : index === 1 ? "options-outline" : "information-circle-outline"}
@@ -141,6 +142,7 @@ export default function ProfileScreen() {
         )}
       </Pressable>
 
+      <Pressable onPress={() => router.push("/account")}><Text style={styles.switch}>Forgot your password?</Text></Pressable>
       <Pressable onPress={() => setMode(mode === "login" ? "register" : "login")}>
         <Text style={styles.switch}>
           {mode === "login"

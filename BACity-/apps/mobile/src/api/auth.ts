@@ -5,6 +5,14 @@ export interface UserOut {
   email: string;
   display_name: string | null;
   interests: string[];
+  role: string;
+  email_verified: boolean;
+  identity_verified: boolean;
+  reputation: number;
+  bio: string | null;
+  neighborhood: string | null;
+  public_profile: boolean;
+  allow_general_messages: boolean;
 }
 
 interface TokenResponse {

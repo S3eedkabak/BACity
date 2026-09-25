@@ -83,6 +83,11 @@ class EventOut(EventBase):
     updated_at: datetime
     sources: list[EventSourceOut] = []
     last_seen_at: Optional[datetime] = None
+    trust_level: str = 'Unverified'
+    contributor_id: Optional[UUID] = None
+    organization_id: Optional[UUID] = None
+    ticket_url: Optional[str] = None
+    neighborhood: Optional[str] = None
 
     @field_serializer('start_time', 'end_time', 'created_at', 'updated_at', 'last_seen_at')
     def serialize_utc(self, value):

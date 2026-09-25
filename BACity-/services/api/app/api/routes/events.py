@@ -19,7 +19,8 @@ router = APIRouter(prefix="/events", tags=["events"])
 
 
 def require_ingestion_key(x_ingestion_key: str = Header(default="")):
-    expected = os.getenv("INGESTION_API_KEY", "")
+    from app.config import get_settings
+    expected = os.getenv("INGESTION_API_KEY", get_settings().ingestion_api_key)
     if expected and not secrets.compare_digest(expected, x_ingestion_key):
         raise HTTPException(status_code=401, detail="Invalid ingestion key")
 
@@ -47,8 +48,8 @@ def list_events(
     free_only: bool = False,
     starts_after: Optional[datetime] = None,
     starts_before: Optional[datetime] = None,
-    limit: int = Query(20, le=100),
-    offset: int = 0,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
 ):
     total, items = event_crud.list_events(
@@ -66,8 +67,8 @@ def list_events(
 
 @router.get("/search", response_model=list[EventOut])
 def search_events(
-    q: str = Query(..., min_length=1),
-    limit: int = Query(20, le=100),
+    q: str = Query(..., min_length=1, max_length=200),
+    limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
     return event_crud.search_events(db, query=q, limit=limit)

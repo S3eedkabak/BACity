@@ -1,0 +1,92 @@
+# Independent stack: docker compose --env-file .env.production -f compose.production.yml up -d --build
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 10s
+      retries: 10
+  api:
+    build: ./services/api
+    env_file: .env.production
+    environment:
+      ENVIRONMENT: production
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: sh -c "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log"
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
+      interval: 15s
+      retries: 10
+  crawler:
+    build: ./services/crawler
+    env_file: .env.production
+    environment:
+      API_BASE_URL: http://api:8000
+      CRAWLER_STATE_PATH: /data/state.db
+    volumes: [crawlerdata:/data]
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    command: python -m crawler.worker
+    healthcheck:
+      test: [CMD, python, -m, crawler.worker, --health]
+      interval: 60s
+      start_period: 60s
+      retries: 3
+  maintenance:
+    build: ./services/api
+    env_file: .env.production
+    environment:
+      ENVIRONMENT: production
+    command: python -m app.worker
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+  web:
+    build:
+      context: ./apps/mobile
+      args:
+        EXPO_PUBLIC_API_URL: https://${API_DOMAIN:?Set API_DOMAIN}
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN}
+      API_DOMAIN: ${API_DOMAIN:?Set API_DOMAIN}
+    ports: ['80:80', '443:443']
+    volumes: [caddydata:/data, caddyconfig:/config]
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+  backup:
+    image: postgres:16-alpine
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+    volumes:
+      - backups:/backups
+      - ./infrastructure/backup.sh:/backup.sh:ro
+    entrypoint: [sh, /backup.sh]
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+volumes:
+  pgdata:
+  crawlerdata:
+  caddydata:
+  caddyconfig:
+  backups:

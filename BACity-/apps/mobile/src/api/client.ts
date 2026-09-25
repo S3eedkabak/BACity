@@ -56,7 +56,9 @@ export async function apiRequest<T>(
     let detail = res.statusText;
     try {
       const errBody = await res.json();
-      detail = errBody.detail ?? detail;
+      detail = Array.isArray(errBody.detail)
+        ? errBody.detail.map((error: { loc?: string[]; msg?: string }) => `${error.loc?.slice(1).join('.') ?? 'Input'}: ${error.msg ?? 'Invalid value'}`).join('\n')
+        : errBody.detail ?? detail;
     } catch {
       // Keep the HTTP status text when the body is not JSON.
     }

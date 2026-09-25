@@ -1,0 +1,12 @@
+{$APP_DOMAIN} {
+  encode zstd gzip
+  root * /srv
+  try_files {path} {path}.html /index.html
+  file_server
+  header X-Content-Type-Options nosniff
+  header Referrer-Policy no-referrer
+}
+{$API_DOMAIN} {
+  reverse_proxy api:8000
+  header Strict-Transport-Security "max-age=31536000"
+}

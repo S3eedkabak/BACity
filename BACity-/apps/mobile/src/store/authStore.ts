@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import * as SecureStore from "expo-secure-store";
+import { tokenStorage as SecureStore } from './tokenStorage';
+import { apiRequest } from '../api/client';
 import * as authApi from "../api/auth";
 import { setSessionToken } from "./tokenSession";
 
@@ -55,6 +56,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
+    try { await apiRequest('/auth/logout', { method: 'POST', auth: true }); } catch { /* Always clear this device's session, including expired tokens. */ }
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     setSessionToken(null);
     set({ token: null, user: null });

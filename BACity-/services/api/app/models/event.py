@@ -73,6 +73,11 @@ class Event(Base):
 
     source_url = Column(String, nullable=False)
     source_id = Column(GUID(), ForeignKey("sources.id"), nullable=True)
+    contributor_id = Column(GUID(), ForeignKey('users.id'), nullable=True, index=True)
+    organization_id = Column(GUID(), ForeignKey('organizations.id'), nullable=True, index=True)
+    trust_level = Column(String, nullable=False, default='Unverified')
+    ticket_url = Column(String)
+    neighborhood = Column(String)
     language = Column(String, nullable=False, default="sk")
 
     extraction_confidence = Column(Float, nullable=False, default=0.5)

@@ -1,7 +1,7 @@
-name: Crawler Tests
+name: BACity Tests
 on:
   push:
-    branches: [main, Phase2-CheckPoint]
+    branches: [main, Phase2-CheckPoint, new-impl-03]
   pull_request:
   workflow_dispatch:
 jobs:
@@ -39,3 +39,21 @@ jobs:
         with:
           name: test-results
           path: BACity-/services/*/*-results.xml
+  mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: BACity-/apps/mobile/package-lock.json
+      - run: npm ci
+        working-directory: BACity-/apps/mobile
+      - run: npm run typecheck
+        working-directory: BACity-/apps/mobile
+      - run: npx expo export --platform web
+        working-directory: BACity-/apps/mobile
+        env:
+          EXPO_PUBLIC_API_URL: https://api.example.com

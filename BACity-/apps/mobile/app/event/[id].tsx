@@ -1,3 +1,4 @@
+import { Discussion } from "../../src/components/Discussion";
 import { useLayoutEffect } from "react";
 import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useNavigation } from "expo-router";
@@ -121,8 +122,9 @@ export default function EventDetailScreen() {
 
       <Pressable style={styles.sourceButton} onPress={() => Linking.openURL(event.source_url)}>
         <Text style={styles.sourceText}>View original event</Text>
-        <Ionicons name="arrow-up-right" size={16} color={colors.primaryDark} />
+        <Ionicons name="arrow-up-outline" size={16} color={colors.primaryDark} />
       </Pressable>
+      <Discussion id={id} kind="event" />
     </ScrollView>
   );
 }

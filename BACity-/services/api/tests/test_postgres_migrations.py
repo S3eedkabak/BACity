@@ -31,7 +31,11 @@ def test_upgrade_backfills_existing_source_references():
             row = connection.execute(text('SELECT title_key,source_url FROM event_sources')).one()
             assert row.title_key == 'test jazz'
             assert row.source_url == 'https://venue.example/event'
-            assert connection.execute(text('SELECT version_num FROM alembic_version')).scalar() == '0003'
+            assert connection.execute(text('SELECT version_num FROM alembic_version')).scalar() == '0004'
+            assert connection.execute(text('SELECT trust_level FROM events')).scalar() == 'Unverified'
+            assert connection.execute(text('SELECT count(*) FROM submissions')).scalar() == 0
+        subprocess.run([sys.executable, '-m', 'alembic', 'downgrade', '0003'], cwd=api_dir, env=env, check=True, capture_output=True)
+        subprocess.run([sys.executable, '-m', 'alembic', 'upgrade', 'head'], cwd=api_dir, env=env, check=True, capture_output=True)
     finally:
         if db:
             db.dispose()
