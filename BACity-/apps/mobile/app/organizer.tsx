@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Text, Linking } from 'react-native';
 import { apiRequest } from '../src/api/client';
-import { Page, Card, Field, Button, Notice, ui } from '../src/components/CommunityUI';
+import { Page, Card, Field, Button, Chip, Notice, ui } from '../src/components/CommunityUI';
 
 export default function Organizer() {
   const [orgs, setOrgs] = useState<any[]>([]);
@@ -27,7 +27,7 @@ export default function Organizer() {
     try { const result = await apiRequest<{ url: string }>(path, { method: 'POST', auth: true, body }); await Linking.openURL(result.url); }
     catch (e: any) { setNotice(e.message); } finally { setBusy(false); }
   }
-  return <Page title="Organizer dashboard"><Notice text={notice} />{!orgs.length && <Text style={ui.text}>Claim an organization from Community and wait for ownership verification to manage it here.</Text>}{orgs.map(org => <Button key={org.id} title={`${org.name} · ${org.tier}`} onPress={() => choose(org.id)} />)}{selected && <>
+  return <Page title="Organizer dashboard"><Notice text={notice} />{!orgs.length && <Text style={ui.text}>Claim an organization from Community and wait for ownership verification to manage it here.</Text>}<Text style={ui.muted}>Choose an organization</Text><Text style={ui.text}></Text>{orgs.length > 0 && <>{orgs.map(org => <Chip key={org.id} title={`${org.name} · ${org.tier}`} active={selected === org.id} onPress={() => choose(org.id)} />)}</>}{selected && <>
     {analytics && <Card><Text style={ui.heading}>Audience</Text><Text style={ui.text}>{analytics.events} events · {analytics.followers} followers · {analytics.saves} saves</Text></Card>}
     <Card><Text style={ui.heading}>Publish an event or recurring series</Text>{field('title', 'Title')}{field('description', 'Description', true)}{field('address', 'Address in Bratislava')}{field('source', 'Official event URL (HTTPS)')}{field('dates', 'One start date per line, with timezone (e.g. 2026-12-10T19:00+01:00)', true)}<Button title="Publish dates" busy={busy} onPress={publish} /></Card>
     <Card><Text style={ui.heading}>Subscription</Text>{billing?.configured ? <>{billing.plans.map((tier: string) => <Button key={tier} title={'Review ' + tier + ' pricing in checkout'} busy={busy} onPress={() => payment('/billing/checkout', { organization_id: selected, tier })} />)}<Button title="Manage or cancel subscription" busy={busy} onPress={() => payment(`/billing/portal/${selected}`)} /></> : <Text style={ui.text}>Paid plans are not available yet. Payment services have not been configured.</Text>}</Card>
