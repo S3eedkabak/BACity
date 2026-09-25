@@ -8,6 +8,7 @@ import { LoadingState } from "../../src/components/LoadingState";
 import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
 import { router } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function SavedScreen() {
   const token = useAuthStore((s) => s.token);
@@ -43,6 +44,7 @@ export default function SavedScreen() {
   }
 
   return (
+    <SafeAreaView style={styles.safe} edges={["top"]}>
     <FlatList
       style={styles.container}
       contentContainerStyle={styles.content}
@@ -70,10 +72,12 @@ export default function SavedScreen() {
         </View>
       }
     />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: colors.background },
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 18, paddingTop: 12, paddingBottom: 108 },
   header: { paddingBottom: 18 },
