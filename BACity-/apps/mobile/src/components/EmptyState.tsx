@@ -1,38 +1,74 @@
 import { Ionicons } from "@expo/vector-icons";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { colors } from "../theme/colors";
 import { fonts } from "../theme/fonts";
 
-export function EmptyState({ title, subtitle }: { title: string; subtitle?: string }) {
+export function EmptyState({
+  title,
+  subtitle,
+  action,
+  onAction,
+}: {
+  title: string;
+  subtitle?: string;
+  action?: string;
+  onAction?: () => void;
+}) {
   return (
-    <View style={styles.container}>
+    <View style={styles.wrap}>
       <View style={styles.icon}>
-        <Ionicons name="sparkles-outline" size={20} color={colors.primary} />
+        <Ionicons name="sparkles-outline" size={24} color={colors.primaryDark} />
       </View>
       <Text style={styles.title}>{title}</Text>
-      {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+      {!!subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+      {!!action && !!onAction && (
+        <Pressable style={styles.button} onPress={onAction}>
+          <Text style={styles.buttonText}>{action}</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { paddingVertical: 48, alignItems: "center", gap: 7 },
+  wrap: {
+    minHeight: 280,
+    paddingHorizontal: 34,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   icon: {
-    width: 46,
-    height: 46,
-    borderRadius: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 20,
     backgroundColor: colors.primarySoft,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 3,
+    marginBottom: 16,
   },
-  title: { color: colors.text, fontFamily: fonts.black, fontSize: 15 },
+  title: {
+    color: colors.text,
+    fontFamily: fonts.black,
+    fontSize: 21,
+    letterSpacing: -0.5,
+    textAlign: "center",
+  },
   subtitle: {
     color: colors.textMuted,
     fontFamily: fonts.regular,
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 13,
+    lineHeight: 19,
     textAlign: "center",
-    paddingHorizontal: 32,
+    marginTop: 7,
   },
+  button: {
+    marginTop: 18,
+    minHeight: 46,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  buttonText: { color: colors.white, fontFamily: fonts.semibold, fontSize: 13 },
 });
