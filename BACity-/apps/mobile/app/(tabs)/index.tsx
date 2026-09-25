@@ -74,6 +74,10 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.heroCopy}>
+        <View style={styles.eyebrowPill}>
+          <View style={styles.eyebrowDot} />
+          <Text style={styles.eyebrowText}>DISCOVER BRATISLAVA</Text>
+        </View>
         <Text style={styles.heroTitle}>What's your{"\n"}vibe today?</Text>
         <Text style={styles.heroSubtitle}>
           Find something worth leaving the house for.
@@ -183,7 +187,30 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   locationText: { color: colors.text, fontFamily: fonts.semibold, fontSize: 11 },
-  heroCopy: { marginBottom: 17 },
+  heroCopy: { marginBottom: 19 },
+  eyebrowPill: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 99,
+    backgroundColor: colors.primarySoft,
+    marginBottom: 12,
+  },
+  eyebrowDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.primary,
+  },
+  eyebrowText: {
+    color: colors.primaryDark,
+    fontFamily: fonts.semibold,
+    fontSize: 9,
+    letterSpacing: 1.1,
+  },
   heroTitle: {
     color: colors.text,
     fontFamily: fonts.black,
@@ -199,14 +226,14 @@ const styles = StyleSheet.create({
   },
   searchCta: {
     height: 58,
-    borderRadius: 20,
+    borderRadius: 22,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 8,
-    marginBottom: 24,
+    marginBottom: 26,
     shadowColor: colors.shadow,
     shadowOpacity: 0.08,
     shadowRadius: 12,
