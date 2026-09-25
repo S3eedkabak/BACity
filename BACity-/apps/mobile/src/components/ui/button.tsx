@@ -8,13 +8,13 @@ import {
   withStyleContext,
   type VariantProps,
 } from "@gluestack-ui/utils/nativewind-utils";
-import { withUniwind } from "uniwind";
+import { styled } from "nativewind";
 import React from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 const SCOPE = "BUTTON";
 const Root = withStyleContext(Pressable, SCOPE);
-const StyledUIIcon = withUniwind(UIIcon);
+const StyledUIIcon = styled(UIIcon, { className: "style" });
 
 const UIButton = createButton({
   Root,
@@ -28,10 +28,10 @@ const buttonStyle = tva({
   base: "flex-row items-center justify-center gap-2 rounded-2xl data-[disabled=true]:opacity-50",
   variants: {
     variant: {
-      solid: "bg-primary data-[hover=true]:bg-primary/90 data-[active=true]:bg-primary/90",
-      dark: "bg-foreground data-[hover=true]:bg-foreground/90 data-[active=true]:bg-foreground/90",
-      outline: "border border-border bg-card data-[hover=true]:bg-secondary",
-      ghost: "bg-transparent data-[hover=true]:bg-secondary",
+      solid: "bg-primary",
+      dark: "bg-foreground",
+      outline: "border border-border bg-card",
+      ghost: "bg-transparent",
     },
     size: {
       sm: "min-h-10 px-4",
@@ -61,10 +61,7 @@ const buttonTextStyle = tva({
 const buttonSpinnerStyle = tva({ base: "" });
 const buttonIconStyle = tva({ base: "fill-none pointer-events-none shrink-0" });
 
-type IButtonProps = Omit<
-  React.ComponentPropsWithoutRef<typeof UIButton>,
-  "context"
-> &
+type IButtonProps = Omit<React.ComponentPropsWithoutRef<typeof UIButton>, "context"> &
   VariantProps<typeof buttonStyle> & { className?: string };
 
 const Button = React.forwardRef<React.ElementRef<typeof UIButton>, IButtonProps>(
@@ -81,23 +78,22 @@ const Button = React.forwardRef<React.ElementRef<typeof UIButton>, IButtonProps>
 type IButtonTextProps = React.ComponentPropsWithoutRef<typeof UIButton.Text> &
   VariantProps<typeof buttonTextStyle> & { className?: string };
 
-const ButtonText = React.forwardRef<
-  React.ElementRef<typeof UIButton.Text>,
-  IButtonTextProps
->(({ className, size, ...props }, ref) => {
-  const { size: parentSize, variant: parentVariant } = useStyleContext(SCOPE);
-  return (
-    <UIButton.Text
-      ref={ref}
-      {...props}
-      className={buttonTextStyle({
-        parentVariants: { size: parentSize, variant: parentVariant },
-        size,
-        class: className,
-      })}
-    />
-  );
-});
+const ButtonText = React.forwardRef<React.ElementRef<typeof UIButton.Text>, IButtonTextProps>(
+  ({ className, size, ...props }, ref) => {
+    const { size: parentSize, variant: parentVariant } = useStyleContext(SCOPE);
+    return (
+      <UIButton.Text
+        ref={ref}
+        {...props}
+        className={buttonTextStyle({
+          parentVariants: { size: parentSize, variant: parentVariant },
+          size,
+          class: className,
+        })}
+      />
+    );
+  }
+);
 
 const ButtonSpinner = React.forwardRef<
   React.ElementRef<typeof UIButton.Spinner>,
@@ -118,16 +114,15 @@ type IButtonIcon = React.ComponentPropsWithoutRef<typeof UIButton.Icon> &
     width?: number;
   };
 
-const ButtonIcon = React.forwardRef<
-  React.ElementRef<typeof UIButton.Icon>,
-  IButtonIcon
->(({ className, ...props }, ref) => (
-  <UIButton.Icon
-    ref={ref}
-    {...props}
-    className={buttonIconStyle({ class: className })}
-  />
-));
+const ButtonIcon = React.forwardRef<React.ElementRef<typeof UIButton.Icon>, IButtonIcon>(
+  ({ className, ...props }, ref) => (
+    <UIButton.Icon
+      ref={ref}
+      {...props}
+      className={buttonIconStyle({ class: className })}
+    />
+  )
+);
 
 Button.displayName = "Button";
 ButtonText.displayName = "ButtonText";
