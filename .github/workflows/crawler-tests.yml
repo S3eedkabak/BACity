@@ -1,7 +1,7 @@
 name: BACity Tests
 on:
   push:
-    branches: [main, Phase2-CheckPoint, new-impl-03]
+    branches: [main, Phase2-CheckPoint, new-impl-03, UI-refactor]
   pull_request:
   workflow_dispatch:
 jobs:
