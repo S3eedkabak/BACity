@@ -28,7 +28,7 @@ export default function SavedScreen() {
         </Text>
         <Pressable
           style={styles.loginButton}
-          onPress={() => router.push("/(tabs)/profile")}
+          onPress={() => router.push({ pathname: "/auth", params: { mode: "login" } })}
         >
           <Text style={styles.loginText}>Log in to save events</Text>
           <Ionicons name="arrow-forward" size={17} color={colors.white} />
