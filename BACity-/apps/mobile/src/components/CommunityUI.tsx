@@ -107,6 +107,31 @@ export function Field({
   );
 }
 
+export function Chip({
+  title,
+  active = false,
+  onPress,
+}: {
+  title: string;
+  active?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      style={({ pressed }) => [
+        ui.chip,
+        active && ui.chipActive,
+        pressed && ui.pressed,
+      ]}
+    >
+      <Text style={[ui.chipText, active && ui.chipTextActive]}>{title}</Text>
+    </Pressable>
+  );
+}
+
 export function Notice({ text }: { text: string | null | undefined }) {
   return text ? (
     <View style={ui.noticeBox}>
@@ -228,6 +253,26 @@ export const ui = StyleSheet.create({
     fontSize: 13,
     textAlign: "center",
   },
+  chip: {
+    minHeight: 36,
+    paddingHorizontal: 14,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  chipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  chipText: {
+    color: colors.textMuted,
+    fontFamily: fonts.semibold,
+    fontSize: 10,
+  },
+  chipTextActive: { color: colors.white },
   noticeBox: {
     flexDirection: "row",
     alignItems: "flex-start",
