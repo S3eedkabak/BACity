@@ -1,8 +1,7 @@
 import React, { useEffect } from "react";
-import { View, ViewProps } from "react-native";
+import { Appearance, ColorSchemeName, View, ViewProps } from "react-native";
 import { OverlayProvider } from "@gluestack-ui/core/overlay/creator";
 import { ToastProvider } from "@gluestack-ui/core/toast/creator";
-import { Uniwind } from "uniwind";
 
 export type ModeType = "light" | "dark" | "system";
 
@@ -15,7 +14,7 @@ export function GluestackUIProvider({
   style?: ViewProps["style"];
 }) {
   useEffect(() => {
-    Uniwind.setTheme(mode);
+    Appearance.setColorScheme(mode === "system" ? null : (mode as ColorSchemeName));
   }, [mode]);
 
   return (
