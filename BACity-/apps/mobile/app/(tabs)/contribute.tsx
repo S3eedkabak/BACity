@@ -1,50 +1,36 @@
-import { useState } from 'react';
-import { Text, View, Switch } from 'react-native';
-import { router } from 'expo-router';
-import { apiRequest } from '../../src/api/client';
-import { Page, Card, Field, Button, Chip, Notice, ui } from '../../src/components/CommunityUI';
-import { useAuthStore } from '../../src/store/authStore';
+import { useState } from "react";
+import { ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { router } from "expo-router";
+import { apiRequest } from "../../src/api/client";
+import { Button, Chip, Field, Notice } from "../../src/components/CommunityUI";
+import { useAuthStore } from "../../src/store/authStore";
+import { colors } from "../../src/theme/colors";
+import { fonts } from "../../src/theme/fonts";
 
-export default function Contribute() {
-  const user = useAuthStore(s => s.user);
-  const [kind, setKind] = useState<'events' | 'places' | 'utilities'>('events');
-  const [fields, setFields] = useState<Record<string, string>>({ category: 'Community', utility: 'toilet' });
-  const [free, setFree] = useState(false);
-  const [accessible, setAccessible] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState('');
-  function field(key: string, label: string, multiline = false) { return <Field key={key} label={label} value={fields[key] ?? ''} onChange={value => setFields({ ...fields, [key]: value })} multiline={multiline} />; }
-  async function submit() {
-    setBusy(true); setNotice('');
-    try {
-      const coords = { latitude: fields.latitude ? Number(fields.latitude) : null, longitude: fields.longitude ? Number(fields.longitude) : null };
-      let body: Record<string, unknown>;
-      if (kind === 'events') {
-        if (!fields.start_time || !/([+-]\d\d:\d\d|Z)$/.test(fields.start_time)) throw new Error('Include the timezone offset, for example 2026-12-10T19:00+01:00.');
-        body = { ...coords, title: fields.name, description: fields.description, address: fields.address, start_time: fields.start_time, end_time: fields.end_time || null, category: fields.category, source_url: fields.source_url, image_url: fields.image_url || null, ticket_url: fields.ticket_url || null, price: fields.price ? Number(fields.price) : null, neighborhood: fields.neighborhood || null };
-      } else if (kind === 'places') {
-        body = { ...coords, name: fields.name, description: fields.description, address: fields.address, category: fields.category, neighborhood: fields.neighborhood || null, website: fields.source_url || null, accessibility: { wheelchair: accessible } };
-      } else {
-        body = { ...coords, name: fields.name, kind: fields.utility, address: fields.address, source_url: fields.source_url || null, opening_hours: fields.opening_hours || null, free, wheelchair_accessible: accessible };
-      }
-      await apiRequest('/community/submissions/' + kind, { method: 'POST', auth: true, body });
-      setNotice('Submitted for review. Track the decision in Community → Your contributions.');
-      setFields({ category: 'Community', utility: 'toilet' });
-    } catch (e: any) { setNotice(e.message); } finally { setBusy(false); }
-  }
-  return <Page title="Add to your city">
-    <Text style={ui.text}>Share a local event, place, or useful facility. A moderator reviews every community submission before it appears publicly.</Text>
-    {!user?.email_verified ? <Card><Text style={ui.text}>Sign in and verify your email to contribute.</Text><Button title="Account settings" onPress={() => router.push('/account')} /></Card> : <>
-      <View style={ui.row}>{(['events', 'places', 'utilities'] as const).map(k => <Chip key={k} title={k[0].toUpperCase() + k.slice(1)} active={kind === k} onPress={() => setKind(k)} />)}</View>
-      <Card>{field('name', kind === 'events' ? 'Event title' : 'Name')}{kind !== 'utilities' && field('description', 'Description', true)}{field('address', 'Street address in Bratislava')}{field('latitude', 'Latitude (48.00 to 48.35)')}{field('longitude', 'Longitude (16.90 to 17.35)')}{field('source_url', kind === 'events' ? 'Original event page (HTTPS, required)' : 'Source website (HTTPS, optional)')}
-        {kind === 'events' && <>{field('start_time', 'Start date and time, e.g. 2026-12-10T19:00+01:00')}{field('end_time', 'End date and time (optional, with timezone)')}{field('image_url', 'Image URL (HTTPS, optional)')}{field('ticket_url', 'Ticket URL (HTTPS, optional)')}{field('price', 'Price in EUR (0 for free, blank if unknown)')}</>}
-        {kind !== 'utilities' && <>{field('category', 'Category, e.g. Community, Music, Culture, Sports')}{field('neighborhood', 'Neighborhood')}</>}
-        {kind === 'utilities' && <>{field('utility', 'Kind: toilet, water_fountain, bike_repair, charging, wifi, bench, playground, dog_park, recycling, accessible_entrance, parking, locker')}{field('opening_hours', 'Opening hours')}<Text style={ui.text}>Free to use</Text><Switch value={free} onValueChange={setFree} accessibilityLabel="Free to use" /></>}
-        {kind !== 'events' && <><Text style={ui.text}>Wheelchair accessible</Text><Switch value={accessible} onValueChange={setAccessible} accessibilityLabel="Wheelchair accessible" /></>}
-        <Button title="Submit for review" busy={busy} onPress={submit} />
-      </Card>
-    </>}
-    <Notice text={notice} />
-    <Button title="View your contributions" onPress={() => router.push("/community?section=submissions")} />
-  </Page>;
+type Kind = "events" | "places" | "utilities";
+const CATEGORIES = ["Community", "Music", "Culture", "Nightlife", "Sports", "Food & Drink", "Markets", "Family", "Other"];
+const UTILITIES = [{ id: "toilet", label: "Public toilet" }, { id: "water_fountain", label: "Water fountain" }, { id: "bike_repair", label: "Bike repair" }, { id: "charging", label: "Charging" }, { id: "wifi", label: "Public Wi‑Fi" }, { id: "bench", label: "Bench" }, { id: "playground", label: "Playground" }, { id: "dog_park", label: "Dog park" }, { id: "recycling", label: "Recycling" }, { id: "accessible_entrance", label: "Accessible entrance" }, { id: "parking", label: "Parking" }, { id: "locker", label: "Locker" }];
+
+export default function ContributeScreen() {
+  const user = useAuthStore(state => state.user); const [kind, setKind] = useState<Kind>("events"); const [fields, setFields] = useState<Record<string, string>>({ category: "Community", utility: "toilet" }); const [free, setFree] = useState(false); const [accessible, setAccessible] = useState(false); const [busy, setBusy] = useState(false); const [notice, setNotice] = useState("");
+  const field = (key: string, label: string, multiline = false) => <Field key={key} label={label} value={fields[key] || ""} onChange={value => setFields(current => ({ ...current, [key]: value }))} multiline={multiline} />;
+  function dateTime(date: string | undefined, time: string | undefined, optional = false) { if (!date && !time && optional) return null; if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !time || !/^\d{2}:\d{2}$/.test(time)) throw new Error("Enter the date as YYYY-MM-DD and time as HH:MM."); const parsed = new Date(`${date}T${time}`); if (Number.isNaN(parsed.getTime())) throw new Error("Enter a valid date and time."); return parsed.toISOString(); }
+  async function submit() { setBusy(true); setNotice(""); try { const hasLatitude = !!fields.latitude?.trim(); const hasLongitude = !!fields.longitude?.trim(); if (hasLatitude !== hasLongitude) throw new Error("Add both latitude and longitude, or leave both blank for an event."); const coords = { latitude: hasLatitude ? Number(fields.latitude) : null, longitude: hasLongitude ? Number(fields.longitude) : null }; if ((hasLatitude && (!Number.isFinite(coords.latitude) || !Number.isFinite(coords.longitude))) || (kind !== "events" && !hasLatitude)) throw new Error("Add valid map latitude and longitude for this location."); let body: Record<string, unknown>;
+    if (kind === "events") body = { ...coords, title: fields.name, description: fields.description, address: fields.address, start_time: dateTime(fields.start_date, fields.start_clock), end_time: dateTime(fields.end_date, fields.end_clock, true), category: fields.category, source_url: fields.source_url, image_url: fields.image_url || null, ticket_url: fields.ticket_url || null, price: fields.price ? Number(fields.price) : null, neighborhood: fields.neighborhood || null };
+    else if (kind === "places") body = { ...coords, name: fields.name, description: fields.description, address: fields.address, category: fields.category, neighborhood: fields.neighborhood || null, website: fields.source_url || null, accessibility: { wheelchair: accessible } };
+    else body = { ...coords, name: fields.name, kind: fields.utility, address: fields.address, source_url: fields.source_url || null, opening_hours: fields.opening_hours || null, free, wheelchair_accessible: accessible };
+    await apiRequest(`/community/submissions/${kind}`, { method: "POST", auth: true, body }); setNotice("Submitted for review. You can follow the decision in Your activity."); setFields({ category: "Community", utility: "toilet" });
+  } catch (e: any) { setNotice(e.message); } finally { setBusy(false); } }
+  return <SafeAreaView style={styles.safe} edges={["top"]}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"><Text style={styles.eyebrow}>CONTRIBUTE</Text><Text style={styles.title}>Add to Bratislava</Text><Text style={styles.intro}>Share an event, place or useful facility. Every contribution is reviewed before publication.</Text><View style={styles.types}>{(["events", "places", "utilities"] as Kind[]).map(value => <Chip key={value} title={value === "events" ? "Event" : value === "places" ? "Place" : "Utility"} active={kind === value} onPress={() => setKind(value)} />)}</View>
+    {!user?.email_verified ? <View style={styles.panel}><Text style={styles.panelTitle}>Verify your account first</Text><Text style={styles.intro}>Verified email is required before contributing.</Text><Button title="Account settings" onPress={() => router.push("/account")} /></View> : <>
+      <View style={styles.section}><Text style={styles.sectionTitle}>The basics</Text>{field("name", kind === "events" ? "Event title" : "Name")}{kind !== "utilities" && field("description", "Description", true)}{field("address", "Street address in Bratislava")}{kind !== "utilities" && <><Text style={styles.label}>CATEGORY</Text><View style={styles.options}>{CATEGORIES.map(value => <Chip key={value} title={value} active={fields.category === value} onPress={() => setFields(current => ({ ...current, category: value }))} />)}</View>{field("neighborhood", "Neighborhood (optional)")}</>}</View>
+      {kind === "events" && <View style={styles.section}><Text style={styles.sectionTitle}>When</Text><View style={styles.split}><View style={styles.flex}>{field("start_date", "Start date (YYYY-MM-DD)")}</View><View style={styles.flex}>{field("start_clock", "Start time (HH:MM)")}</View></View><View style={styles.split}><View style={styles.flex}>{field("end_date", "End date (optional)")}</View><View style={styles.flex}>{field("end_clock", "End time (optional)")}</View></View></View>}
+      {kind === "utilities" && <View style={styles.section}><Text style={styles.sectionTitle}>Utility type</Text><View style={styles.options}>{UTILITIES.map(value => <Chip key={value.id} title={value.label} active={fields.utility === value.id} onPress={() => setFields(current => ({ ...current, utility: value.id }))} />)}</View>{field("opening_hours", "Opening hours (optional)")}<Toggle label="Free to use" value={free} onChange={setFree} /><Toggle label="Wheelchair accessible" value={accessible} onChange={setAccessible} /></View>}
+      {kind === "places" && <View style={styles.section}><Toggle label="Wheelchair accessible" value={accessible} onChange={setAccessible} /></View>}
+      <View style={styles.section}><Text style={styles.sectionTitle}>Map location</Text><Text style={styles.hint}>{kind === "events" ? "Optional for events. " : "Required for places and utilities. "}The current API accepts map coordinates; copy the latitude and longitude from your map app.</Text><View style={styles.split}><View style={styles.flex}>{field("latitude", "Latitude")}</View><View style={styles.flex}>{field("longitude", "Longitude")}</View></View></View>
+      <View style={styles.section}><Text style={styles.sectionTitle}>Source & details</Text>{field("source_url", kind === "events" ? "Original event website (HTTPS)" : "Source website (optional, HTTPS)")}{kind === "events" && <>{field("image_url", "Image website (optional, HTTPS)")}{field("ticket_url", "Ticket website (optional, HTTPS)")}{field("price", "Price in EUR (0 if free)")}</>}<Button title="Submit for review" busy={busy} onPress={submit} /></View>
+    </>}<Notice text={notice} /><Text style={styles.activity} onPress={() => router.push("/activity")}>View your contribution activity →</Text></ScrollView></SafeAreaView>;
 }
+function Toggle({ label, value, onChange }: { label: string; value: boolean; onChange: (value: boolean) => void }) { return <View style={styles.toggle}><Text style={styles.toggleText}>{label}</Text><Switch accessibilityLabel={label} value={value} onValueChange={onChange} trackColor={{ true: colors.primarySoft }} thumbColor={value ? colors.primary : colors.textMuted} /></View>; }
+const styles = StyleSheet.create({ safe: { flex: 1, backgroundColor: colors.background }, content: { padding: 18, paddingBottom: 92 }, eyebrow: { color: colors.primaryDark, fontFamily: fonts.black, fontSize: 9, letterSpacing: 1.6 }, title: { color: colors.text, fontFamily: fonts.black, fontSize: 34, letterSpacing: -1, marginTop: 4 }, intro: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, marginTop: 7 }, types: { flexDirection: "row", gap: 8, marginVertical: 18 }, section: { paddingVertical: 17, gap: 13, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }, panel: { padding: 17, borderRadius: 20, backgroundColor: colors.surface, gap: 12 }, panelTitle: { color: colors.text, fontFamily: fonts.black, fontSize: 18 }, sectionTitle: { color: colors.text, fontFamily: fonts.black, fontSize: 19 }, label: { color: colors.textMuted, fontFamily: fonts.semibold, fontSize: 10, letterSpacing: .6 }, options: { flexDirection: "row", flexWrap: "wrap", gap: 7 }, split: { flexDirection: "row", gap: 9 }, flex: { flex: 1, minWidth: 0 }, hint: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 11, lineHeight: 16 }, toggle: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, toggleText: { color: colors.text, fontFamily: fonts.medium, fontSize: 13 }, activity: { color: colors.primaryDark, fontFamily: fonts.semibold, textAlign: "center", padding: 16 } });

@@ -1,5 +1,26 @@
 import { Ionicons } from "@expo/vector-icons";
-import {
+import type {
+  CameraRef,
+  MapViewRef,
+} from "@maplibre/maplibre-react-native";
+import { useQuery } from "@tanstack/react-query";
+import { router } from "expo-router";
+import { useMemo, useRef, useState } from "react";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { useEvents } from "../../src/hooks/useEvents";
+import { LoadingState } from "../../src/components/LoadingState";
+import { colors } from "../../src/theme/colors";
+import { fonts } from "../../src/theme/fonts";
+import { nearbyUtilities, utilitiesInViewport, type UtilityBounds } from "../../src/api/utilities";
+
+// Expo Router evaluates route modules while building its web route context. Avoid
+// initializing the native MapLibre bridge during that discovery pass.
+const nativeMapLibre =
+  Platform.OS === "web"
+    ? null
+    : (require("@maplibre/maplibre-react-native") as typeof import("@maplibre/maplibre-react-native"));
+
+const {
   Camera,
   CircleLayer,
   MapView,
@@ -8,18 +29,7 @@ import {
   SymbolLayer,
   UserLocation,
   UserTrackingMode,
-  type CameraRef,
-  type MapViewRef,
-} from "@maplibre/maplibre-react-native";
-import { useQuery } from "@tanstack/react-query";
-import { router } from "expo-router";
-import { useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { useEvents } from "../../src/hooks/useEvents";
-import { LoadingState } from "../../src/components/LoadingState";
-import { colors } from "../../src/theme/colors";
-import { fonts } from "../../src/theme/fonts";
-import { nearbyUtilities, utilitiesInViewport, type UtilityBounds } from "../../src/api/utilities";
+} = nativeMapLibre ?? ({} as typeof import("@maplibre/maplibre-react-native"));
 
 const BRATISLAVA = {
   longitude: 17.1077,
@@ -297,6 +307,10 @@ export default function MapScreen() {
           <Ionicons name={showUtilities ? "calendar-outline" : "business-outline"} size={16} color={showUtilities ? colors.white : colors.free} />
           <Text style={[styles.layerText, showUtilities && styles.layerTextActive]}>{showUtilities ? "Events" : "Toilets"}</Text>
         </Pressable>
+        <Pressable accessibilityLabel="Browse all city utilities" onPress={() => router.push("/utilities")} style={styles.allUtilitiesButton}>
+          <Ionicons name="grid-outline" size={14} color={colors.textMuted} />
+          <Text style={styles.allUtilitiesText}>All utilities</Text>
+        </Pressable>
 
         <View style={styles.controls}>
           <Pressable
@@ -442,6 +456,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
   },
+  allUtilitiesButton: {
+    alignSelf: "flex-start",
+    marginTop: 6,
+    marginLeft: 18,
+    height: 32,
+    paddingHorizontal: 11,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.96)",
+    borderWidth: 1,
+    borderColor: colors.border,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  allUtilitiesText: { color: colors.textMuted, fontFamily: fonts.semibold, fontSize: 9 },
   layerButtonActive: { backgroundColor: colors.free, borderColor: colors.free },
   layerText: { color: colors.text, fontFamily: fonts.semibold, fontSize: 10 },
   layerTextActive: { color: colors.white },

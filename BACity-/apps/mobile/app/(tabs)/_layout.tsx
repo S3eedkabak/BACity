@@ -14,7 +14,7 @@ function CreateTabButton(props: any) {
       style={({ pressed }) => [styles.createSlot, pressed && styles.pressed]}
     >
       <View style={styles.createCircle}>
-        <Ionicons name="add" size={28} color={colors.white} />
+        <Ionicons name="add" size={24} color={colors.white} />
       </View>
       <Text style={styles.createLabel}>Create</Text>
     </Pressable>
@@ -37,10 +37,26 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="discover"
         options={{
-          title: "Discover",
+          title: "Home",
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons name={focused ? "home" : "home-outline"} color={color} size={size} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="explore"
+        options={{
+          title: "Explore",
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? "search" : "search-outline"} color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="contribute"
+        options={{
+          title: "Create",
+          tabBarButton: (props) => <CreateTabButton {...props} />,
         }}
       />
       <Tabs.Screen
@@ -53,22 +69,6 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="contribute"
-        options={{
-          title: "Create",
-          tabBarButton: (props) => <CreateTabButton {...props} />,
-        }}
-      />
-      <Tabs.Screen
-        name="saved"
-        options={{
-          title: "Saved",
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? "bookmark" : "bookmark-outline"} color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="profile"
         options={{
           title: "Profile",
@@ -77,28 +77,24 @@ export default function TabsLayout() {
           ),
         }}
       />
-      <Tabs.Screen name="explore" options={{ href: null }} />
+      <Tabs.Screen name="saved" options={{ href: null }} />
     </Tabs>
   );
 }
 
 const styles = StyleSheet.create({
   tabBar: {
-    position: "absolute",
-    left: 14,
-    right: 14,
-    bottom: 12,
-    height: 72,
-    paddingTop: 8,
-    paddingBottom: 8,
-    borderTopWidth: 0,
-    borderRadius: 26,
-    backgroundColor: "rgba(255,255,255,0.98)",
+    height: 68,
+    paddingTop: 7,
+    paddingBottom: 7,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.surface,
     shadowColor: colors.text,
-    shadowOpacity: 0.12,
-    shadowRadius: 22,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 12,
+    shadowOpacity: 0.07,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 8,
   },
   label: {
     fontFamily: fonts.semibold,
@@ -110,22 +106,20 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: -20,
+    paddingTop: 2,
   },
   createCircle: {
-    width: 54,
-    height: 54,
-    borderRadius: 19,
+    width: 42,
+    height: 42,
+    borderRadius: 15,
     backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 4,
-    borderColor: colors.background,
     shadowColor: colors.primaryDark,
-    shadowOpacity: 0.28,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 7 },
-    elevation: 8,
+    shadowOpacity: 0.18,
+    shadowRadius: 7,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
   },
   createLabel: {
     color: colors.textMuted,

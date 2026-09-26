@@ -103,9 +103,9 @@ export default function MapScreen() {
           <Text style={styles.eyebrow}>OUT AND ABOUT</Text>
           <Text style={styles.heading}>Map</Text>
         </View>
-        <View style={styles.mapIcon}>
+        <Pressable accessibilityLabel="Browse all city utilities" onPress={() => router.push("/utilities")} style={styles.mapIcon}>
           <Ionicons name="navigate" size={17} color={colors.primary} />
-        </View>
+        </Pressable>
       </View>
 
       <View style={styles.counter}>

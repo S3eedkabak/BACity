@@ -60,7 +60,7 @@ export default function SavedScreen() {
             </View>
           </View>
           <Text style={styles.headerText}>The events you said yes to.</Text>
-          <Pressable accessibilityRole="button" onPress={() => router.push("/community?section=collections")}><Text style={styles.headerText}>Browse and create collections →</Text></Pressable>
+          <Pressable accessibilityRole="button" onPress={() => router.push("/collections")}><Text style={styles.headerText}>Browse and create collections →</Text></Pressable>
         </View>
       }
       renderItem={({ item }) => <EventCard event={item} />}

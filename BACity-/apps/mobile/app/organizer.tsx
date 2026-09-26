@@ -1,4 +1,4 @@
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { Linking, Text, View } from "react-native";
 import { apiRequest } from "../src/api/client";
@@ -13,6 +13,7 @@ import {
 } from "../src/components/CommunityUI";
 
 export default function Organizer() {
+  const { claim } = useLocalSearchParams<{ claim?: string }>();
   const [orgs, setOrgs] = useState<any[]>([]);
   const [organization, setOrganization] = useState<any>(null);
   const [selected, setSelected] = useState("");
@@ -21,6 +22,10 @@ export default function Organizer() {
   const [fields, setFields] = useState<Record<string, string>>({});
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [claimOrganization, setClaimOrganization] = useState<any>(null);
+  const [evidence, setEvidence] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newWebsite, setNewWebsite] = useState("");
 
   useEffect(() => {
     apiRequest<any[]>("/organizer/organizations", { auth: true })
@@ -29,7 +34,8 @@ export default function Organizer() {
     apiRequest("/billing/status")
       .then(setBilling)
       .catch((e) => setNotice(e.message));
-  }, []);
+    if (claim) apiRequest<any[]>('/community/organizations').then(items => setClaimOrganization(items.find(item => item.id === claim) ?? null)).catch(e => setNotice(e.message));
+  }, [claim]);
 
   async function choose(id: string) {
     setSelected(id);
@@ -107,15 +113,19 @@ export default function Organizer() {
   }
 
   return (
-    <Page title="Organizer dashboard">
+    <Page title="Organizer tools">
       <Notice text={notice} />
-      <Button title="Find or register an organization" onPress={() => router.push("/community?section=organizations")} />
+      <Button title="Browse organizers" onPress={() => router.push({ pathname: "/(tabs)/explore", params: { domain: "organizers" } })} />
+
+      {claimOrganization && <Card><Text style={ui.heading}>Claim {claimOrganization.name}</Text><Text style={ui.text}>Provide a public HTTPS page that proves your relationship to this organization.</Text><Field label="Public ownership evidence URL" value={evidence} onChange={setEvidence} /><Button title="Request ownership review" busy={busy} onPress={async () => { setBusy(true); try { await apiRequest(`/community/organizations/${claimOrganization.id}/claim`, { method: 'POST', auth: true, body: { evidence_url: evidence, reason: 'Please verify my ownership using the supplied public evidence' } }); setNotice('Ownership claim submitted for moderation.'); } catch (e: any) { setNotice(e.message); } finally { setBusy(false); } }} /></Card>}
+
+      <Card><Text style={ui.heading}>Register an organization</Text><Field label="Organization name" value={newName} onChange={setNewName} /><Field label="Official website (HTTPS)" value={newWebsite} onChange={setNewWebsite} /><Button title="Create organization profile" busy={busy} onPress={async () => { setBusy(true); try { const created = await apiRequest<any>('/community/organizations', { method: 'POST', auth: true, body: { name: newName, website: newWebsite, description: null, venue_id: null } }); setNotice(`Created ${created.name}. Claim it from Explore to verify ownership.`); setNewName(''); setNewWebsite(''); } catch (e: any) { setNotice(e.message); } finally { setBusy(false); } }} /></Card>
 
       {!orgs.length ? (
         <Card>
           <Text style={ui.heading}>No organization yet</Text>
           <Text style={ui.text}>
-            Claim an organization from Community and wait for ownership verification to manage it here.
+            Find an organization in Explore, submit ownership evidence, and wait for verification to manage it here.
           </Text>
         </Card>
       ) : (
@@ -134,7 +144,7 @@ export default function Organizer() {
         </>
       )}
 
-      {selected && (
+      {Boolean(selected) && (
         <>
           {organization && <Card><Text style={ui.heading}>Organization profile</Text><Field label="Name" value={organization.name} onChange={name => setOrganization({ ...organization, name })} /><Field label="Description" value={organization.description ?? ''} onChange={description => setOrganization({ ...organization, description })} multiline /><Button title="Save organization profile" busy={busy} onPress={async () => { setBusy(true); try { await apiRequest(`/community/organizations/${selected}`, { method: 'PATCH', auth: true, body: { name: organization.name, description: organization.description, website: organization.website, venue_id: organization.venue_id } }); setOrgs(current => current.map(org => org.id === selected ? { ...org, name: organization.name } : org)); setNotice('Organization updated.'); } catch (e: any) { setNotice(e.message); } finally { setBusy(false); } }} /></Card>}
           {analytics && (

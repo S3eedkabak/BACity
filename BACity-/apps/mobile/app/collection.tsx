@@ -35,7 +35,7 @@ export default function Collection() {
     setBusy(true); setNotice('');
     try {
       await apiRequest('/community/collections', { method: 'POST', auth: true, body: { title, description, public: isPublic, items: items.filter(i => selected.includes(key(i))).map(({ type, id }) => ({ type, id })) } });
-      router.replace('/community?section=collections');
+      router.replace('/collections');
     } catch (e: any) { setNotice(e.message); } finally { setBusy(false); }
   }
   return <Page title="Create a collection"><Notice text={notice} /><Card><Field label="Title" value={title} onChange={setTitle} /><Field label="Description" value={description} onChange={setDescription} multiline /><Text style={ui.text}>Share publicly</Text><Switch accessibilityLabel="Share publicly" value={isPublic} onValueChange={setPublic} /><Text style={ui.muted}>{selected.length} selected</Text><Button title="Save collection" busy={busy} onPress={save} /></Card><Field label="Filter available events, places and utilities" value={query} onChange={setQuery} />{items.filter(i => i.name.toLowerCase().includes(query.toLowerCase())).map(item => <Button key={key(item)} title={`${selected.includes(key(item)) ? '✓ ' : ''}${item.name} (${item.type})`} onPress={() => setSelected(current => current.includes(key(item)) ? current.filter(k => k !== key(item)) : [...current, key(item)])} />)}</Page>;

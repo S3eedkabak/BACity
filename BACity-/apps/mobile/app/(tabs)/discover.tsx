@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Image,
   Pressable,
@@ -21,6 +22,9 @@ import { imageForCategory } from "../../src/theme/categoryImages";
 import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
 import { EventOut } from "../../src/types/event";
+import { apiRequest } from "../../src/api/client";
+import { getNotifications } from "../../src/api/community";
+import { IconButton, SectionHeader } from "../../src/components/SocialUI";
 
 const FILTERS = ["All", "Music", "Culture", "Nightlife", "Free"];
 
@@ -83,10 +87,15 @@ function FeaturedEvent({ event }: { event: EventOut }) {
 export default function HomeScreen() {
   const { data, isLoading, isError, refetch, isRefetching } = useEvents({ limit: 24 });
   const user = useAuthStore((s) => s.user);
+  const token = useAuthStore((s) => s.token);
+  const activity = useQuery({ queryKey: ["notifications"], queryFn: getNotifications, enabled: !!token, staleTime: 30_000 });
+  const recommended = useQuery({ queryKey: ["recommendations"], queryFn: () => apiRequest<any[]>("/recommendations", { auth: true, params: { limit: 4 } }), enabled: !!token, staleTime: 60_000 });
+  const promotions = useQuery({ queryKey: ["promotions"], queryFn: () => apiRequest<any[]>("/promotions"), staleTime: 60_000 });
   const events = useMemo(() => data?.items ?? [], [data]);
   const featured = events[0];
   const more = events.slice(1, 7);
-  const initial = (user?.display_name || user?.email || "B")[0].toUpperCase();
+  const unreadActivity = activity.data?.some(item => !item.read_at && item.kind !== "message") ?? false;
+  const unreadMessages = activity.data?.some(item => !item.read_at && item.kind === "message") ?? false;
 
   if (isLoading) return <LoadingState />;
 
@@ -105,20 +114,11 @@ export default function HomeScreen() {
       }
     >
       <View style={styles.topbar}>
-        <View>
-          <Text style={styles.hello}>{user ? "Welcome back" : "Live in Bratislava"}</Text>
-          <BrandMark compact />
-        </View>
+        <BrandMark compact />
         <View style={styles.topActions}>
-          <Pressable style={styles.iconButton} onPress={() => router.push("/(tabs)/explore")}>
-            <Ionicons name="search" size={19} color={colors.text} />
-          </Pressable>
-          <Pressable style={styles.iconButton} onPress={() => router.push("/community")}>
-            <Ionicons name="notifications-outline" size={19} color={colors.text} />
-          </Pressable>
-          <Pressable style={styles.avatar} onPress={() => router.push("/(tabs)/profile")}>
-            <Text style={styles.avatarText}>{initial}</Text>
-          </Pressable>
+          <IconButton icon="search" label="Search and explore" onPress={() => router.push("/(tabs)/explore")} />
+          <IconButton icon="notifications-outline" label="Notifications" badge={unreadActivity} onPress={() => router.push("/notifications")} />
+          <IconButton icon="chatbubble-ellipses-outline" label="Messages" badge={unreadMessages} onPress={() => router.push("/messages")} />
         </View>
       </View>
 
@@ -170,6 +170,16 @@ export default function HomeScreen() {
           {more.map((event) => (
             <EventCard key={event.id} event={event} />
           ))}
+
+          {!!recommended.data?.length && <>
+            <SectionHeader title="For you" action="Explore" onAction={() => router.push("/(tabs)/explore")} />
+            {recommended.data.slice(0, 3).map(item => <EventCard key={item.event.id} event={item.event} />)}
+          </>}
+
+          {!!promotions.data?.length && <>
+            <SectionHeader title="Supported local picks" />
+            {promotions.data.slice(0, 2).map(item => <EventCard key={item.event.id} event={item.event} />)}
+          </>}
         </>
       ) : (
         <EmptyState
@@ -178,7 +188,7 @@ export default function HomeScreen() {
         />
       )}
 
-      <Pressable style={styles.communityBanner} onPress={() => router.push("/community")}>
+      <Pressable style={styles.communityBanner} onPress={() => router.push("/(tabs)/contribute")}>
         <View style={styles.communityIcon}>
           <Ionicons name="people-outline" size={20} color={colors.primaryDark} />
         </View>
@@ -203,32 +213,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 28,
   },
-  hello: {
-    color: colors.textMuted,
-    fontFamily: fonts.medium,
-    fontSize: 10,
-    marginBottom: 1,
-  },
   topActions: { flexDirection: "row", alignItems: "center", gap: 7 },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 15,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 15,
-    backgroundColor: colors.text,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: { color: colors.white, fontFamily: fonts.black, fontSize: 13 },
   intro: { marginBottom: 17 },
   kicker: {
     color: colors.primaryDark,
