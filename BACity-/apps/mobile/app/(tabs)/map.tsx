@@ -22,6 +22,10 @@ import {
   mergeViewportUtilities,
   updateMapSnapshot,
 } from "../../src/map/mapCache";
+import {
+  buildEventFeatureCollection,
+  hasValidMapCoordinates,
+} from "../../src/map/eventGeoJson";
 
 // Expo Router evaluates route modules while building its web route context. Avoid
 // initializing the native MapLibre bridge during that discovery pass.
@@ -93,6 +97,7 @@ export default function MapScreen() {
   const [cachedUtilities, setCachedUtilities] = useState<Utility[]>([]);
   const [cacheSavedAt, setCacheSavedAt] = useState(0);
   const [basemapUnavailable, setBasemapUnavailable] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<Coordinates | null>(
     null
   );
@@ -126,10 +131,7 @@ export default function MapScreen() {
   const eventItems = eventsQuery.data?.items ?? cachedEvents;
 
   const pins = useMemo(
-    () =>
-      eventItems.filter(
-        (event) => event.latitude != null && event.longitude != null
-      ),
+    () => eventItems.filter(hasValidMapCoordinates),
     [eventItems]
   );
 
@@ -197,20 +199,38 @@ export default function MapScreen() {
     ? utilityNearby.data ?? cachedNearbyUtilities
     : cachedUtilities.length ? cachedUtilities : utilityViewport.data ?? [];
 
-  const eventShape = useMemo(() => ({
-    type: "FeatureCollection" as const,
-    features: pins.map((event) => {
-      const nearby = currentLocation != null && distanceKm(currentLocation, {
-        latitude: event.latitude as number,
-        longitude: event.longitude as number,
-      }) <= NEARBY_RADIUS_KM;
-      return {
-        type: "Feature" as const,
-        geometry: { type: "Point" as const, coordinates: [event.longitude as number, event.latitude as number] },
-        properties: { id: event.id, title: event.title, nearby },
-      };
-    }),
-  }), [currentLocation, pins]);
+  const eventShape = useMemo(
+    () => buildEventFeatureCollection(
+      pins,
+      (event) => currentLocation != null && distanceKm(currentLocation, event) <= NEARBY_RADIUS_KM,
+    ),
+    [currentLocation, pins],
+  );
+
+  useEffect(() => {
+    if (!__DEV__ || !mapReady || showUtilities || eventShape.features.length === 0) return;
+    const timer = setTimeout(() => {
+      void (async () => {
+        try {
+          const source = await eventSourceRef.current?.features();
+          const sourceFeatureCount = source?.features.length ?? 0;
+          const diagnostics = {
+            geoJsonFeatures: eventShape.features.length,
+            sourceFeatures: sourceFeatureCount,
+            firstCoordinates: eventShape.features[0]?.geometry.coordinates,
+          };
+          if (sourceFeatureCount === 0) {
+            console.error("[map:event-layer] populated GeoJSON produced an empty native source", diagnostics);
+          } else {
+            console.info("[map:event-layer] verified", diagnostics);
+          }
+        } catch (error) {
+          console.warn("[map:event-layer] inspection failed", error);
+        }
+      })();
+    }, 2_000);
+    return () => clearTimeout(timer);
+  }, [eventShape, mapReady, showUtilities]);
 
   const utilityShape = useMemo(() => ({
     type: "FeatureCollection" as const,
@@ -338,8 +358,14 @@ export default function MapScreen() {
         logoEnabled
         regionDidChangeDebounceTime={700}
         onRegionDidChange={handleRegionDidChange}
-        onDidFinishLoadingMap={() => setBasemapUnavailable(false)}
-        onDidFailLoadingMap={() => setBasemapUnavailable(true)}
+        onDidFinishLoadingMap={() => {
+          setBasemapUnavailable(false);
+          setMapReady(true);
+        }}
+        onDidFailLoadingMap={() => {
+          setBasemapUnavailable(true);
+          setMapReady(false);
+        }}
       >
         <Camera
           ref={cameraRef}
@@ -388,19 +414,20 @@ export default function MapScreen() {
             if (id) router.push("/event/" + String(id));
           }}
         >
-          <CircleLayer id="event-clusters" filter={["has", "point_count"]} style={{ circleColor: colors.primaryDark, circleRadius: 21, circleStrokeColor: colors.white, circleStrokeWidth: 3 }} />
-          <SymbolLayer id="event-cluster-count" filter={["has", "point_count"]} style={{ textField: ["get", "point_count_abbreviated"], textColor: colors.white, textSize: 11 }} />
-          <CircleLayer id="event-points" filter={["!", ["has", "point_count"]]} style={{
+          <CircleLayer id="event-clusters" aboveLayerID="label_country_1" filter={["has", "point_count"]} style={{ circleColor: colors.primaryDark, circleRadius: 21, circleStrokeColor: colors.white, circleStrokeWidth: 3 }} />
+          <SymbolLayer id="event-cluster-count" aboveLayerID="event-clusters" filter={["has", "point_count"]} style={{ textField: ["get", "point_count_abbreviated"], textColor: colors.white, textSize: 11, textFont: ["Noto Sans Regular"] }} />
+          <CircleLayer id="event-points" aboveLayerID="event-cluster-count" filter={["!", ["has", "point_count"]]} style={{
             circleColor: ["case", ["==", ["get", "nearby"], true], colors.primaryDark, colors.primary],
             circleOpacity: nearMeActive ? ["case", ["==", ["get", "nearby"], true], 1, 0.3] : 1,
             circleRadius: ["case", ["==", ["get", "nearby"], true], 16, 14],
             circleStrokeColor: colors.white,
             circleStrokeWidth: 3,
           }} />
-          <SymbolLayer id="event-symbols" filter={["!", ["has", "point_count"]]} style={{
+          <SymbolLayer id="event-symbols" aboveLayerID="event-points" filter={["!", ["has", "point_count"]]} style={{
             textField: "♥",
             textColor: colors.white,
             textSize: 10,
+            textFont: ["Noto Sans Regular"],
             textOpacity: nearMeActive ? ["case", ["==", ["get", "nearby"], true], 1, 0.45] : 1,
           }} />
         </ShapeSource>}
@@ -423,10 +450,10 @@ export default function MapScreen() {
             if (id) router.push({ pathname: "/utility/[id]", params: { id: String(id), kind: String(feature.properties?.kind ?? "toilet") } });
           }}
         >
-          <CircleLayer id="toilet-clusters" filter={["has", "point_count"]} style={{ circleColor: colors.free, circleRadius: 20, circleStrokeColor: colors.white, circleStrokeWidth: 3 }} />
-          <SymbolLayer id="toilet-cluster-count" filter={["has", "point_count"]} style={{ textField: ["get", "point_count_abbreviated"], textColor: colors.white, textSize: 11 }} />
-          <CircleLayer id="toilet-points" filter={["!", ["has", "point_count"]]} style={{ circleColor: colors.free, circleRadius: 14, circleStrokeColor: colors.white, circleStrokeWidth: 3 }} />
-          <SymbolLayer id="toilet-labels" filter={["!", ["has", "point_count"]]} style={{ textField: "WC", textColor: colors.white, textSize: 8, textFont: ["Noto Sans Regular"] }} />
+          <CircleLayer id="toilet-clusters" aboveLayerID="label_country_1" filter={["has", "point_count"]} style={{ circleColor: colors.free, circleRadius: 20, circleStrokeColor: colors.white, circleStrokeWidth: 3 }} />
+          <SymbolLayer id="toilet-cluster-count" aboveLayerID="toilet-clusters" filter={["has", "point_count"]} style={{ textField: ["get", "point_count_abbreviated"], textColor: colors.white, textSize: 11, textFont: ["Noto Sans Regular"] }} />
+          <CircleLayer id="toilet-points" aboveLayerID="toilet-cluster-count" filter={["!", ["has", "point_count"]]} style={{ circleColor: colors.free, circleRadius: 14, circleStrokeColor: colors.white, circleStrokeWidth: 3 }} />
+          <SymbolLayer id="toilet-labels" aboveLayerID="toilet-points" filter={["!", ["has", "point_count"]]} style={{ textField: "WC", textColor: colors.white, textSize: 8, textFont: ["Noto Sans Regular"] }} />
         </ShapeSource>}
       </MapView>
 
