@@ -39,3 +39,11 @@ def test_malformed_jsonld_does_not_crash():
     html = '<script type="application/ld+json">{not valid json</script>'
     events = extract_jsonld_events(html, "https://example.com/broken")
     assert events == []
+
+
+def test_postponed_event_is_stale_not_removed():
+    html = '''<script type="application/ld+json">{
+      "@type":"Event", "name":"Talk", "startDate":"2026-11-01T18:00:00+01:00",
+      "eventStatus":"https://schema.org/EventPostponed"
+    }</script>'''
+    assert extract_jsonld_events(html, "https://example.com/talk")[0].event_status == "stale"

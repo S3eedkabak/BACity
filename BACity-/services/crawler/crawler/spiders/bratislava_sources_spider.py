@@ -9,6 +9,7 @@ from crawler.extraction.goout_extractor import extract_goout_events
 from crawler.extraction.jsonld_extractor import extract_jsonld_events
 from crawler.extraction.snd_extractor import extract_snd_events
 from crawler.sources import ACTIVE_SOURCES, EVENT_LINK_HINTS, SourceSeed
+from crawler.extraction.community_extractors import extract_cvernovka_events, extract_karlova_ves_events
 
 
 class BratislavaSourcesSpider(scrapy.Spider):
@@ -91,6 +92,10 @@ class BratislavaSourcesSpider(scrapy.Spider):
         if depth >= self.max_crawl_depth or response.meta.get("snd_frame"):
             return
 
+        # Stable JSON endpoints are complete and must not be treated as HTML link pages.
+        if source.parser == "karlova_ves_api":
+            return
+
         seen = set()
         for anchor in response.css("a[href]"):
             href = anchor.attrib.get("href", "")
@@ -109,7 +114,16 @@ class BratislavaSourcesSpider(scrapy.Spider):
                 break
 
     def _extract(self, response, source: SourceSeed):
-        if source.domain == "snd.sk":
+        if source.parser == "karlova_ves_api":
+            try:
+                events = extract_karlova_ves_events(response.json(), response.url)
+            except ValueError:
+                self.crawler.stats.inc_value("extraction/errors")
+                self.logger.warning("Karlova Ves endpoint returned invalid JSON")
+                events = []
+        elif source.parser == "cvernovka":
+            events = extract_cvernovka_events(response.text, response.url)
+        elif source.domain == "snd.sk":
             events = extract_snd_events(response.text, response.url, datetime.now().year)
         else:
             events = extract_jsonld_events(response.text, response.url)
@@ -129,6 +143,7 @@ class BratislavaSourcesSpider(scrapy.Spider):
             event.source_name = source.name
             event.source_reliability = source.reliability_score
             event.language = source.language
+            event.tags = sorted(set(event.tags or []) | set(source.tags))
             yield event
 
     @staticmethod
@@ -160,6 +175,7 @@ class BratislavaSourcesSpider(scrapy.Spider):
         response = getattr(failure.value, "response", None)
         url = response.url if response is not None else failure.request.url
         self.logger.warning("Source request failed: %s", url)
+        self.crawler.stats.inc_value("source/request_errors")
 
     def parse_goout(self, response):
         source: SourceSeed = response.meta["source"]

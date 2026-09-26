@@ -8,7 +8,7 @@ from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 from sqlalchemy import func, text
 from app.models.event import Event, EventStatus
 from app.models.event_source import EventSource
-from app.models.source import Source
+from app.models.source import Source, SourceStatus
 from app.models.venue import Venue
 
 
@@ -59,6 +59,11 @@ def ingest(db, payload):
             title_score = SequenceMatcher(None, normalize(payload.title), normalize(candidate.title)).ratio()
             same_place = bool(payload.address and normalize(payload.address) == normalize(candidate.address)) or bool(
                 payload.venue_name and candidate.venue and normalize(payload.venue_name) == normalize(candidate.venue.name))
+            if (not same_place and payload.latitude is not None and payload.longitude is not None
+                    and candidate.latitude is not None and candidate.longitude is not None):
+                # ~150 m in Bratislava; enough for formatting/address variation,
+                # too small to collapse different venues across a neighborhood.
+                same_place = abs(payload.latitude - candidate.latitude) <= .00135 and abs(payload.longitude - candidate.longitude) <= .002
             same_time = abs((candidate.start_time - payload.start_time).total_seconds()) <= 900
             description_score = SequenceMatcher(None, normalize(payload.description), normalize(candidate.description)).ratio() if payload.description and candidate.description else 0
             if same_place and title_score >= .90 and (same_time or description_score > .8):
@@ -115,6 +120,18 @@ def expire_events(db):
                               {Event.status: EventStatus.expired}, synchronize_session=False)
     db.query(Event).filter(Event.status == EventStatus.fresh, Event.last_verified_at < now - timedelta(days=3)).update(
         {Event.status: EventStatus.stale}, synchronize_session=False)
-    db.query(Event).filter(Event.status == EventStatus.stale, Event.last_verified_at < now - timedelta(days=14)).update(
-        {Event.status: EventStatus.removed}, synchronize_session=False)
+    # Removal requires positive evidence from a non-failing source. Merely aging
+    # while every publisher is unavailable must never look like upstream removal.
+    removal_candidates = db.query(Event).filter(
+        Event.status == EventStatus.stale,
+        Event.last_verified_at < now - timedelta(days=14),
+    ).all()
+    for event in removal_candidates:
+        evidence = db.query(EventSource, Source).join(Source, EventSource.source_id == Source.id).filter(
+            EventSource.event_id == event.id,
+            Source.status == SourceStatus.active,
+        ).all()
+        if any(source.last_success_at is None or source.last_success_at > item.last_seen_at
+               for item, source in evidence):
+            event.status = EventStatus.removed
     db.commit()

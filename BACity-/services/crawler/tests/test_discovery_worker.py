@@ -40,6 +40,19 @@ def test_restart_preserves_schedule_backoff_and_history(tmp_path):
     state.close()
 
 
+def test_runtime_source_disable_and_frequency_are_allow_listed(tmp_path):
+    state = State(str(tmp_path / 'state.db'))
+    seed = ACTIVE_SOURCES[0]
+    state.seed(seed)
+    state.apply_runtime_config([{'domain': seed.domain, 'enabled': False, 'crawl_frequency_minutes': 30},
+                                {'domain': 'untrusted.example', 'enabled': True, 'crawl_frequency_minutes': 1}])
+    assert state.due() == []
+    stored = json.loads(state.db.execute('SELECT seed FROM sources WHERE domain=?', (seed.domain,)).fetchone()[0])
+    assert stored['crawl_frequency_minutes'] == 30
+    assert state.db.execute('SELECT count(*) FROM sources').fetchone()[0] == 1
+    state.close()
+
+
 def test_outbox_survives_api_failure_and_restarts(tmp_path, monkeypatch):
     path = str(tmp_path / 'state.db')
     state = State(path)

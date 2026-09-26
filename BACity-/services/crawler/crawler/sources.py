@@ -20,6 +20,7 @@ class SourceSeed:
     crawl_frequency_minutes: int = 720
     language: str = "sk"
     tags: list[str] = field(default_factory=list)
+    parser: str | None = None
 
 
 ACTIVE_SOURCES: tuple[SourceSeed, ...] = (
@@ -68,8 +69,33 @@ ACTIVE_SOURCES: tuple[SourceSeed, ...] = (
         "event_platform",
         0.75,
         crawl_frequency_minutes=120,
-        requires_js=True,
+        # The public feeder is deterministic JSON; the consumer page itself is JS-heavy.
+        requires_js=False,
         language="en",
+    ),
+    SourceSeed(
+        "Nová Cvernovka",
+        "novacvernovka.eu",
+        "https://novacvernovka.eu",
+        "https://novacvernovka.eu/program",
+        "community",
+        0.88,
+        crawl_frequency_minutes=360,
+        language="sk",
+        tags=["community", "culture"],
+        parser="cvernovka",
+    ),
+    SourceSeed(
+        "Karloveské centrum kultúry",
+        "kultura.karlovaves.sk",
+        "https://kultura.karlovaves.sk",
+        "https://kultura.karlovaves.sk/api/events/all?per_page=100",
+        "community",
+        0.90,
+        crawl_frequency_minutes=360,
+        language="sk",
+        tags=["community", "karlova-ves"],
+        parser="karlova_ves_api",
     ),
 )
 

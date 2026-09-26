@@ -29,11 +29,14 @@ class State:
             CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT);
         """)
         columns = {row[1] for row in self.db.execute('PRAGMA table_info(outbox)')}
+        source_columns = {row[1] for row in self.db.execute('PRAGMA table_info(sources)')}
         with self.db:
             if 'status' not in columns:
                 self.db.execute("ALTER TABLE outbox ADD COLUMN status TEXT NOT NULL DEFAULT 'pending'")
             if 'next_try' not in columns:
                 self.db.execute("ALTER TABLE outbox ADD COLUMN next_try REAL NOT NULL DEFAULT 0")
+            if 'enabled' not in source_columns:
+                self.db.execute("ALTER TABLE sources ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1")
 
     def seed(self, seed, discovered_from=None):
         with self.db:
@@ -41,8 +44,22 @@ class State:
                             (seed.domain, json.dumps(asdict(seed)), discovered_from))
 
     def due(self, now=None):
-        return self.db.execute("SELECT * FROM sources WHERE next_run<=? ORDER BY next_run,rowid",
+        return self.db.execute("SELECT * FROM sources WHERE enabled=1 AND next_run<=? ORDER BY next_run,rowid",
                                (now if now is not None else time.time(),)).fetchall()
+
+    def apply_runtime_config(self, rows):
+        """Apply only allow-listed scheduling controls from the authenticated API."""
+        with self.db:
+            for row in rows:
+                domain = row.get('domain')
+                if not domain or self.db.execute("SELECT 1 FROM sources WHERE domain=?", (domain,)).fetchone() is None:
+                    continue
+                existing = json.loads(self.db.execute("SELECT seed FROM sources WHERE domain=?", (domain,)).fetchone()[0])
+                frequency = row.get('crawl_frequency_minutes')
+                if isinstance(frequency, int) and 15 <= frequency <= 10080:
+                    existing['crawl_frequency_minutes'] = frequency
+                self.db.execute("UPDATE sources SET enabled=?,seed=? WHERE domain=?",
+                                (int(bool(row.get('enabled', True))), json.dumps(existing), domain))
 
     def begin(self, domain):
         with self.db:

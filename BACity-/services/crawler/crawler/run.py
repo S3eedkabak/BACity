@@ -24,9 +24,9 @@ def main():
     deferred.addErrback(lambda failure: errors.append(str(failure.value)))
     process.start()
     stats = crawler.stats.get_stats()
+    # A reachable source with zero current events is a valid crawl, not an outage.
     stats['success'] = bool(not errors and stats.get('finish_reason') in ('finished', 'closespider_timeout', 'closespider_pagecount')
                             and stats.get('response_received_count', 0) > 0
-                            and stats.get('item_scraped_count', 0) > 0
                             and not any(value for key, value in stats.items() if key.startswith('spider_exceptions/')))
     if errors:
         stats['error'] = '; '.join(errors)

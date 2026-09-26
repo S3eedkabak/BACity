@@ -8,6 +8,7 @@ import subprocess
 import sys
 import threading
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from dataclasses import replace
 
@@ -47,8 +48,46 @@ def deliver(state, api_url, token="", limit=500):
     return delivered
 
 
-def run_source(state, seed):
+def _safe_stats(stats):
+    reasons = {key.rsplit('/', 1)[-1]: int(value) for key, value in stats.items()
+               if key.startswith('validation/rejected/') and isinstance(value, (int, float))}
+    pages = int(stats.get('response_received_count', 0))
+    items = int(stats.get('item_scraped_count', 0))
+    rejected = int(stats.get('validation/rejected', 0))
+    errors = int(stats.get('extraction/errors', 0)) + int(stats.get('source/request_errors', 0))
+    return pages, items, items, rejected, errors, dict(list(reasons.items())[:20])
+
+
+def report_run(api_url, token, seed, started, finished, success, stats, error):
+    pages, items, accepted, rejected, extraction_errors, reasons = _safe_stats(stats)
+    status = 'healthy' if success and accepted else 'empty' if success else 'timed_out' if error and 'timeout' in error else 'failed'
+    body = {'name': seed.name, 'domain': seed.domain, 'base_url': seed.base_url, 'event_url': seed.event_url,
+            'source_type': seed.source_type, 'language': seed.language, 'parser': seed.parser,
+            'reliability_score': seed.reliability_score, 'requires_js': seed.requires_js,
+            'crawl_frequency_minutes': seed.crawl_frequency_minutes,
+            'started_at': datetime.fromtimestamp(started, timezone.utc).isoformat(),
+            'finished_at': datetime.fromtimestamp(finished, timezone.utc).isoformat(), 'success': success,
+            'status': status, 'pages_processed': pages, 'items_processed': items,
+            'accepted_events': accepted, 'rejected_events': rejected, 'extraction_errors': extraction_errors,
+            'skip_reasons': reasons, 'error': (error or '')[:2000] or None}
+    response = requests.post(f"{api_url.rstrip('/')}/crawler/runs", json=body,
+                             headers={'X-Ingestion-Key': token} if token else {}, timeout=20)
+    response.raise_for_status()
+
+
+def sync_runtime_config(state, api_url, token):
+    try:
+        response = requests.get(f"{api_url.rstrip('/')}/crawler/runtime",
+                                headers={'X-Ingestion-Key': token} if token else {}, timeout=20)
+        response.raise_for_status()
+        state.apply_runtime_config(response.json())
+    except (requests.RequestException, ValueError, TypeError) as exc:
+        log.warning("Crawler runtime configuration unavailable; retaining local schedule: %s", exc)
+
+
+def run_source(state, seed, api_url=None, token=""):
     run_id = state.begin(seed.domain)
+    started = state.db.execute("SELECT started FROM runs WHERE id=?", (run_id,)).fetchone()[0]
     stats_path = Path(os.getenv("CRAWLER_STATE_PATH", "crawler-state/state.db")).parent / f"run-{run_id}.json"
     command = [sys.executable, "-m", "crawler.run", "--source", json.dumps(seed.__dict__), "--stats", str(stats_path)]
     error = None
@@ -73,6 +112,11 @@ def run_source(state, seed):
     log.info("CRAWL_RESULT source=%s success=%s stats=%s", seed.domain, success, stats)
     if failures >= 3:
         log.error("CRAWLER_ALERT repeated_failure source=%s failures=%s", seed.domain, failures)
+    if api_url:
+        try:
+            report_run(api_url, token, seed, started, time.time(), success, stats, error or stats.get("error"))
+        except requests.RequestException as exc:
+            log.warning("Could not publish source health for %s: %s", seed.domain, exc)
     return success
 
 
@@ -87,7 +131,7 @@ def main():
     Path(state_path).parent.mkdir(parents=True, exist_ok=True)
     if args.status:
         state = State(state_path)
-        print(json.dumps({'sources': [dict(r) for r in state.db.execute('SELECT domain,next_run,failures,last_success,discovered_from FROM sources')],
+        print(json.dumps({'sources': [dict(r) for r in state.db.execute('SELECT domain,enabled,next_run,failures,last_success,discovered_from FROM sources')],
                           'runs': [dict(r) for r in state.db.execute('SELECT * FROM runs ORDER BY id DESC LIMIT 20')],
                           'delivery': [dict(r) for r in state.db.execute('SELECT status,count(*) AS count FROM outbox GROUP BY status')]}, indent=2))
         state.close()
@@ -102,6 +146,8 @@ def main():
     try:
         with FileLock(state_path + ".lock", timeout=0):
             state = State(state_path)
+            api_url = os.getenv("API_BASE_URL", "http://localhost:8000")
+            ingestion_token = os.getenv("INGESTION_API_KEY", "")
             with state.db:
                 state.db.execute("UPDATE runs SET finished=?,success=0,error='worker restarted before completion' WHERE finished IS NULL", (time.time(),))
             for seed in ACTIVE_SOURCES:
@@ -113,17 +159,18 @@ def main():
                 while not stop.is_set():
                     with state.db:
                         state.db.execute("INSERT OR REPLACE INTO metadata VALUES('heartbeat',?)", (str(time.time()),))
-                    deliver(state, os.getenv("API_BASE_URL", "http://localhost:8000"), os.getenv("INGESTION_API_KEY", ""))
+                    deliver(state, api_url, ingestion_token)
+                    sync_runtime_config(state, api_url, ingestion_token)
                     for row in state.due():
                         if stop.is_set():
                             break
-                        run_source(state, SourceSeed(**json.loads(row['seed'])))
+                        run_source(state, SourceSeed(**json.loads(row['seed'])), api_url, ingestion_token)
                         with state.db:
                             state.db.execute("INSERT OR REPLACE INTO metadata VALUES('heartbeat',?)", (str(time.time()),))
-                    deliver(state, os.getenv("API_BASE_URL", "http://localhost:8000"), os.getenv("INGESTION_API_KEY", ""))
+                    deliver(state, api_url, ingestion_token)
                     try:
-                        response = requests.post(os.getenv("API_BASE_URL", "http://localhost:8000").rstrip('/') + '/events/maintenance',
-                                                 headers={'X-Ingestion-Key': os.getenv('INGESTION_API_KEY', '')}, timeout=20)
+                        response = requests.post(api_url.rstrip('/') + '/events/maintenance',
+                                                 headers={'X-Ingestion-Key': ingestion_token}, timeout=20)
                         response.raise_for_status()
                     except requests.RequestException as exc:
                         log.warning('Freshness maintenance failed: %s', exc)

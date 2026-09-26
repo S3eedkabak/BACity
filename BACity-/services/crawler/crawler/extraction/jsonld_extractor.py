@@ -114,7 +114,9 @@ def extract_jsonld_events(html: str, source_url: str) -> list[RawEvent]:
                 image_url=urljoin(source_url, _text(node.get("image"))) if _text(node.get("image")) else None,
                 source_url=urljoin(source_url, _text(node.get("url")) or source_url),
                 original_source_url=source_url,
-                event_status={'EventCancelled': 'cancelled', 'EventPostponed': 'removed'}.get(str(node.get('eventStatus', '')).rsplit('/', 1)[-1], 'fresh'),
+                # Postponed is uncertain, not removed. A later crawl can supply the
+                # replacement date without losing the original provenance.
+                event_status={'EventCancelled': 'cancelled', 'EventPostponed': 'stale'}.get(str(node.get('eventStatus', '')).rsplit('/', 1)[-1], 'fresh'),
                 extraction_method="jsonld",
                 extraction_confidence=0.95,
             ))

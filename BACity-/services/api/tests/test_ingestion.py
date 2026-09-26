@@ -36,6 +36,21 @@ def test_same_listing_different_simultaneous_events_do_not_collapse(client):
     assert client.get('/events').json()['total'] == 2
 
 
+def test_changed_url_slight_title_and_address_variation_deduplicate(client):
+    first = client.post('/events', json=payload(title='Jazz Night Bratislava', address='Námestie SNP 25, Bratislava')).json()
+    second = client.post('/events', json=payload(title='Jazz Night – Bratislava!', address='Nám. SNP 25',
+                                                 source_url='https://calendar.example/new/jazz')).json()
+    assert first['id'] == second['id']
+    assert len(second['sources']) == 2
+
+
+def test_recurring_occurrences_remain_distinct(client):
+    first = client.post('/events', json=payload(source_url='https://venue.example/weekly')).json()
+    second = client.post('/events', json=payload(source_url='https://venue.example/weekly',
+                                                 start_time='2027-01-09T20:00:00+01:00')).json()
+    assert first['id'] != second['id']
+
+
 def test_ingestion_auth(client, monkeypatch):
     monkeypatch.setenv('INGESTION_API_KEY', 'secret')
     assert client.post('/events', json=payload()).status_code == 401

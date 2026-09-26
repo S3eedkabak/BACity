@@ -1,6 +1,7 @@
 import logging
 import time
 import os
+import re
 
 import requests
 
@@ -32,6 +33,8 @@ class NormalizePipeline:
         normalized = normalize_event(item)
         if normalized is None:
             logger.info("Dropped unparseable event: %r", item.title)
+            spider.crawler.stats.inc_value("validation/rejected")
+            spider.crawler.stats.inc_value("validation/rejected/normalization")
             raise DropItem(f"Could not normalize: {item.title}")
         return normalized
 
@@ -126,6 +129,9 @@ class PreValidatePipeline:
         result = validate_event(item)
         if not result.accepted or result.needs_advanced_extraction:
             spider.crawler.stats.inc_value('validation/rejected')
+            reason = result.reason if not result.accepted else 'low confidence'
+            reason_key = re.sub(r'[^a-z0-9]+', '_', reason.lower()).strip('_')[:60] or 'unknown'
+            spider.crawler.stats.inc_value(f'validation/rejected/{reason_key}')
             raise DropItem(result.reason if not result.accepted else 'low confidence')
         return item
 

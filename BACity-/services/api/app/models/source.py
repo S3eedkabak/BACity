@@ -6,7 +6,8 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, String, Float, Boolean, DateTime, Enum, Integer
+from sqlalchemy import Column, String, Float, Boolean, DateTime, Enum, Integer, JSON, ForeignKey
+from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.types import TypeDecorator, CHAR
 
@@ -87,5 +88,41 @@ class Source(Base):
     status = Column(Enum(SourceStatus), nullable=False, default=SourceStatus.active)
     requires_js = Column(Boolean, nullable=False, default=False)  # Playwright fallback needed
 
+    # Compact operational snapshot. Detailed, bounded history lives in crawler_runs.
+    last_attempt_at = Column(DateTime, nullable=True)
+    last_success_at = Column(DateTime, nullable=True)
+    crawl_status = Column(String, nullable=False, default="never_run")
+    pages_processed = Column(Integer, nullable=False, default=0)
+    items_processed = Column(Integer, nullable=False, default=0)
+    accepted_events = Column(Integer, nullable=False, default=0)
+    rejected_events = Column(Integer, nullable=False, default=0)
+    extraction_errors = Column(Integer, nullable=False, default=0)
+    consecutive_failures = Column(Integer, nullable=False, default=0)
+    last_error = Column(String, nullable=True)
+    last_skip_reasons = Column(JSON, nullable=False, default=dict)
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    crawl_runs = relationship("CrawlerRun", back_populates="source", cascade="all, delete-orphan")
+
+
+class CrawlerRun(Base):
+    """Bounded diagnostic summary; never stores response bodies or secrets."""
+
+    __tablename__ = "crawler_runs"
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    source_id = Column(GUID(), ForeignKey("sources.id", ondelete="CASCADE"), nullable=False, index=True)
+    started_at = Column(DateTime, nullable=False)
+    finished_at = Column(DateTime, nullable=False)
+    success = Column(Boolean, nullable=False)
+    status = Column(String, nullable=False)
+    pages_processed = Column(Integer, nullable=False, default=0)
+    items_processed = Column(Integer, nullable=False, default=0)
+    accepted_events = Column(Integer, nullable=False, default=0)
+    rejected_events = Column(Integer, nullable=False, default=0)
+    extraction_errors = Column(Integer, nullable=False, default=0)
+    skip_reasons = Column(JSON, nullable=False, default=dict)
+    error = Column(String, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    source = relationship("Source", back_populates="crawl_runs")
