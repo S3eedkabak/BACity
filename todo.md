@@ -1,0 +1,4 @@
+- toilet stuff needs to improve and still be implemented correctly. 
+- E2E tests need to follow up after all is integrated
+- CHecking for social stuff needs to haeppen
+- configurations of Email and authentication need to be fully set up.
