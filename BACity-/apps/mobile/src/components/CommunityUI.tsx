@@ -27,7 +27,7 @@ export function Page({ title, children }: PropsWithChildren<{ title: string }>) 
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Go back"
-            onPress={() => router.back()}
+            onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)/discover")}
             style={({ pressed }) => [ui.back, pressed && ui.pressed]}
           >
             <Ionicons name="chevron-back" size={20} color={colors.text} />
@@ -150,7 +150,7 @@ export const ui = StyleSheet.create({
     gap: 14,
     backgroundColor: colors.background,
     flexGrow: 1,
-    paddingBottom: 72,
+    paddingBottom: 112,
   },
   topbar: {
     minHeight: 52,

@@ -32,6 +32,10 @@ type PublicProfile = {
 };
 
 const MENU = [
+  { label: "Your contributions", subtitle: "Submission status and appeals", icon: "create-outline" as const, route: "/community?section=submissions" as const },
+  { label: "Messages", subtitle: "Received messages and member conversations", icon: "chatbubbles-outline" as const, route: "/community?section=messages" as const },
+  { label: "Notifications", subtitle: "Community updates", icon: "notifications-outline" as const, route: "/community?section=notifications" as const },
+  { label: "Collections", subtitle: "Curated events, places and utilities", icon: "albums-outline" as const, route: "/community?section=collections" as const },
   {
     label: "Community",
     subtitle: "People, guides, utilities and notifications",

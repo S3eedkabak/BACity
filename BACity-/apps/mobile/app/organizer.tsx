@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { Linking, Text, View } from "react-native";
 import { apiRequest } from "../src/api/client";
@@ -13,6 +14,7 @@ import {
 
 export default function Organizer() {
   const [orgs, setOrgs] = useState<any[]>([]);
+  const [organization, setOrganization] = useState<any>(null);
   const [selected, setSelected] = useState("");
   const [analytics, setAnalytics] = useState<any>(null);
   const [billing, setBilling] = useState<any>(null);
@@ -31,8 +33,12 @@ export default function Organizer() {
 
   async function choose(id: string) {
     setSelected(id);
+    setOrganization(null);
+    setAnalytics(null);
     setNotice("");
     try {
+      const organizations = await apiRequest<any[]>('/community/organizations');
+      setOrganization(organizations.find(org => org.id === id) ?? null);
       setAnalytics(await apiRequest(`/organizer/${id}/analytics`, { auth: true }));
     } catch (e: any) {
       setNotice(e.message);
@@ -103,6 +109,7 @@ export default function Organizer() {
   return (
     <Page title="Organizer dashboard">
       <Notice text={notice} />
+      <Button title="Find or register an organization" onPress={() => router.push("/community?section=organizations")} />
 
       {!orgs.length ? (
         <Card>
@@ -129,6 +136,7 @@ export default function Organizer() {
 
       {selected && (
         <>
+          {organization && <Card><Text style={ui.heading}>Organization profile</Text><Field label="Name" value={organization.name} onChange={name => setOrganization({ ...organization, name })} /><Field label="Description" value={organization.description ?? ''} onChange={description => setOrganization({ ...organization, description })} multiline /><Button title="Save organization profile" busy={busy} onPress={async () => { setBusy(true); try { await apiRequest(`/community/organizations/${selected}`, { method: 'PATCH', auth: true, body: { name: organization.name, description: organization.description, website: organization.website, venue_id: organization.venue_id } }); setOrgs(current => current.map(org => org.id === selected ? { ...org, name: organization.name } : org)); setNotice('Organization updated.'); } catch (e: any) { setNotice(e.message); } finally { setBusy(false); } }} /></Card>}
           {analytics && (
             <Card>
               <Text style={ui.heading}>Audience</Text>

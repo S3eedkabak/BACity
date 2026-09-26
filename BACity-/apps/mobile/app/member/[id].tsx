@@ -1,3 +1,4 @@
+import { useAuthStore } from "../../src/store/authStore";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
@@ -16,6 +17,8 @@ import { fonts } from "../../src/theme/fonts";
 
 export default function Member() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const user = useAuthStore(s => s.user);
+  const [role, setRole] = useState("USER");
   const [profile, setProfile] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [body, setBody] = useState("");
@@ -66,6 +69,8 @@ export default function Member() {
   return (
     <Page title="Community profile">
       <Notice text={notice} />
+      {user?.role === 'ADMIN' && user.id !== id && <Card><Text style={ui.heading}>Member role</Text><View style={ui.row}>{['USER', 'GUIDE', 'ORGANIZER', 'MODERATOR', 'ADMIN'].map(value => <Button key={value} title={(role === value ? '✓ ' : '') + value} onPress={() => setRole(value)} />)}</View><Field label="Reason for role change" value={reason} onChange={setReason} /><Button title="Apply selected role" busy={busy} onPress={async () => { setBusy(true); try { await apiRequest(`/community/moderation/users/${id}/role`, { method: 'PATCH', auth: true, body: { role, reason } }); await load(); setNotice('Role updated.'); } catch (e: any) { setNotice(e.message); } finally { setBusy(false); } }} /></Card>}
+
 
       {profile && (
         <>

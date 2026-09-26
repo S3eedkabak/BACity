@@ -1,3 +1,4 @@
+import { Button } from "../../src/components/CommunityUI";
 import { Discussion } from "../../src/components/Discussion";
 import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
@@ -123,6 +124,7 @@ export default function EventDetailScreen() {
         <Text style={styles.sourceText}>View original event</Text>
         <Ionicons name="arrow-up-outline" size={16} color={colors.primaryDark} />
       </Pressable>
+      {event.venue && <Button title={"More at " + event.venue.name} onPress={() => router.push(`/venue/${event.venue!.id}`)} />}
       <Discussion id={id} kind="event" />
     </ScrollView>
   );

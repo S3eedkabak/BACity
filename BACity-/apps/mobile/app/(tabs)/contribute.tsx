@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Text, View, Switch } from 'react-native';
 import { router } from 'expo-router';
-import { apiRequest } from '../src/api/client';
-import { Page, Card, Field, Button, Chip, Notice, ui } from '../src/components/CommunityUI';
-import { useAuthStore } from '../src/store/authStore';
+import { apiRequest } from '../../src/api/client';
+import { Page, Card, Field, Button, Chip, Notice, ui } from '../../src/components/CommunityUI';
+import { useAuthStore } from '../../src/store/authStore';
 
 export default function Contribute() {
   const user = useAuthStore(s => s.user);
@@ -45,5 +45,6 @@ export default function Contribute() {
       </Card>
     </>}
     <Notice text={notice} />
+    <Button title="View your contributions" onPress={() => router.push("/community?section=submissions")} />
   </Page>;
 }

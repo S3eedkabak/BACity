@@ -53,7 +53,7 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="create"
+        name="contribute"
         options={{
           title: "Create",
           tabBarButton: (props) => <CreateTabButton {...props} />,
