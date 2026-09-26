@@ -56,3 +56,5 @@ BACity app -> BACity API -> Google/Apple -> BACity API callback
 ```
 
 Provider buttons remain visible when credentials are absent, but the app explains that the provider still needs server configuration rather than pretending authentication succeeded.
+
+For production validation and the Android/iOS test matrix, follow [production-auth-runbook.md](production-auth-runbook.md). Production configuration validation requires both providers.

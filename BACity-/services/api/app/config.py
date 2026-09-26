@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     smtp_username: str = ""
     smtp_password: str = ""
     smtp_starttls: bool = True
+    smtp_ssl: bool = False
     mail_from: str = "noreply@example.com"
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
@@ -67,6 +68,12 @@ class Settings(BaseSettings):
                 not origin.startswith("https://") for origin in self.cors_origin_list
             ):
                 raise ValueError("Staging and production require HTTPS application and CORS origins")
+            if self.environment == "production" and (
+                not self.smtp_host
+                or self.mail_from.endswith("@example.com")
+                or self.mail_from.endswith(".example")
+            ):
+                raise ValueError("Production requires SMTP_HOST and a non-example MAIL_FROM")
 
             google_parts = [self.google_oauth_client_id, self.google_oauth_client_secret]
             if any(google_parts) and not all(google_parts):
@@ -82,6 +89,13 @@ class Settings(BaseSettings):
                 raise ValueError("Apple OAuth requires client ID, team ID, key ID and private key")
             if any(apple_parts) and not self.oauth_callback_base_url.startswith("https://"):
                 raise ValueError("Apple OAuth requires an HTTPS OAUTH_CALLBACK_BASE_URL")
+            if self.environment == "production":
+                if not all(google_parts) or not all(apple_parts):
+                    raise ValueError("Production requires Google and Apple OAuth credentials")
+                if not self.oauth_callback_base_url.startswith("https://"):
+                    raise ValueError("Production OAuth callbacks require HTTPS")
+        if self.smtp_ssl and self.smtp_starttls:
+            raise ValueError("Choose either SMTP_SSL or SMTP_STARTTLS, not both")
         return self
 
     @property

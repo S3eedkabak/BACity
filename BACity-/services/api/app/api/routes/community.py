@@ -2,6 +2,7 @@
 from datetime import datetime, timezone, timedelta
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy import or_, and_
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -9,11 +10,14 @@ from app.api.deps import get_current_user
 from app.core.community import (require_verified, require_moderator, require_admin, row,
     audit, notify, blocked, blocked_ids, rate_limit, reputation_level, owned_organization)
 from app.models.user import User
+from app.models.oauth_identity import OAuthIdentity
+from app.models.saved_event import SavedEvent
 from app.models.event import Event, EventStatus
 from app.models.venue import Venue
 from app.models.community import (Submission, AuditLog, Follow, UserBlock, Report, Organization,
     OrganizationMember, Place, CityUtility, UtilityConfirmation, Review, ReviewRevision,
     HelpfulVote, Collection, Comment, Message, Notification)
+from app.models.community import ActionToken, MailOutbox, RateBucket
 from app.schemas.community import (ProfileUpdate, EventSubmission, PlaceInput, UtilityInput,
     ModerationDecision, Reason, FollowInput, ReportInput, ReviewInput, BodyInput,
     OrganizationInput, ClaimInput, RoleInput, CollectionInput, CorrectionInput, Confirmation)
@@ -25,6 +29,10 @@ MODELS = {'event': Event, 'place': Place, 'utility': CityUtility, 'user': User,
 
 def record(item):
     return {column.name: getattr(item, column.name) for column in item.__table__.columns}
+
+
+def records(query):
+    return [record(item) for item in query.all()]
 
 
 def public_profile(db, user):
@@ -508,8 +516,68 @@ def update_org(identifier: UUID, payload: OrganizationInput, user=Depends(requir
     return {'id': item.id, 'name': item.name, 'description': item.description, 'verified': item.verified}
 
 
+@router.get('/account/export')
+def export_account(user=Depends(get_current_user), db: Session = Depends(get_db)):
+    """Return a portable snapshot of all records associated with the account."""
+    user_id, user_id_text = user.id, str(user.id)
+    review_ids = [item.id for item in db.query(Review.id).filter_by(user_id=user_id)]
+    profile = record(user)
+    profile.pop('hashed_password', None)
+    export = {
+        'schema_version': 1,
+        'exported_at': datetime.utcnow(),
+        'profile': profile,
+        'oauth_identities': records(db.query(OAuthIdentity).filter_by(user_id=user_id)),
+        'saved_events': records(db.query(SavedEvent).filter_by(user_id=user_id)),
+        'submissions': records(db.query(Submission).filter(or_(Submission.user_id == user_id, Submission.reviewer_id == user_id))),
+        'audit_logs': records(db.query(AuditLog).filter(or_(AuditLog.actor_id == user_id, and_(AuditLog.target_type == 'user', AuditLog.target_id == user_id_text)))),
+        'follows': records(db.query(Follow).filter(or_(Follow.user_id == user_id, and_(Follow.target_type.in_(['user', 'guide']), Follow.target_id == user_id_text)))),
+        'blocks': records(db.query(UserBlock).filter(or_(UserBlock.user_id == user_id, UserBlock.blocked_id == user_id))),
+        'reports': records(db.query(Report).filter_by(user_id=user_id)),
+        'organization_memberships': records(db.query(OrganizationMember).filter_by(user_id=user_id)),
+        'places_contributed': records(db.query(Place).filter_by(contributor_id=user_id)),
+        'utilities_contributed': records(db.query(CityUtility).filter_by(contributor_id=user_id)),
+        'utility_confirmations': records(db.query(UtilityConfirmation).filter_by(user_id=user_id)),
+        'reviews': records(db.query(Review).filter_by(user_id=user_id)),
+        'review_revisions': records(db.query(ReviewRevision).filter(ReviewRevision.review_id.in_(review_ids))) if review_ids else [],
+        'helpful_votes': records(db.query(HelpfulVote).filter_by(user_id=user_id)),
+        'collections': records(db.query(Collection).filter_by(user_id=user_id)),
+        'comments': records(db.query(Comment).filter_by(user_id=user_id)),
+        'messages': records(db.query(Message).filter(or_(Message.sender_id == user_id, Message.recipient_id == user_id))),
+        'notifications': records(db.query(Notification).filter_by(user_id=user_id)),
+    }
+    audit(db, user, 'account_exported', 'user', user.id)
+    db.commit()
+    return jsonable_encoder(export)
+
+
 @router.delete('/account')
 def delete_account(payload: Reason, user=Depends(get_current_user), db: Session = Depends(get_db)):
+    """Erase private/activity data and anonymize retained public or compliance records."""
+    user_id, old_email = user.id, user.email
+    # Provider subjects and all private/security records are erased immediately.
+    db.query(OAuthIdentity).filter_by(user_id=user_id).delete(synchronize_session=False)
+    db.query(ActionToken).filter_by(user_id=user_id).delete(synchronize_session=False)
+    db.query(MailOutbox).filter_by(recipient=old_email).delete(synchronize_session=False)
+    db.query(SavedEvent).filter_by(user_id=user_id).delete(synchronize_session=False)
+    db.query(Message).filter(or_(Message.sender_id == user_id, Message.recipient_id == user_id)).delete(synchronize_session=False)
+    db.query(Follow).filter(or_(Follow.user_id == user_id, and_(Follow.target_type.in_(['user', 'guide']), Follow.target_id == str(user_id)))).delete(synchronize_session=False)
+    db.query(UserBlock).filter(or_(UserBlock.user_id == user_id, UserBlock.blocked_id == user_id)).delete(synchronize_session=False)
+    db.query(Notification).filter(or_(Notification.user_id == user_id, Notification.target_id == str(user_id))).delete(synchronize_session=False)
+    db.query(OrganizationMember).filter_by(user_id=user_id).delete(synchronize_session=False)
+    db.query(HelpfulVote).filter_by(user_id=user_id).delete(synchronize_session=False)
+    db.query(UtilityConfirmation).filter_by(user_id=user_id).delete(synchronize_session=False)
+    db.query(Report).filter_by(user_id=user_id).delete(synchronize_session=False)
+    db.query(Collection).filter(Collection.user_id == user_id, Collection.public.is_(False)).delete(synchronize_session=False)
+    db.query(RateBucket).filter(or_(RateBucket.key.contains(str(user_id)), RateBucket.key.contains(old_email))).delete(synchronize_session=False)
+
+    # Unpublished submissions are retained only as empty workflow tombstones.
+    db.query(Submission).filter(
+        Submission.user_id == user_id,
+        Submission.state.notin_(['approved', 'rejected']),
+    ).update({'state': 'withdrawn', 'payload': {}, 'appeal': None, 'decision_reason': None}, synchronize_session=False)
+
+    # Published contributions and compliance logs retain the anonymous user ID.
     user.active = False
     user.token_version += 1
     user.email = f'deleted-{user.id}@example.invalid'
@@ -517,11 +585,11 @@ def delete_account(payload: Reason, user=Depends(get_current_user), db: Session 
     user.display_name = 'Deleted account'
     user.bio = user.avatar_url = user.neighborhood = None
     user.interests = []
+    user.city = 'Bratislava'
+    user.role = 'USER'
+    user.email_verified = user.identity_verified = False
+    user.allow_general_messages = False
     user.public_profile = False
-    db.query(Message).filter(or_(Message.sender_id == user.id, Message.recipient_id == user.id)).delete(synchronize_session=False)
-    db.query(Follow).filter(or_(Follow.user_id == user.id, and_(Follow.target_type.in_(['user', 'guide']), Follow.target_id == str(user.id)))).delete(synchronize_session=False)
-    db.query(Notification).filter_by(user_id=user.id).delete()
-    db.query(Submission).filter(Submission.user_id == user.id, Submission.state.in_(['pending', 'appealed'])).update({'state': 'withdrawn'})
     audit(db, user, 'account_deleted', 'user', user.id)
     db.commit()
     return {'deleted': True}

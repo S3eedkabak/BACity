@@ -17,7 +17,12 @@ def test_production_rejects_placeholder_secrets():
         Settings(environment='production', _env_file=None)
     settings = Settings(environment='production', jwt_secret='a'*40, ingestion_api_key='b'*40,
                         database_url='postgresql://localhost/bacity', public_app_url='https://bacity.example',
-                        cors_origins='https://bacity.example', _env_file=None)
+                        cors_origins='https://bacity.example', smtp_host='smtp.example.net',
+                        mail_from='noreply@bacity.sk',
+                        oauth_callback_base_url='https://api.bacity.example',
+                        google_oauth_client_id='google-client', google_oauth_client_secret='google-secret',
+                        apple_oauth_client_id='com.bacity.web', apple_team_id='TEAM',
+                        apple_key_id='KEY', apple_private_key='private-key', _env_file=None)
     assert settings.environment == 'production'
 
 
@@ -82,3 +87,10 @@ def test_mail_delivery_retry_and_retention(client, db_session, monkeypatch):
         assert smtp.return_value.__enter__.return_value.send_message.call_count == 1
     db_session.refresh(mail)
     assert mail.sent_at and mail.body == '[Delivered]'
+    mail.sent_at = None
+    mail.attempts = 10
+    mail.next_attempt_at = datetime.utcnow()-timedelta(seconds=1)
+    db_session.commit()
+    with patch('app.worker.smtplib.SMTP') as smtp:
+        worker.tick()
+        smtp.assert_not_called()

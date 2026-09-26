@@ -114,3 +114,37 @@ def test_apple_oauth_creates_bacity_session(client, monkeypatch):
     assert me.status_code == 200
     assert me.json()["email"] == "apple@example.com"
     assert me.json()["email_verified"] is True
+
+
+def test_oauth_duplicate_email_links_one_account(client, db_session):
+    from app.api.routes.auth import _find_or_create_social_user
+    from app.models.oauth_identity import OAuthIdentity
+    from app.models.user import User
+
+    client.post('/auth/register', json={'email': 'same@example.com', 'password': 'password123'})
+    existing = db_session.query(User).filter_by(email='same@example.com').one()
+    google_user = _find_or_create_social_user(
+        db_session, 'google', 'google-subject', ' SAME@example.com ', 'Provider Name'
+    )
+    apple_user = _find_or_create_social_user(
+        db_session, 'apple', 'apple-subject', 'same@example.com'
+    )
+    assert google_user.id == existing.id == apple_user.id
+    assert existing.email_verified is True
+    assert db_session.query(User).filter_by(email='same@example.com').count() == 1
+    assert db_session.query(OAuthIdentity).filter_by(user_id=existing.id).count() == 2
+
+
+def test_oauth_identity_without_email_only_reuses_existing_link(client, db_session):
+    from fastapi import HTTPException
+    from app.api.routes.auth import _find_or_create_social_user
+
+    with __import__('pytest').raises(HTTPException):
+        _find_or_create_social_user(db_session, 'apple', 'private-relay-subject', None)
+    linked = _find_or_create_social_user(
+        db_session, 'apple', 'private-relay-subject', 'relay@privaterelay.appleid.com'
+    )
+    reused = _find_or_create_social_user(
+        db_session, 'apple', 'private-relay-subject', None
+    )
+    assert reused.id == linked.id

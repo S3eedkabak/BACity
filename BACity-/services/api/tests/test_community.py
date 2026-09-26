@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta, timezone
 import re
 from app.models.user import User
-from app.models.community import MailOutbox, Submission, Organization, OrganizationMember
+from app.models.community import MailOutbox, Submission, Organization, OrganizationMember, Message
+from app.models.oauth_identity import OAuthIdentity
 from app.models.event import Event
 
 
@@ -132,3 +133,28 @@ def test_logout_and_delete_revoke_access(client, db_session):
     b, hb = account(client, db_session, 'delete')
     assert client.request('DELETE', '/community/account', json={'reason': 'No longer using this account'}, headers=hb).status_code == 200
     assert client.get('/users/me', headers=hb).status_code == 401
+
+
+def test_account_export_and_complete_private_data_erasure(client, db_session):
+    user, headers = account(client, db_session, 'privacy')
+    other, _ = account(client, db_session, 'privacy-other')
+    db_session.add(OAuthIdentity(user_id=user.id, provider='google', subject='provider-subject'))
+    db_session.add(Message(sender_id=user.id, recipient_id=other.id, body='private text'))
+    db_session.commit()
+
+    exported = client.get('/community/account/export', headers=headers)
+    assert exported.status_code == 200, exported.text
+    payload = exported.json()
+    assert payload['profile']['email'] == 'privacy@example.com'
+    assert 'hashed_password' not in payload['profile']
+    assert payload['oauth_identities'][0]['subject'] == 'provider-subject'
+    assert payload['messages'][0]['body'] == 'private text'
+
+    deleted = client.request('DELETE', '/community/account', json={'reason': 'Privacy request'}, headers=headers)
+    assert deleted.status_code == 200
+    db_session.expire_all()
+    anonymized = db_session.get(User, user.id)
+    assert anonymized.email.endswith('@example.invalid') and not anonymized.active
+    assert db_session.query(OAuthIdentity).filter_by(user_id=user.id).count() == 0
+    assert db_session.query(Message).filter(Message.sender_id == user.id).count() == 0
+    assert db_session.query(MailOutbox).filter_by(recipient='privacy@example.com').count() == 0

@@ -25,7 +25,8 @@ def tick():
                     message = EmailMessage()
                     message['From'], message['To'], message['Subject'] = s.mail_from, item.recipient, item.subject
                     message.set_content(item.body)
-                    with smtplib.SMTP(s.smtp_host, s.smtp_port, timeout=15) as smtp:
+                    smtp_class = smtplib.SMTP_SSL if s.smtp_ssl else smtplib.SMTP
+                    with smtp_class(s.smtp_host, s.smtp_port, timeout=15) as smtp:
                         if s.smtp_starttls:
                             smtp.starttls()
                         if s.smtp_username:
