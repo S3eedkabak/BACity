@@ -1,10 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
+import { useEffect, useState } from "react";
 import { useEvents } from "../../src/hooks/useEvents";
-import { LoadingState } from "../../src/components/LoadingState";
 import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
+import type { EventOut } from "../../src/types/event";
+import { loadMapSnapshot, updateMapSnapshot } from "../../src/map/mapCache";
 
 const BRATISLAVA = {
   latitude: 48.1486,
@@ -36,12 +38,26 @@ function project(latitude: number, longitude: number) {
 }
 
 export default function MapScreen() {
-  const { data, isLoading } = useEvents({ limit: 100 });
-  const pins = (data?.items ?? []).filter(
+  const { data, isFetching, isError } = useEvents({ limit: 100 });
+  const [cachedEvents, setCachedEvents] = useState<EventOut[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    void loadMapSnapshot().then((snapshot) => {
+      if (active) setCachedEvents(snapshot.events);
+    });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!data) return;
+    setCachedEvents(data.items);
+    updateMapSnapshot({ events: data.items });
+  }, [data]);
+
+  const pins = (data?.items ?? cachedEvents).filter(
     (event) => event.latitude != null && event.longitude != null
   );
-
-  if (isLoading) return <LoadingState />;
 
   return (
     <View style={styles.container}>
@@ -111,7 +127,7 @@ export default function MapScreen() {
       <View style={styles.counter}>
         <View style={styles.counterDot} />
         <Text style={styles.counterText}>
-          {pins.length} events with a location
+          {isError && pins.length ? `${pins.length} cached events` : isError ? "Events unavailable" : isFetching && !pins.length ? "Refreshing events…" : `${pins.length} events with a location`}
         </Text>
       </View>
 
