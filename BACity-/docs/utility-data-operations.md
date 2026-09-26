@@ -6,6 +6,10 @@ BACity imports public toilets from the City of Bratislava's official ArcGIS Feat
 
 The importer requests GeoJSON in WGS84, normalizes whitespace, coordinates, fees, opening hours and accessibility, and upserts by the city's stable `objectid`. Records without coordinates are skipped because they cannot be safely mapped. Official records removed from a later feed are retained but reset to `unknown` so bookmarks and public links do not break.
 
+Before fetching features, the importer asks ArcGIS for `returnCountOnly`. It then requests stable `objectid`-ordered pages with `resultOffset` and `resultRecordCount`, continuing whenever the reported count has not been reached or ArcGIS sets `exceededTransferLimit` (including the GeoJSON `properties` form). A count mismatch aborts before any database changes unless a refreshed upstream count exactly matches the completed fetch.
+
+Each run reports `upstream_total`, `fetched`, the backwards-compatible `received`, `accepted`, `created`, `updated`, `skipped`, `skip_reasons`, and `missing`. `accepted` equals the records normalized and upserted during that run; skip reasons are grouped with counts for operational alerting.
+
 ## Run and schedule
 
 Run a manual synchronization from `services/api`:

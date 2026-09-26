@@ -1,5 +1,7 @@
 """Import and normalize Bratislava's official public-toilet ArcGIS dataset."""
+import logging
 import re
+from collections import Counter
 from datetime import datetime
 
 import httpx
@@ -9,6 +11,8 @@ from app.database import SessionLocal
 from app.models.community import CityUtility
 
 QUERY_URL = OFFICIAL_TOILET_SOURCE + "/query"
+PAGE_SIZE = 1000
+log = logging.getLogger("bacity.utility_import")
 
 
 def _text(value):
@@ -51,23 +55,82 @@ def normalize_feature(feature: dict) -> dict:
     }
 
 
+def _response_json(response):
+    response.raise_for_status()
+    payload = response.json()
+    if payload.get("error"):
+        raise ValueError(f"Official public-toilet dataset query failed: {payload['error']}")
+    return payload
+
+
+def _upstream_count(requester) -> int:
+    response = requester.get(QUERY_URL, params={
+        "where": "1=1", "returnCountOnly": "true", "f": "json",
+    }, timeout=30.0)
+    payload = _response_json(response)
+    count = payload.get("count")
+    if not isinstance(count, int) or count < 0:
+        raise ValueError("Official public-toilet dataset did not report a valid record count")
+    return count
+
+
+def _fetch_all_features(requester, upstream_total: int) -> tuple[list[dict], int]:
+    features, object_ids, offset = [], set(), 0
+    while True:
+        response = requester.get(QUERY_URL, params={
+            "where": "1=1", "outFields": "*", "returnGeometry": "true", "outSR": 4326,
+            "orderByFields": "objectid ASC", "resultOffset": offset,
+            "resultRecordCount": PAGE_SIZE, "f": "geojson",
+        }, timeout=30.0)
+        payload = _response_json(response)
+        page = payload.get("features") or []
+        exceeded = bool(payload.get("exceededTransferLimit") or
+                        (payload.get("properties") or {}).get("exceededTransferLimit"))
+        if not page:
+            if len(features) < upstream_total or exceeded:
+                raise ValueError(
+                    f"Official public-toilet pagination stopped at {len(features)} of {upstream_total} records"
+                )
+            break
+
+        for feature in page:
+            properties = feature.get("properties") or {}
+            object_id = properties.get("objectid", feature.get("id"))
+            if object_id is not None:
+                if object_id in object_ids:
+                    raise ValueError(f"Official public-toilet pagination repeated objectid {object_id}")
+                object_ids.add(object_id)
+        features.extend(page)
+        offset += len(page)
+
+        if not exceeded and len(features) >= upstream_total:
+            break
+
+    if len(features) != upstream_total:
+        refreshed_total = _upstream_count(requester)
+        if len(features) != refreshed_total:
+            raise ValueError(
+                f"Official public-toilet count changed during pagination: "
+                f"reported {upstream_total}, fetched {len(features)}, now reports {refreshed_total}"
+            )
+        upstream_total = refreshed_total
+    return features, upstream_total
+
+
 def sync_bratislava_toilets(db, client=None) -> dict:
     requester = client or httpx
-    response = requester.get(QUERY_URL, params={
-        "where": "1=1", "outFields": "*", "returnGeometry": "true", "outSR": 4326, "f": "geojson",
-    }, timeout=30.0)
-    response.raise_for_status()
-    features = response.json().get("features") or []
+    upstream_total = _upstream_count(requester)
+    features, upstream_total = _fetch_all_features(requester, upstream_total)
     if not features:
         raise ValueError("Official public-toilet dataset returned no features")
 
-    now, seen, created, updated, skipped = datetime.utcnow(), set(), 0, 0, 0
+    now, seen, created, updated = datetime.utcnow(), set(), 0, 0
+    skip_reasons = Counter()
     for feature in features:
         try:
             values = normalize_feature(feature)
-        except ValueError:
-            # The city feed currently includes a planned toilet without a point.
-            skipped += 1
+        except ValueError as exc:
+            skip_reasons[str(exc)] += 1
             continue
         seen.add(values["source_url"])
         item = db.query(CityUtility).filter_by(source_url=values["source_url"]).first()
@@ -90,7 +153,20 @@ def sync_bratislava_toilets(db, client=None) -> dict:
         item.operational_status = "unknown"
         item.updated_at = now
     db.commit()
-    return {"received": len(features), "created": created, "updated": updated, "skipped": skipped, "missing": len(missing)}
+    accepted = created + updated
+    result = {
+        "upstream_total": upstream_total,
+        "fetched": len(features),
+        "received": len(features),
+        "accepted": accepted,
+        "created": created,
+        "updated": updated,
+        "skipped": sum(skip_reasons.values()),
+        "skip_reasons": dict(skip_reasons),
+        "missing": len(missing),
+    }
+    log.info("Public-toilet synchronization: %s", result)
+    return result
 
 
 def main():
