@@ -2,3 +2,4 @@
 - E2E tests need to follow up after all is integrated
 - CHecking for social stuff needs to haeppen
 - configurations of Email and authentication need to be fully set up.
+- Refactor Map services to use on device map services to make app faster, (ONLY FREE INSTALLATION, NO API FEES [Overlay Markers on the on device map, no api calls.]) 
