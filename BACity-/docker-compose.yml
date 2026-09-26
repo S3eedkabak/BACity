@@ -82,6 +82,8 @@ services:
     build:
       context: ./services/api
     env_file: .env
+    environment:
+      UTILITY_SYNC_ENABLED: "true"
     restart: unless-stopped
     depends_on:
       api:

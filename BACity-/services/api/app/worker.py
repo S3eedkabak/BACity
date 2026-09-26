@@ -51,7 +51,7 @@ def tick():
         if s.utility_sync_enabled:
             last_sync = db.query(CityUtility.updated_at).filter(
                 CityUtility.source_url.startswith(OFFICIAL_TOILET_SOURCE)
-            ).order_by(CityUtility.updated_at.desc()).scalar()
+            ).order_by(CityUtility.updated_at.desc()).limit(1).scalar()
             latest_attempt = max(filter(None, [last_sync, _last_utility_sync_attempt]), default=None)
             if not latest_attempt or latest_attempt < now - timedelta(hours=s.utility_sync_interval_hours):
                 _last_utility_sync_attempt = now

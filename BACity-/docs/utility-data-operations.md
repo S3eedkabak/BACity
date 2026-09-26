@@ -14,7 +14,7 @@ Run a manual synchronization from `services/api`:
 python -m app.utility_import
 ```
 
-The production maintenance service sets `UTILITY_SYNC_ENABLED=true` and checks the dataset daily. `UTILITY_SYNC_INTERVAL_HOURS` can be changed from its 24-hour default. Development keeps network synchronization disabled unless explicitly enabled.
+The production and development Compose maintenance services set `UTILITY_SYNC_ENABLED=true` and check the dataset daily. `UTILITY_SYNC_INTERVAL_HOURS` can be changed from its 24-hour default. Direct API/worker processes keep network synchronization disabled unless explicitly enabled.
 
 After each deployment or provider schema change, confirm that the importer reports a nonzero `received` count and inspect the skipped count. A zero-feature response aborts without modifying stored data. Provider/network errors are logged and retried on the next maintenance cycle; they do not stop email or retention maintenance.
 
