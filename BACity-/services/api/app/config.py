@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     message_retention_days: int = Field(90, ge=1, le=3650)
     utility_sync_enabled: bool = False
     utility_sync_interval_hours: int = Field(24, ge=1, le=168)
+    media_root: str = "./media"
 
     # CORS
     cors_origins: str = "http://localhost:8081,http://localhost:19006"

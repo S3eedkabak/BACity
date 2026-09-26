@@ -15,6 +15,7 @@ export default function Community() {
   const [section, setSection] = useState<Section>('utilities');
   useEffect(() => { if (params.section && Object.prototype.hasOwnProperty.call(sections, params.section)) setSection(params.section as Section); }, [params.section]);
   const [items, setItems] = useState<any[]>([]);
+  const [hasMore, setHasMore] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [reason, setReason] = useState('');
@@ -24,21 +25,29 @@ export default function Community() {
   const [website, setWebsite] = useState('');
   const [evidence, setEvidence] = useState('');
   const requestId = useRef(0);
-  const [followType, setFollowType] = useState<'category' | 'neighborhood'>('category');
+  const [followType, setFollowType] = useState<'user' | 'guide' | 'organizer' | 'venue' | 'category' | 'neighborhood'>('user');
   const [followName, setFollowName] = useState('');
+  const [followTargets, setFollowTargets] = useState<any[]>([]);
   const [query, setQuery] = useState('');
   const moderator = user && ['ADMIN', 'MODERATOR'].includes(user.role);
-  async function load() {
+  async function load(more = false) {
     const request = ++requestId.current;
-    setBusy(true); setNotice(''); setItems([]);
-    try { const result = (await apiRequest<any[]>(paths[section], { auth: true, params: section === 'utilities' ? { kind: utilityKind } : ['people', 'places', 'organizations'].includes(section) ? { q: query } : undefined })).filter(item => section !== 'messages' || item.kind === 'message'); if (request === requestId.current) setItems(result); }
+    const paginated = ['people', 'follows'].includes(section);
+    setBusy(true); setNotice(''); if (!more) setItems([]);
+    const params = section === 'utilities' ? { kind: utilityKind } : ['people', 'places', 'organizations'].includes(section) ? { q: query, offset: more ? items.length : 0, limit: 20 } : section === 'follows' ? { offset: more ? items.length : 0, limit: 20 } : undefined;
+    try { const result = (await apiRequest<any[]>(paths[section], { auth: true, params })).filter(item => section !== 'messages' || item.kind === 'message'); if (request === requestId.current) { setItems(current => more ? [...current, ...result] : result); setHasMore(paginated && result.length === 20); } }
     catch (e: any) { if (request === requestId.current) setNotice(e.status === 401 ? 'Sign in to see this section.' : e.message); }
     finally { if (request === requestId.current) setBusy(false); }
   }
-  useEffect(() => { void load(); }, [section, user?.id, utilityKind]);
+  useEffect(() => { void load(false); }, [section, user?.id, utilityKind]);
   async function act(path: string, body?: unknown, method: 'POST' | 'DELETE' = 'POST') {
     setBusy(true); setNotice('');
     try { await apiRequest(path, { auth: true, method, body }); await load(); setNotice('Saved.'); }
+    catch (e: any) { setNotice(e.message); } finally { setBusy(false); }
+  }
+  async function findFollowTargets() {
+    setBusy(true); setNotice('');
+    try { setFollowTargets(await apiRequest<any[]>('/community/follow-targets', { auth: true, params: { target_type: followType, q: followName, limit: 20 } })); }
     catch (e: any) { setNotice(e.message); } finally { setBusy(false); }
   }
   return <Page title="Your Bratislava">
@@ -47,11 +56,11 @@ export default function Community() {
     <View style={ui.row}>{(Object.keys(sections) as Section[]).filter(s => moderator || !['moderation', 'reports', 'audit'].includes(s)).map(s => <Chip key={s} title={sections[s]} active={section === s} onPress={() => { setQuery(''); setSection(s); }} />)}</View>
     {section === 'utilities' && <Field label="Utility kind (toilet, water_fountain, wifi, bench…)" value={utilityKind} onChange={setUtilityKind} />}
     {['people', 'places', 'organizations'].includes(section) && <Field label="Search by name" value={query} onChange={setQuery} />}
-    <Button title={busy ? 'Loading…' : 'Refresh results'} busy={busy} onPress={load} />
+    <Button title={busy ? 'Loading…' : 'Refresh results'} busy={busy} onPress={() => load(false)} />
     <Notice text={notice} />
     {!user && <Button title="Sign in to participate" onPress={() => router.push({ pathname: "/auth", params: { mode: "login" } })} />}
     {section === "messages" && <Button title="Find someone to message" onPress={() => setSection("people")} />}
-    {section === 'follows' && <Card><Text style={ui.heading}>Follow your interests</Text><View style={ui.row}>{(['category', 'neighborhood'] as const).map(type => <Chip key={type} title={type} active={followType === type} onPress={() => setFollowType(type)} />)}</View><Field label={followType === 'category' ? 'Category, e.g. Music' : 'Neighborhood name'} value={followName} onChange={setFollowName} /><Button title="Follow" busy={busy} onPress={() => act('/community/follows', { target_type: followType, target_id: followName })} /></Card>}
+    {section === 'follows' && <Card><Text style={ui.heading}>Find something to follow</Text><View style={ui.row}>{(['user', 'guide', 'organizer', 'venue', 'category', 'neighborhood'] as const).map(type => <Chip key={type} title={type} active={followType === type} onPress={() => { setFollowType(type); setFollowTargets([]); }} />)}</View><Field label={`Search ${followType}s`} value={followName} onChange={setFollowName} /><Button title="Find follow targets" busy={busy} onPress={findFollowTargets} />{followTargets.map(target => <View key={`${target.target_type}:${target.target_id}`}><Text style={ui.text}>{target.name}</Text><Text style={ui.muted}>{target.subtitle}</Text><Button title={`Follow ${target.name}`} busy={busy} onPress={() => act('/community/follows', { target_type: target.target_type, target_id: target.target_id })} /></View>)}</Card>}
     {section === "collections" && <Button title="Create a collection" onPress={() => router.push("/collection")} />}
     {['moderation', 'reports', 'submissions'].includes(section) && <Field label="Reason for your decision or appeal" value={reason} onChange={setReason} multiline />}
     {!busy && !items.length && <Text style={ui.muted}>Nothing here yet. Check back after contributions have been reviewed.</Text>}
@@ -67,9 +76,10 @@ export default function Community() {
       {section === 'reports' && <><Text style={ui.text}>{item.reason}</Text><Text style={ui.muted}>Reported {item.target_type}</Text><Button title="Uphold report and restrict content" busy={busy} onPress={() => act(`/community/moderation/reports/${item.id}`, { decision: 'approve', reason })} /><Button title="Dismiss report" busy={busy} onPress={() => act(`/community/moderation/reports/${item.id}`, { decision: 'reject', reason })} /></>}
       {section === 'organizations' && <><Text style={ui.text}>{item.description}</Text><Text style={ui.muted}>{item.verified ? 'Verified organizer' : 'Unverified organizer'}</Text><Button title="Follow organizer" busy={busy} onPress={() => act('/community/follows', { target_type: 'organizer', target_id: item.id })} /><Field label="Public evidence of your ownership (HTTPS)" value={evidence} onChange={setEvidence} /><Button title="Request ownership review" busy={busy} onPress={() => act(`/community/organizations/${item.id}/claim`, { evidence_url: evidence, reason: 'Please verify my ownership using the supplied public evidence' })} /></>}
       {section === 'collections' && <><Text style={ui.text}>{item.description}</Text>{item.items.map((entry: any) => <Button key={entry.id} title={'Open ' + entry.type} onPress={() => entry.type === 'event' ? router.push(`/event/${entry.id}`) : entry.type === 'place' ? router.push(`/place/${entry.id}`) : router.push(`/utility/${entry.id}`)} />)}</>}
-      {section === 'follows' && <>{['user', 'guide'].includes(item.target_type) && <Button title="View member and messages" onPress={() => router.push(`/member/${item.target_id}`)} />}{item.target_type === 'venue' && <Button title="View venue" onPress={() => router.push(`/venue/${item.target_id}`)} />}{item.target_type === 'organizer' && <Button title="View organizers" onPress={() => setSection('organizations')} />}<Text style={ui.text}>{item.target_id}</Text><Button title="Unfollow" busy={busy} onPress={() => act(`/community/follows/${item.id}`, undefined, 'DELETE')} /></>}
+      {section === 'follows' && <><Text style={ui.text}>{item.target_label}</Text><Text style={ui.muted}>{item.target_type} · {item.target_subtitle}</Text>{['user', 'guide'].includes(item.target_type) && <Button title="View member and messages" onPress={() => router.push(`/member/${item.target_id}`)} />}{item.target_type === 'venue' && <Button title="View venue" onPress={() => router.push(`/venue/${item.target_id}`)} />}{item.target_type === 'organizer' && <Button title="Browse organizers" onPress={() => setSection('organizations')} />}<Button title="Unfollow" busy={busy} onPress={() => act(`/community/follows/${item.id}`, undefined, 'DELETE')} /></>}
       {section === 'blocks' && <><Text style={ui.text}>{item.blocked_id}</Text><Button title="Unblock" busy={busy} onPress={() => act(`/community/blocks/${item.blocked_id}`, undefined, 'DELETE')} /></>}
     </Card>)}
+    {hasMore && <Button title="Load more" busy={busy} onPress={() => load(true)} />}
     {section === 'organizations' && <Card><Text style={ui.heading}>Register your organization</Text><Field label="Organization name" value={orgName} onChange={setOrgName} /><Field label="Official website (HTTPS)" value={website} onChange={setWebsite} /><Button title="Create organization page" busy={busy} onPress={() => act('/community/organizations', { name: orgName, website })} /><Button title="Manage your verified organizations" onPress={() => router.push('/organizer')} /></Card>}
   </Page>;
 }

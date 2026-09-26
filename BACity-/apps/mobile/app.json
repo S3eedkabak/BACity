@@ -29,6 +29,14 @@
       "expo-router",
       "expo-secure-store",
       "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow BACity to choose and crop your profile photo.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
       "@maplibre/maplibre-react-native"
     ],
     "extra": {

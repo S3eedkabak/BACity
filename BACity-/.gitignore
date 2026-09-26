@@ -131,3 +131,6 @@ Desktop.ini
 *.swp
 *.swo
 *~
+
+# User-uploaded media is runtime data, never source control.
+services/api/media/

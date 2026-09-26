@@ -3,10 +3,12 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 from app.core.http import RequestMiddleware
 import json
+from pathlib import Path
 
 from app.config import get_settings
 from app.database import Base, engine, get_db
@@ -17,6 +19,7 @@ from app.api.routes import events, venues, auth, users, community, discovery, bi
 from app import models  # noqa: F401
 
 settings = get_settings()
+Path(settings.media_root).mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(
     title="Bratislava Event Discovery API",
@@ -33,6 +36,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(RequestMiddleware)
+app.mount("/media", StaticFiles(directory=settings.media_root), name="media")
 
 
 @app.exception_handler(ValidationError)

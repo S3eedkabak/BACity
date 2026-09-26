@@ -199,9 +199,7 @@ export default function ProfileScreen() {
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Your city profile</Text>
-          <Pressable onPress={() => router.push("/account")}>
-            <Text style={styles.edit}>Edit</Text>
-          </Pressable>
+          <View style={styles.roleRow}><Pressable onPress={() => router.push(`/member/${user.id}`)}><Text style={styles.edit}>Public view</Text></Pressable><Pressable onPress={() => router.push("/account")}><Text style={styles.edit}>Edit</Text></Pressable></View>
         </View>
 
         <View style={styles.tasteCard}>

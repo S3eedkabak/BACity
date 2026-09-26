@@ -1,11 +1,15 @@
 """Community contributions are published only after an audited moderation decision."""
 from datetime import datetime, timezone, timedelta
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy import or_, and_
 from sqlalchemy.orm import Session
+from PIL import Image, ImageOps, UnidentifiedImageError
+from io import BytesIO
+from pathlib import Path
 from app.database import get_db
+from app.config import get_settings
 from app.api.deps import get_current_user
 from app.core.community import (require_verified, require_moderator, require_admin, row,
     audit, notify, blocked, blocked_ids, rate_limit, reputation_level, owned_organization)
@@ -13,7 +17,7 @@ from app.core.utilities import nearby_query, utility_record, viewport_query
 from app.models.user import User
 from app.models.oauth_identity import OAuthIdentity
 from app.models.saved_event import SavedEvent
-from app.models.event import Event, EventStatus
+from app.models.event import Event, EventStatus, EventCategory
 from app.models.venue import Venue
 from app.models.community import (Submission, AuditLog, Follow, UserBlock, Report, Organization,
     OrganizationMember, Place, CityUtility, UtilityConfirmation, Review, ReviewRevision,
@@ -24,6 +28,8 @@ from app.schemas.community import (ProfileUpdate, EventSubmission, PlaceInput, U
     OrganizationInput, ClaimInput, RoleInput, CollectionInput, CorrectionInput, Confirmation)
 
 router = APIRouter(prefix='/community', tags=['community'])
+settings = get_settings()
+Image.MAX_IMAGE_PIXELS = 15_000_000
 MODELS = {'event': Event, 'place': Place, 'utility': CityUtility, 'user': User,
           'review': Review, 'comment': Comment, 'message': Message}
 
@@ -40,9 +46,16 @@ def public_profile(db, user):
     return dict(id=user.id, display_name=user.display_name, avatar_url=user.avatar_url,
                 bio=user.bio, city=user.city, neighborhood=user.neighborhood, interests=user.interests,
                 role=user.role, identity_verified=user.identity_verified,
+                reputation=user.reputation,
                 reputation_level=reputation_level(user.reputation),
+                contributions_count=db.query(Submission).filter_by(user_id=user.id, state='approved').count(),
+                reviews_count=db.query(Review).filter_by(user_id=user.id, state='visible').count(),
                 followers=db.query(Follow).filter(Follow.target_type.in_(['user', 'guide']), Follow.target_id == str(user.id)).count(),
                 following=db.query(Follow).filter_by(user_id=user.id).count())
+
+
+def _avatar_path(user_id):
+    return Path(settings.media_root) / 'avatars' / f'{user_id}.jpg'
 
 
 def submit(db, user, kind, payload):
@@ -70,16 +83,128 @@ def edit_profile(payload: ProfileUpdate, user=Depends(get_current_user), db: Ses
     return public_profile(db, user)
 
 
+@router.post('/profile/avatar')
+async def upload_avatar(
+    avatar: UploadFile = File(...), user=Depends(get_current_user), db: Session = Depends(get_db),
+):
+    if avatar.content_type not in {'image/jpeg', 'image/png', 'image/webp'}:
+        raise HTTPException(415, 'Use a JPEG, PNG, or WebP image')
+    payload = await avatar.read(5 * 1024 * 1024 + 1)
+    if len(payload) > 5 * 1024 * 1024:
+        raise HTTPException(413, 'Avatar must be 5 MB or smaller')
+    try:
+        source = Image.open(BytesIO(payload))
+        source.load()
+        if source.width < 128 or source.height < 128 or source.width * source.height > 30_000_000:
+            raise HTTPException(422, 'Avatar must be at least 128×128 and at most 30 megapixels')
+        rendered = ImageOps.fit(source.convert('RGB'), (512, 512), method=Image.Resampling.LANCZOS)
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
+        raise HTTPException(422, 'Avatar image could not be decoded') from exc
+    destination = _avatar_path(user.id)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = destination.with_suffix('.tmp')
+    rendered.save(temporary, format='JPEG', quality=88, optimize=True)
+    temporary.replace(destination)
+    version = int(datetime.utcnow().timestamp())
+    user.avatar_url = settings.oauth_callback_base_url.rstrip('/') + f'/media/avatars/{user.id}.jpg?v={version}'
+    audit(db, user, 'avatar_updated', 'user', user.id)
+    db.commit()
+    return public_profile(db, user)
+
+
 @router.get('/profiles/{identifier}')
 def profile(identifier: UUID, user=Depends(get_current_user), db: Session = Depends(get_db)):
     target = row(db, User, identifier)
     if not target.active or blocked(db, user.id, target.id) or (not target.public_profile and user.id != target.id):
         raise HTTPException(404, 'Profile unavailable')
     result = public_profile(db, target)
-    result['contributions'] = db.query(Submission).filter_by(user_id=target.id, state='approved').order_by(Submission.created_at.desc()).limit(100).all()
+    follow_link = db.query(Follow).filter(
+        Follow.user_id == user.id, Follow.target_type.in_(['user', 'guide']), Follow.target_id == str(target.id)
+    ).first()
+    result['is_following'] = bool(follow_link)
+    result['follow_id'] = follow_link.id if follow_link else None
+    result['contributions'] = db.query(Submission).filter_by(user_id=target.id, state='approved').order_by(Submission.created_at.desc()).limit(5).all()
     # Only publication metadata is public, never claims, reasons or correction evidence.
     result['contributions'] = [dict(id=s.id, kind=s.kind, published_id=s.published_id, created_at=s.created_at) for s in result['contributions']]
     return result
+
+
+def _profile_access(db, viewer, identifier):
+    target = row(db, User, identifier)
+    if not target.active or blocked(db, viewer.id, target.id) or (not target.public_profile and viewer.id != target.id):
+        raise HTTPException(404, 'Profile unavailable')
+    return target
+
+
+def _contribution_record(db, submission):
+    title = None
+    if submission.published_id and submission.kind in ('event', 'place', 'utility'):
+        try:
+            published = db.get(MODELS[submission.kind], UUID(str(submission.published_id)))
+            title = getattr(published, 'title', None) or getattr(published, 'name', None) if published else None
+        except ValueError:
+            pass
+    return dict(id=submission.id, kind=submission.kind, published_id=submission.published_id,
+                title=title or submission.kind.title(), created_at=submission.created_at)
+
+
+@router.get('/profiles/{identifier}/contributions')
+def profile_contributions(identifier: UUID, offset: int = Query(0, ge=0), limit: int = Query(20, ge=1, le=50),
+                          user=Depends(get_current_user), db: Session = Depends(get_db)):
+    target = _profile_access(db, user, identifier)
+    items = db.query(Submission).filter_by(user_id=target.id, state='approved').order_by(
+        Submission.created_at.desc()).offset(offset).limit(limit).all()
+    return [_contribution_record(db, item) for item in items]
+
+
+@router.get('/profiles/{identifier}/reviews')
+def profile_reviews(identifier: UUID, offset: int = Query(0, ge=0), limit: int = Query(20, ge=1, le=50),
+                    user=Depends(get_current_user), db: Session = Depends(get_db)):
+    target = _profile_access(db, user, identifier)
+    items = db.query(Review).filter_by(user_id=target.id, state='visible').order_by(
+        Review.updated_at.desc()).offset(offset).limit(limit).all()
+    result = []
+    for item in items:
+        target_item = db.get(MODELS[item.target_type], UUID(item.target_id)) if item.target_type in ('event', 'place') else None
+        result.append(dict(id=item.id, target_type=item.target_type, target_id=item.target_id,
+                           target_name=getattr(target_item, 'title', None) or getattr(target_item, 'name', None),
+                           body=item.body, dimensions=item.dimensions, updated_at=item.updated_at,
+                           helpful=db.query(HelpfulVote).filter_by(review_id=item.id).count()))
+    return result
+
+
+def _follow_record(db, item):
+    label, subtitle = item.target_id, item.target_type.title()
+    model = {'user': User, 'guide': User, 'venue': Venue, 'organizer': Organization}.get(item.target_type)
+    if model:
+        try:
+            target = db.get(model, UUID(item.target_id))
+        except ValueError:
+            target = None
+        if target:
+            label = getattr(target, 'display_name', None) or getattr(target, 'name', None) or label
+            subtitle = getattr(target, 'neighborhood', None) or getattr(target, 'address', None) or subtitle
+    return {**record(item), 'target_label': label, 'target_subtitle': subtitle}
+
+
+@router.get('/profiles/{identifier}/followers')
+def profile_followers(identifier: UUID, offset: int = Query(0, ge=0), limit: int = Query(20, ge=1, le=50),
+                      user=Depends(get_current_user), db: Session = Depends(get_db)):
+    target = _profile_access(db, user, identifier)
+    follower_ids = db.query(Follow.user_id).filter(
+        Follow.target_type.in_(['user', 'guide']), Follow.target_id == str(target.id)
+    ).order_by(Follow.created_at.desc()).offset(offset).limit(limit).all()
+    blocked_set = set(blocked_ids(db, user.id))
+    return [public_profile(db, person) for (person_id,) in follower_ids
+            if person_id not in blocked_set and (person := db.get(User, person_id)) and person.active and person.public_profile]
+
+
+@router.get('/profiles/{identifier}/following')
+def profile_following(identifier: UUID, offset: int = Query(0, ge=0), limit: int = Query(20, ge=1, le=50),
+                      user=Depends(get_current_user), db: Session = Depends(get_db)):
+    target = _profile_access(db, user, identifier)
+    items = db.query(Follow).filter_by(user_id=target.id).order_by(Follow.created_at.desc()).offset(offset).limit(limit).all()
+    return [_follow_record(db, item) for item in items]
 
 
 @router.post('/follows')
@@ -95,6 +220,19 @@ def follow(payload: FollowInput, user=Depends(require_verified), db: Session = D
         target_id = str(target.id)
     elif payload.target_type in ('venue', 'organizer'):
         target_id = str(row(db, Venue if payload.target_type == 'venue' else Organization, target_id).id)
+    elif payload.target_type == 'category':
+        category = next((item.value for item in EventCategory if item.value.casefold() == target_id.casefold()), None)
+        if not category:
+            raise HTTPException(422, 'Unknown event category')
+        target_id = category
+    elif payload.target_type == 'neighborhood':
+        known = {value for (value,) in db.query(Event.neighborhood).filter(Event.neighborhood.isnot(None)).distinct()}
+        known.update(value for (value,) in db.query(Place.neighborhood).filter(Place.neighborhood.isnot(None)).distinct())
+        known.update(value for (value,) in db.query(User.neighborhood).filter(User.neighborhood.isnot(None)).distinct())
+        match = next((value for value in known if value.casefold() == target_id.casefold()), None)
+        if not match:
+            raise HTTPException(422, 'Unknown neighborhood')
+        target_id = match
     item = db.query(Follow).filter_by(user_id=user.id, target_type=payload.target_type, target_id=target_id).first()
     if not item:
         item = Follow(user_id=user.id, target_type=payload.target_type, target_id=target_id)
@@ -104,8 +242,44 @@ def follow(payload: FollowInput, user=Depends(require_verified), db: Session = D
 
 
 @router.get('/follows')
-def follows(user=Depends(get_current_user), db: Session = Depends(get_db)):
-    return db.query(Follow).filter_by(user_id=user.id).order_by(Follow.created_at.desc()).limit(500).all()
+def follows(target_type: str | None = Query(None, max_length=20), offset: int = Query(0, ge=0),
+            limit: int = Query(50, ge=1, le=100), user=Depends(get_current_user), db: Session = Depends(get_db)):
+    query = db.query(Follow).filter_by(user_id=user.id)
+    if target_type:
+        query = query.filter_by(target_type=target_type)
+    return [_follow_record(db, item) for item in query.order_by(Follow.created_at.desc()).offset(offset).limit(limit).all()]
+
+
+@router.get('/follow-targets')
+def follow_targets(target_type: str = Query(max_length=20), q: str = Query('', max_length=100),
+                   offset: int = Query(0, ge=0), limit: int = Query(20, ge=1, le=50),
+                   user=Depends(get_current_user), db: Session = Depends(get_db)):
+    search = f'%{q}%'
+    if target_type in ('user', 'guide'):
+        query = db.query(User).filter(User.active.is_(True), User.public_profile.is_(True),
+            User.id != user.id, User.display_name.ilike(search), ~User.id.in_(blocked_ids(db, user.id)))
+        if target_type == 'guide':
+            query = query.filter(User.role == 'GUIDE')
+        return [dict(target_type=target_type, target_id=str(item.id), name=item.display_name or 'BACity member',
+                     subtitle=f'{item.neighborhood or item.city} · {reputation_level(item.reputation)}', avatar_url=item.avatar_url)
+                for item in query.order_by(User.display_name).offset(offset).limit(limit)]
+    if target_type in ('venue', 'organizer'):
+        model = Venue if target_type == 'venue' else Organization
+        query = db.query(model).filter(model.name.ilike(search)).order_by(model.name).offset(offset).limit(limit)
+        return [dict(target_type=target_type, target_id=str(item.id), name=item.name,
+                     subtitle=getattr(item, 'address', None) or ('Verified organizer' if getattr(item, 'verified', False) else 'Organizer'))
+                for item in query]
+    if target_type == 'category':
+        values = [item.value for item in EventCategory if q.casefold() in item.value.casefold()]
+    elif target_type == 'neighborhood':
+        values = {value for (value,) in db.query(Event.neighborhood).filter(Event.neighborhood.isnot(None)).distinct()}
+        values.update(value for (value,) in db.query(Place.neighborhood).filter(Place.neighborhood.isnot(None)).distinct())
+        values.update(value for (value,) in db.query(User.neighborhood).filter(User.neighborhood.isnot(None)).distinct())
+        values = sorted(value for value in values if q.casefold() in value.casefold())
+    else:
+        raise HTTPException(422, 'Unsupported follow target type')
+    return [dict(target_type=target_type, target_id=value, name=value, subtitle=target_type.title())
+            for value in list(values)[offset:offset + limit]]
 
 
 @router.delete('/follows/{identifier}')
@@ -334,9 +508,10 @@ def place_detail(identifier: UUID, db: Session = Depends(get_db)):
 
 
 @router.get('/people')
-def people(q: str = Query('', max_length=100), user=Depends(get_current_user), db: Session = Depends(get_db)):
+def people(q: str = Query('', max_length=100), offset: int = Query(0, ge=0), limit: int = Query(20, ge=1, le=50),
+           user=Depends(get_current_user), db: Session = Depends(get_db)):
     query = db.query(User).filter(User.active.is_(True), User.public_profile.is_(True), User.display_name.ilike('%' + q + '%'), ~User.id.in_(blocked_ids(db, user.id)))
-    return [public_profile(db, person) for person in query.order_by(User.display_name).limit(50)]
+    return [public_profile(db, person) for person in query.order_by(User.display_name).offset(offset).limit(limit)]
 
 
 @router.get('/utilities')
@@ -590,6 +765,7 @@ def export_account(user=Depends(get_current_user), db: Session = Depends(get_db)
 def delete_account(payload: Reason, user=Depends(get_current_user), db: Session = Depends(get_db)):
     """Erase private/activity data and anonymize retained public or compliance records."""
     user_id, old_email = user.id, user.email
+    _avatar_path(user_id).unlink(missing_ok=True)
     # Provider subjects and all private/security records are erased immediately.
     db.query(OAuthIdentity).filter_by(user_id=user_id).delete(synchronize_session=False)
     db.query(ActionToken).filter_by(user_id=user_id).delete(synchronize_session=False)

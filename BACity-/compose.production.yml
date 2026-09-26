@@ -19,6 +19,9 @@ services:
     env_file: .env.production
     environment:
       ENVIRONMENT: production
+      MEDIA_ROOT: /data/media
+    volumes:
+      - media:/data/media
     restart: unless-stopped
     depends_on:
       postgres:
@@ -79,6 +82,7 @@ services:
       PGDATABASE: ${POSTGRES_DB}
     volumes:
       - backups:/backups
+      - media:/media:ro
       - ./infrastructure/backup.sh:/backup.sh:ro
     entrypoint: [sh, /backup.sh]
     restart: unless-stopped
@@ -91,3 +95,4 @@ volumes:
   caddydata:
   caddyconfig:
   backups:
+  media:

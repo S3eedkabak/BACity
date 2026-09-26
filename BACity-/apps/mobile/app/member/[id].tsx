@@ -1,6 +1,6 @@
 import { useAuthStore } from "../../src/store/authStore";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { apiRequest } from "../../src/api/client";
@@ -9,6 +9,7 @@ import {
   Card,
   Field,
   Button,
+  Chip,
   Notice,
   ui,
 } from "../../src/components/CommunityUI";
@@ -25,6 +26,9 @@ export default function Member() {
   const [reason, setReason] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [historyType, setHistoryType] = useState<"contributions" | "reviews" | "followers" | "following">("contributions");
+  const [history, setHistory] = useState<any[]>([]);
+  const [historyMore, setHistoryMore] = useState(false);
 
   const initials = useMemo(() => {
     const source = profile?.display_name || profile?.email || "BA";
@@ -51,6 +55,16 @@ export default function Member() {
     void load();
   }, [id]);
 
+  async function loadHistory(more = false) {
+    try {
+      const result = await apiRequest<any[]>(`/community/profiles/${id}/${historyType}`, { auth: true, params: { offset: more ? history.length : 0, limit: 10 } });
+      setHistory(current => more ? [...current, ...result] : result);
+      setHistoryMore(result.length === 10);
+    } catch (e: any) { setNotice(e.message); }
+  }
+
+  useEffect(() => { setHistory([]); void loadHistory(false); }, [id, historyType]);
+
   async function act(path: string, payload?: unknown) {
     setBusy(true);
     setNotice("");
@@ -64,6 +78,15 @@ export default function Member() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function toggleFollow() {
+    setBusy(true); setNotice("");
+    try {
+      if (profile?.follow_id) await apiRequest(`/community/follows/${profile.follow_id}`, { method: "DELETE", auth: true });
+      else await apiRequest('/community/follows', { method: 'POST', auth: true, body: { target_type: profile?.role === 'GUIDE' ? 'guide' : 'user', target_id: id } });
+      await load(); setNotice(profile?.follow_id ? 'Unfollowed.' : 'Following.');
+    } catch (e: any) { setNotice(e.message); } finally { setBusy(false); }
   }
 
   return (
@@ -128,25 +151,36 @@ export default function Member() {
               </View>
             </View>
 
-            <Pressable
+            {user?.id !== id && <Pressable
               style={({ pressed }) => [
                 styles.follow,
                 pressed && styles.pressed,
               ]}
               disabled={busy}
-              onPress={() =>
-                act("/community/follows", {
-                  target_type: "user",
-                  target_id: id,
-                })
-              }
+              onPress={toggleFollow}
             >
-              <Ionicons name="person-add-outline" size={17} color={colors.white} />
-              <Text style={styles.followText}>Follow</Text>
-            </Pressable>
+              <Ionicons name={profile.is_following ? "checkmark-circle-outline" : "person-add-outline"} size={17} color={colors.white} />
+              <Text style={styles.followText}>{profile.is_following ? "Following · tap to unfollow" : "Follow"}</Text>
+            </Pressable>}
           </View>
 
           <Card>
+            <View style={styles.sectionTitleRow}><View style={styles.sectionIcon}><Ionicons name="ribbon-outline" size={19} color={colors.primaryDark} /></View><View style={styles.sectionCopy}><Text style={styles.sectionTitle}>Community activity</Text><Text style={styles.sectionSubtitle}>{profile.contributions_count ?? 0} published contributions · {profile.reviews_count ?? 0} reviews</Text></View></View>
+            <View style={ui.row}>{(["contributions", "reviews", "followers", "following"] as const).map(value => <Chip key={value} title={value} active={historyType === value} onPress={() => setHistoryType(value)} />)}</View>
+            {!history.length && <Text style={ui.muted}>Nothing public here yet.</Text>}
+            {history.map(item => <View key={item.id} style={styles.historyItem}>
+              <Text style={ui.heading}>{item.title ?? item.target_name ?? item.display_name ?? item.target_label ?? 'Activity'}</Text>
+              <Text style={ui.muted}>{item.kind ?? item.target_type ?? item.reputation_level}{item.created_at || item.updated_at ? ` · ${new Date(item.created_at ?? item.updated_at).toLocaleDateString()}` : ''}</Text>
+              {item.body && <Text style={ui.text}>{item.body}</Text>}
+              {historyType === 'followers' && <Button title="View profile" onPress={() => router.push(`/member/${item.id}`)} />}
+              {historyType === 'following' && ['user', 'guide'].includes(item.target_type) && <Button title="View profile" onPress={() => router.push(`/member/${item.target_id}`)} />}
+              {historyType === 'contributions' && item.published_id && <Button title="Open contribution" onPress={() => item.kind === 'event' ? router.push(`/event/${item.published_id}`) : item.kind === 'place' ? router.push(`/place/${item.published_id}`) : router.push(`/utility/${item.published_id}`)} />}
+              {historyType === 'reviews' && <Button title={`Open ${item.target_type}`} onPress={() => item.target_type === 'event' ? router.push(`/event/${item.target_id}`) : router.push(`/place/${item.target_id}`)} />}
+            </View>)}
+            {historyMore && <Button title="Load more" onPress={() => loadHistory(true)} />}
+          </Card>
+
+          {user?.id !== id && <><Card>
             <View style={styles.sectionTitleRow}>
               <View style={styles.sectionIcon}>
                 <Ionicons name="chatbubble-ellipses-outline" size={19} color={colors.primaryDark} />
@@ -238,7 +272,7 @@ export default function Member() {
               <Ionicons name="ban-outline" size={17} color={colors.danger} />
               <Text style={styles.blockText}>Block this person</Text>
             </Pressable>
-          </Card>
+          </Card></>}
         </>
       )}
     </Page>
@@ -390,6 +424,7 @@ const styles = StyleSheet.create({
     lineHeight: 15,
   },
   thread: { gap: 7 },
+  historyItem: { paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, gap: 5 },
   bubble: {
     maxWidth: "84%",
     paddingHorizontal: 12,

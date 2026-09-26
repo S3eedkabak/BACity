@@ -1,7 +1,9 @@
 from datetime import datetime, timedelta, timezone
+from io import BytesIO
 import re
+from PIL import Image
 from app.models.user import User
-from app.models.community import MailOutbox, Submission, Organization, OrganizationMember, Message, CityUtility
+from app.models.community import MailOutbox, Submission, Organization, OrganizationMember, Message, CityUtility, Review
 from app.models.oauth_identity import OAuthIdentity
 from app.models.event import Event
 
@@ -186,3 +188,42 @@ def test_account_export_and_complete_private_data_erasure(client, db_session):
     assert db_session.query(OAuthIdentity).filter_by(user_id=user.id).count() == 0
     assert db_session.query(Message).filter(Message.sender_id == user.id).count() == 0
     assert db_session.query(MailOutbox).filter_by(recipient='privacy@example.com').count() == 0
+
+
+def test_rich_profile_social_pagination_and_avatar(client, db_session, sample_event, tmp_path, monkeypatch):
+    from app.api.routes import community
+
+    alice, ha = account(client, db_session, 'profile-alice', role='GUIDE')
+    bob, hb = account(client, db_session, 'profile-bob')
+    alice.display_name, alice.neighborhood, alice.reputation = 'Alice Guide', 'Staré Mesto', 240
+    bob.display_name = 'Bob Resident'
+    sample_event.neighborhood = 'Staré Mesto'
+    contribution = Submission(user_id=alice.id, kind='event', payload={}, state='approved', published_id=str(sample_event.id))
+    review = Review(user_id=alice.id, target_type='event', target_id=str(sample_event.id),
+                    body='A detailed and useful review', dimensions={'value': 5})
+    db_session.add_all([contribution, review]); db_session.commit()
+
+    assert client.post('/community/follows', json={'target_type': 'user', 'target_id': str(alice.id)}, headers=hb).status_code == 200
+    assert client.post('/community/follows', json={'target_type': 'category', 'target_id': 'music'}, headers=ha).status_code == 200
+    assert client.post('/community/follows', json={'target_type': 'neighborhood', 'target_id': 'staré mesto'}, headers=ha).status_code == 200
+
+    profile = client.get(f'/community/profiles/{alice.id}', headers=hb).json()
+    assert profile['reputation_level'] == 'Local Guide'
+    assert profile['followers'] == 1 and profile['contributions_count'] == 1 and profile['reviews_count'] == 1
+    assert client.get(f'/community/profiles/{alice.id}/contributions', params={'limit': 1}, headers=hb).json()[0]['title'] == sample_event.title
+    assert client.get(f'/community/profiles/{alice.id}/reviews', params={'limit': 1}, headers=hb).json()[0]['target_name'] == sample_event.title
+    assert client.get(f'/community/profiles/{alice.id}/followers', params={'limit': 1}, headers=hb).json()[0]['display_name'] == 'Bob Resident'
+    following = client.get(f'/community/profiles/{alice.id}/following', params={'limit': 1}, headers=hb).json()
+    assert len(following) == 1 and following[0]['target_label'] == 'Staré Mesto'
+    targets = client.get('/community/follow-targets', params={'target_type': 'guide', 'q': 'Alice'}, headers=hb).json()
+    assert targets[0]['target_id'] == str(alice.id)
+    people = client.get('/community/people', params={'q': 'Alice', 'limit': 1}, headers=hb).json()
+    assert people[0]['display_name'] == 'Alice Guide'
+
+    monkeypatch.setattr(community.settings, 'media_root', str(tmp_path))
+    image = BytesIO(); Image.new('RGB', (300, 200), '#ff7f86').save(image, format='PNG')
+    uploaded = client.post('/community/profile/avatar', files={'avatar': ('avatar.png', image.getvalue(), 'image/png')}, headers=ha)
+    assert uploaded.status_code == 200, uploaded.text
+    assert f'/media/avatars/{alice.id}.jpg?v=' in uploaded.json()['avatar_url']
+    saved = Image.open(tmp_path / 'avatars' / f'{alice.id}.jpg')
+    assert saved.size == (512, 512)
