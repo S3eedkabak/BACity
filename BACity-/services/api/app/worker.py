@@ -8,12 +8,17 @@ from email.message import EmailMessage
 from app.config import get_settings
 from app.database import SessionLocal
 from app.models.community import MailOutbox, Message, ActionToken, RateBucket
+from app.models.community import CityUtility
 from app.crud.ingestion import expire_events
+from app.core.utilities import OFFICIAL_TOILET_SOURCE
+from app.utility_import import sync_bratislava_toilets
 
 log = logging.getLogger('bacity.worker')
+_last_utility_sync_attempt = None
 
 
 def tick():
+    global _last_utility_sync_attempt
     s = get_settings()
     with SessionLocal() as db:
         now = datetime.utcnow()
@@ -43,6 +48,19 @@ def tick():
         db.query(RateBucket).filter(RateBucket.window < int(time.time()) - 172800).delete()
         db.commit()
         expire_events(db)
+        if s.utility_sync_enabled:
+            last_sync = db.query(CityUtility.updated_at).filter(
+                CityUtility.source_url.startswith(OFFICIAL_TOILET_SOURCE)
+            ).order_by(CityUtility.updated_at.desc()).scalar()
+            latest_attempt = max(filter(None, [last_sync, _last_utility_sync_attempt]), default=None)
+            if not latest_attempt or latest_attempt < now - timedelta(hours=s.utility_sync_interval_hours):
+                _last_utility_sync_attempt = now
+                try:
+                    result = sync_bratislava_toilets(db)
+                    log.info('Public-toilet dataset synchronized: %s', result)
+                except Exception:
+                    db.rollback()
+                    log.exception('Public-toilet dataset synchronization failed')
 
 
 def main():

@@ -9,6 +9,7 @@ from app.database import get_db
 from app.api.deps import get_current_user
 from app.core.community import (require_verified, require_moderator, require_admin, row,
     audit, notify, blocked, blocked_ids, rate_limit, reputation_level, owned_organization)
+from app.core.utilities import nearby_query, utility_record, viewport_query
 from app.models.user import User
 from app.models.oauth_identity import OAuthIdentity
 from app.models.saved_event import SavedEvent
@@ -345,7 +346,37 @@ def utilities(db: Session = Depends(get_db), kind: str = Query('toilet', max_len
         query = query.filter_by(wheelchair_accessible=accessible)
     if free is not None:
         query = query.filter_by(free=free)
-    return query.order_by(CityUtility.name).offset(offset).limit(100).all()
+    return [utility_record(db, item) for item in query.order_by(CityUtility.name).offset(offset).limit(100).all()]
+
+
+@router.get('/utilities/viewport')
+def utilities_viewport(
+    min_lat: float = Query(ge=-90, le=90), max_lat: float = Query(ge=-90, le=90),
+    min_lng: float = Query(ge=-180, le=180), max_lng: float = Query(ge=-180, le=180),
+    kind: str = Query('toilet', max_length=40), limit: int = Query(200, ge=1, le=500),
+    db: Session = Depends(get_db),
+):
+    if min_lat > max_lat or min_lng > max_lng:
+        raise HTTPException(422, 'Viewport minimums must not exceed maximums')
+    return [utility_record(db, item) for item in viewport_query(
+        db, min_lat=min_lat, max_lat=max_lat, min_lng=min_lng, max_lng=max_lng, kind=kind, limit=limit,
+    )]
+
+
+@router.get('/utilities/nearby')
+def utilities_nearby(
+    lat: float = Query(ge=-90, le=90), lng: float = Query(ge=-180, le=180),
+    radius_km: float = Query(3, gt=0, le=25), kind: str = Query('toilet', max_length=40),
+    limit: int = Query(100, ge=1, le=200), db: Session = Depends(get_db),
+):
+    return [utility_record(db, item) for item in nearby_query(
+        db, lat=lat, lng=lng, radius_km=radius_km, kind=kind, limit=limit,
+    )]
+
+
+@router.get('/utilities/{identifier}')
+def utility_detail(identifier: UUID, db: Session = Depends(get_db)):
+    return utility_record(db, row(db, CityUtility, identifier))
 
 
 @router.post('/utilities/{identifier}/confirm')
@@ -353,12 +384,16 @@ def confirm_utility(identifier: UUID, payload: Confirmation, user=Depends(requir
     rate_limit(db, f'confirm:{user.id}:{identifier}', 1, 86400)
     item = row(db, CityUtility, identifier)
     db.add(UtilityConfirmation(utility_id=item.id, user_id=user.id, **payload.model_dump()))
-    item.operational_status = payload.operational_status
-    item.cleanliness = payload.cleanliness
+    if payload.cleanliness is not None:
+        item.cleanliness = payload.cleanliness
     item.last_confirmed_at = datetime.utcnow()
     audit(db, user, 'utility_confirmed', 'utility', item.id, payload.model_dump())
     db.commit()
-    return record(item)
+    db.refresh(item)
+    aggregated = utility_record(db, item)
+    item.operational_status = aggregated['operational_status']
+    db.commit()
+    return aggregated
 
 
 @router.post('/reviews')

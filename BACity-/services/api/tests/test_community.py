@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 import re
 from app.models.user import User
-from app.models.community import MailOutbox, Submission, Organization, OrganizationMember, Message
+from app.models.community import MailOutbox, Submission, Organization, OrganizationMember, Message, CityUtility
 from app.models.oauth_identity import OAuthIdentity
 from app.models.event import Event
 
@@ -108,6 +108,34 @@ def test_utility_approval_confirmation_and_reviews(client, db_session, sample_ev
     result = client.post('/community/reviews', json=review, headers=h)
     assert result.status_code == 200, result.text
     assert result.json()['attendance_verified'] is False
+
+
+def test_utility_viewport_nearby_freshness_and_conflicts(client, db_session):
+    first, h1 = account(client, db_session, 'utility-one')
+    _, h2 = account(client, db_session, 'utility-two')
+    utility = CityUtility(
+        kind='toilet', name='Official WC', latitude=48.145, longitude=17.109,
+        free=True, operational_status='unknown',
+        source_url='https://geoportal.bratislava.sk/hSite/rest/services/Hosted/verejne_toalety_data_/FeatureServer/1?objectid=99',
+    )
+    db_session.add(utility); db_session.commit()
+
+    viewport = client.get('/community/utilities/viewport', params={
+        'min_lat': 48.14, 'max_lat': 48.15, 'min_lng': 17.10, 'max_lng': 17.12,
+    })
+    assert viewport.status_code == 200 and len(viewport.json()) == 1
+    assert viewport.json()[0]['freshness_status'] == 'current'
+    nearby = client.get('/community/utilities/nearby', params={'lat': 48.145, 'lng': 17.109, 'radius_km': 1})
+    assert nearby.status_code == 200 and nearby.json()[0]['id'] == str(utility.id)
+
+    path = f'/community/utilities/{utility.id}/confirm'
+    assert client.post(path, json={'operational_status': 'open'}, headers=h1).json()['operational_status'] == 'open'
+    conflicted = client.post(path, json={'operational_status': 'closed'}, headers=h2).json()
+    assert conflicted['operational_status'] == 'unknown'
+    assert conflicted['status_conflict'] is True
+    assert conflicted['confirmation_summary'] == {'open': 1, 'closed': 1}
+    detail = client.get(f'/community/utilities/{utility.id}').json()
+    assert detail['confirmation_count'] == 2 and detail['confidence_score'] < 1
 
 
 def test_organizer_claim_isolation_and_recommendations(client, db_session, sample_event):

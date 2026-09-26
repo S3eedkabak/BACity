@@ -50,6 +50,7 @@ services:
     env_file: .env.production
     environment:
       ENVIRONMENT: production
+      UTILITY_SYNC_ENABLED: 'true'
     command: python -m app.worker
     restart: unless-stopped
     depends_on:

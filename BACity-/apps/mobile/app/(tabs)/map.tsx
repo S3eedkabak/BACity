@@ -1,12 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
   Camera,
+  CircleLayer,
   MapView,
   PointAnnotation,
+  ShapeSource,
+  SymbolLayer,
   UserLocation,
   UserTrackingMode,
   type CameraRef,
+  type MapViewRef,
 } from "@maplibre/maplibre-react-native";
+import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -14,6 +19,7 @@ import { useEvents } from "../../src/hooks/useEvents";
 import { LoadingState } from "../../src/components/LoadingState";
 import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
+import { nearbyUtilities, utilitiesInViewport, type UtilityBounds } from "../../src/api/utilities";
 
 const BRATISLAVA = {
   longitude: 17.1077,
@@ -22,6 +28,12 @@ const BRATISLAVA = {
 
 const OPEN_FREE_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 const NEARBY_RADIUS_KM = 3;
+const INITIAL_BOUNDS: UtilityBounds = {
+  min_lat: 48.105,
+  max_lat: 48.205,
+  min_lng: 17.035,
+  max_lng: 17.185,
+};
 
 type Coordinates = {
   latitude: number;
@@ -45,7 +57,10 @@ function distanceKm(a: Coordinates, b: Coordinates) {
 export default function MapScreen() {
   const { data, isLoading } = useEvents({ limit: 100 });
   const cameraRef = useRef<CameraRef>(null);
+  const mapRef = useRef<MapViewRef>(null);
   const [nearMeActive, setNearMeActive] = useState(false);
+  const [showUtilities, setShowUtilities] = useState(false);
+  const [utilityBounds, setUtilityBounds] = useState(INITIAL_BOUNDS);
   const [currentLocation, setCurrentLocation] = useState<Coordinates | null>(
     null
   );
@@ -68,6 +83,28 @@ export default function MapScreen() {
         }) <= NEARBY_RADIUS_KM
     );
   }, [currentLocation, pins]);
+
+  const utilityViewport = useQuery({
+    queryKey: ["utilities-viewport", utilityBounds],
+    queryFn: () => utilitiesInViewport(utilityBounds),
+    enabled: showUtilities && !nearMeActive,
+    staleTime: 60_000,
+  });
+  const utilityNearby = useQuery({
+    queryKey: ["utilities-nearby", currentLocation],
+    queryFn: () => nearbyUtilities(currentLocation!.latitude, currentLocation!.longitude, NEARBY_RADIUS_KM),
+    enabled: showUtilities && nearMeActive && currentLocation != null,
+    staleTime: 60_000,
+  });
+  const utilities = (nearMeActive ? utilityNearby.data : utilityViewport.data) ?? [];
+  const utilityShape = useMemo(() => ({
+    type: "FeatureCollection" as const,
+    features: utilities.map((utility) => ({
+      type: "Feature" as const,
+      geometry: { type: "Point" as const, coordinates: [utility.longitude, utility.latitude] },
+      properties: { id: utility.id, name: utility.name, status: utility.operational_status },
+    })),
+  }), [utilities]);
 
   if (isLoading) return <LoadingState />;
 
@@ -115,6 +152,7 @@ export default function MapScreen() {
   return (
     <View style={styles.container}>
       <MapView
+        ref={mapRef}
         style={StyleSheet.absoluteFillObject}
         mapStyle={OPEN_FREE_MAP_STYLE}
         compassEnabled={false}
@@ -122,6 +160,14 @@ export default function MapScreen() {
         pitchEnabled={false}
         attributionEnabled
         logoEnabled
+        onRegionDidChange={async () => {
+          if (!showUtilities) return;
+          const [northEast, southWest] = await mapRef.current!.getVisibleBounds();
+          setUtilityBounds({
+            min_lat: southWest[1], max_lat: northEast[1],
+            min_lng: southWest[0], max_lng: northEast[0],
+          });
+        }}
       >
         <Camera
           ref={cameraRef}
@@ -148,7 +194,7 @@ export default function MapScreen() {
           }}
         />
 
-        {pins.map((event) => {
+        {!showUtilities && pins.map((event) => {
           const isNearby =
             currentLocation != null &&
             distanceKm(currentLocation, {
@@ -186,6 +232,24 @@ export default function MapScreen() {
             </PointAnnotation>
           );
         })}
+
+        {showUtilities && <ShapeSource
+          id="public-toilets"
+          shape={utilityShape}
+          cluster
+          clusterRadius={48}
+          clusterMaxZoomLevel={14}
+          onPress={(event) => {
+            const feature = event.features[0];
+            const id = feature?.properties?.id;
+            if (id) router.push({ pathname: "/utility/[id]", params: { id: String(id), kind: "toilet" } });
+          }}
+        >
+          <CircleLayer id="toilet-clusters" filter={["has", "point_count"]} style={{ circleColor: colors.free, circleRadius: 20, circleStrokeColor: colors.white, circleStrokeWidth: 3 }} />
+          <SymbolLayer id="toilet-cluster-count" filter={["has", "point_count"]} style={{ textField: ["get", "point_count_abbreviated"], textColor: colors.white, textSize: 11 }} />
+          <CircleLayer id="toilet-points" filter={["!", ["has", "point_count"]]} style={{ circleColor: colors.free, circleRadius: 14, circleStrokeColor: colors.white, circleStrokeWidth: 3 }} />
+          <SymbolLayer id="toilet-labels" filter={["!", ["has", "point_count"]]} style={{ textField: "WC", textColor: colors.white, textSize: 8, textFont: ["Noto Sans Regular"] }} />
+        </ShapeSource>}
       </MapView>
 
       <View pointerEvents="box-none" style={StyleSheet.absoluteFillObject}>
@@ -220,10 +284,19 @@ export default function MapScreen() {
           <View style={styles.countDot} />
           <Text style={styles.countText}>
             {nearMeActive
-              ? nearbyPins.length + " nearby"
-              : pins.length + " mapped"}
+              ? (showUtilities ? utilities.length : nearbyPins.length) + " nearby"
+              : (showUtilities ? utilities.length + " toilets" : pins.length + " events")}
           </Text>
         </View>
+
+        <Pressable
+          accessibilityLabel={showUtilities ? "Show event map layer" : "Show public toilet map layer"}
+          onPress={() => setShowUtilities((current) => !current)}
+          style={[styles.layerButton, showUtilities && styles.layerButtonActive]}
+        >
+          <Ionicons name={showUtilities ? "calendar-outline" : "business-outline"} size={16} color={showUtilities ? colors.white : colors.free} />
+          <Text style={[styles.layerText, showUtilities && styles.layerTextActive]}>{showUtilities ? "Events" : "Toilets"}</Text>
+        </Pressable>
 
         <View style={styles.controls}>
           <Pressable
@@ -257,9 +330,11 @@ export default function MapScreen() {
           />
           <Text style={styles.statusText}>
             {nearMeActive
-              ? nearbyPins.length
-                ? nearbyPins.length + " events near you"
-                : "No nearby events"
+              ? (showUtilities ? utilities.length : nearbyPins.length)
+                ? (showUtilities ? utilities.length + " public toilets near you" : nearbyPins.length + " events near you")
+                : showUtilities ? "No nearby public toilets" : "No nearby events"
+              : showUtilities
+                ? utilities.length ? utilities.length + " public toilets in this area" : "No public toilets in this area"
               : pins.length
                 ? pins.length + " events on the map"
                 : "No mapped events yet"}
@@ -353,6 +428,23 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium,
     fontSize: 8,
   },
+  layerButton: {
+    alignSelf: "flex-start",
+    marginTop: 8,
+    marginLeft: 18,
+    height: 34,
+    paddingHorizontal: 12,
+    borderRadius: 17,
+    backgroundColor: "rgba(255,255,255,0.96)",
+    borderWidth: 1,
+    borderColor: colors.border,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  layerButtonActive: { backgroundColor: colors.free, borderColor: colors.free },
+  layerText: { color: colors.text, fontFamily: fonts.semibold, fontSize: 10 },
+  layerTextActive: { color: colors.white },
   controls: {
     position: "absolute",
     right: 16,
