@@ -2,10 +2,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import { Linking } from "react-native";
 import { useCallback, useEffect, useState } from "react";
-import { coarsenCoordinates, deniedPermissionState, isWithinRecommendationArea, shouldRequestPermission } from "./locationPolicy";
+import { coarsenCoordinates, deniedPermissionState, isWithinRecommendationArea, locationFailureState, shouldRequestPermission } from "./locationPolicy";
 
 const PREFERENCE_KEY = "bacity.recommendations.use-location.v1";
-const LOCATION_TIMEOUT_MS = 8_000;
+const LOCATION_TIMEOUT_MS = 15_000;
+const LAST_KNOWN_MAX_AGE_MS = 10 * 60_000;
+const LAST_KNOWN_REQUIRED_ACCURACY_METERS = 2_000;
 
 export type RecommendationLocationStatus =
   | "loading"
@@ -17,17 +19,49 @@ export type RecommendationLocationStatus =
   | "blocked"
   | "outside-area"
   | "unavailable"
+  | "timeout"
   | "error";
 
 export type RecommendationCoordinates = { latitude: number; longitude: number };
 
+class LocationTimeoutError extends Error {
+  code = "BACITY_LOCATION_TIMEOUT";
+
+  constructor() {
+    super("Timed out waiting for a foreground location fix");
+    this.name = "LocationTimeoutError";
+  }
+}
+
+function developmentLocationLog(stage: string, error?: unknown, details?: Record<string, boolean>) {
+  if (!__DEV__) return;
+  const value = typeof error === "object" && error !== null ? error as { code?: unknown; name?: unknown } : null;
+  console.warn("[recommendations/location]", {
+    stage,
+    errorCode: value?.code ? String(value.code) : undefined,
+    errorName: value?.name ? String(value.name) : typeof error,
+    ...details,
+  });
+}
+
 async function currentCoarseLocation(): Promise<RecommendationCoordinates> {
+  const lastKnown = await Location.getLastKnownPositionAsync({
+    maxAge: LAST_KNOWN_MAX_AGE_MS,
+    requiredAccuracy: LAST_KNOWN_REQUIRED_ACCURACY_METERS,
+  });
+  if (lastKnown) {
+    return coarsenCoordinates(lastKnown.coords.latitude, lastKnown.coords.longitude);
+  }
+
   let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
     const position = await Promise.race([
-      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+      Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+        mayShowUserSettingsDialog: true,
+      }),
       new Promise<never>((_, reject) => {
-        timeout = setTimeout(() => reject(new Error("Location request timed out")), LOCATION_TIMEOUT_MS);
+        timeout = setTimeout(() => reject(new LocationTimeoutError()), LOCATION_TIMEOUT_MS);
       }),
     ]);
     return coarsenCoordinates(position.coords.latitude, position.coords.longitude);
@@ -44,9 +78,15 @@ export function useRecommendationLocation(active = true) {
   const locateWithPermission = useCallback(async () => {
     setStatus("locating");
     try {
-      if (!(await Location.hasServicesEnabledAsync())) {
+      const provider = await Location.getProviderStatusAsync();
+      if (!provider.locationServicesEnabled) {
         setCoordinates(null);
         setStatus("unavailable");
+        developmentLocationLog("provider-unavailable", undefined, {
+          locationServicesEnabled: provider.locationServicesEnabled,
+          gpsAvailable: provider.gpsAvailable ?? false,
+          networkAvailable: provider.networkAvailable ?? false,
+        });
         return;
       }
       const current = await currentCoarseLocation();
@@ -57,9 +97,11 @@ export function useRecommendationLocation(active = true) {
       }
       setCoordinates(current);
       setStatus("granted");
-    } catch {
+    } catch (error) {
       setCoordinates(null);
-      setStatus("error");
+      const failure = locationFailureState(error);
+      setStatus(failure);
+      developmentLocationLog("acquisition-failed", error);
     }
   }, []);
 
@@ -93,8 +135,11 @@ export function useRecommendationLocation(active = true) {
         } else {
           setStatus(deniedPermissionState(permission));
         }
-      } catch {
-        if (mounted) setStatus("error");
+      } catch (error) {
+        if (mounted) {
+          setStatus(locationFailureState(error));
+          developmentLocationLog("preference-restore-failed", error);
+        }
       }
     })();
     return () => { mounted = false; };
@@ -114,9 +159,10 @@ export function useRecommendationLocation(active = true) {
         return;
       }
       await locateWithPermission();
-    } catch {
+    } catch (error) {
       setCoordinates(null);
-      setStatus("error");
+      setStatus(locationFailureState(error));
+      developmentLocationLog("permission-or-acquisition-failed", error);
     }
   }, [locateWithPermission]);
 
