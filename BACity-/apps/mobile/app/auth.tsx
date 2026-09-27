@@ -193,7 +193,7 @@ export default function AuthScreen() {
           />}
 
           {mode === "login" && (
-            <Pressable onPress={() => router.push("/account")} style={styles.textButton}>
+            <Pressable onPress={() => router.push({ pathname: "/account", params: { action: "forgot" } })} style={styles.textButton}>
               <Text style={styles.textButtonLabel}>Forgot your password?</Text>
             </Pressable>
           )}

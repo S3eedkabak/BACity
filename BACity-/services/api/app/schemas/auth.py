@@ -3,23 +3,45 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, ConfigDict, Field, field_validator
 
+MIN_PASSWORD_LENGTH = 8
+MAX_PASSWORD_BYTES = 4096
+
+
+def validate_new_password(value: str) -> str:
+    if len(value) < MIN_PASSWORD_LENGTH:
+        raise ValueError(f'Password must be at least {MIN_PASSWORD_LENGTH} characters')
+    if not value.strip():
+        raise ValueError('Password cannot contain only whitespace')
+    if len(value.encode('utf-8')) > MAX_PASSWORD_BYTES:
+        raise ValueError(f'Password must not exceed {MAX_PASSWORD_BYTES} UTF-8 bytes')
+    return value
+
+
+def validate_password_bound(value: str) -> str:
+    if len(value.encode('utf-8')) > MAX_PASSWORD_BYTES:
+        raise ValueError(f'Password must not exceed {MAX_PASSWORD_BYTES} UTF-8 bytes')
+    return value
+
 
 class UserRegister(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=8, max_length=72)
+    password: str = Field(min_length=MIN_PASSWORD_LENGTH)
     display_name: Optional[str] = None
 
     @field_validator('password')
     @classmethod
     def password_bytes(cls, value):
-        if len(value.encode('utf-8')) > 72:
-            raise ValueError('Password must fit within 72 UTF-8 bytes')
-        return value
+        return validate_new_password(value)
 
 
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
+    @field_validator('password')
+    @classmethod
+    def password_bytes(cls, value):
+        return validate_password_bound(value)
 
 
 class UserOut(BaseModel):

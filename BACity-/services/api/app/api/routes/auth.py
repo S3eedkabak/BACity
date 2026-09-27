@@ -10,7 +10,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, 
 from fastapi.responses import RedirectResponse
 from jose import JWTError, jwt
 from cryptography.fernet import Fernet, InvalidToken
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
@@ -19,10 +19,10 @@ from app.database import get_db
 from app.core.security import hash_password, verify_password, create_access_token
 from app.models.user import User
 from app.models.oauth_identity import OAuthIdentity
-from app.schemas.auth import UserRegister, UserLogin, UserOut, Token
+from app.schemas.auth import UserRegister, UserLogin, UserOut, Token, validate_new_password
 from app.api.deps import get_current_user, get_optional_user
 from app.core.community import rate_limit, audit
-from app.core.mail import queue_action, consume_action, dispatch_pending_mail
+from app.core.mail import action_status, queue_action, consume_action, dispatch_pending_mail
 from app.models.community import ActionToken
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -86,7 +86,12 @@ class ActionInput(BaseModel):
 
 
 class ResetInput(ActionInput):
-    password: str = Field(min_length=8, max_length=72)
+    password: str = Field(min_length=8)
+
+    @field_validator('password')
+    @classmethod
+    def password_security(cls, value):
+        return validate_new_password(value)
 
 
 class OAuthExchange(BaseModel):
@@ -103,8 +108,10 @@ class NativeOAuthInput(BaseModel):
 @router.post("/request-reset")
 def request_reset(payload: EmailInput, request: Request, background_tasks: BackgroundTasks,
                   db: Session = Depends(get_db)):
+    normalized_email = payload.email.lower()
     rate_limit(db, "reset:" + request.client.host, 10)
-    user = db.query(User).filter_by(email=payload.email.lower(), active=True).first()
+    rate_limit(db, "reset-email:" + normalized_email, 3)
+    user = db.query(User).filter_by(email=normalized_email, active=True).first()
     if user:
         queue_action(db, user, "reset")
         db.commit()
@@ -136,9 +143,10 @@ def verify_email(payload: ActionInput, db: Session = Depends(get_db)):
 
 
 @router.post("/reset-password")
-def reset_password(payload: ResetInput, db: Session = Depends(get_db)):
-    if len(payload.password.encode()) > 72:
-        raise HTTPException(422, "Password exceeds 72 UTF-8 bytes")
+def reset_password(payload: ResetInput, request: Request, db: Session = Depends(get_db)):
+    token_ref = hashlib.sha256(payload.token.encode()).hexdigest()
+    rate_limit(db, "reset-attempt:" + request.client.host, 20, 900)
+    rate_limit(db, "reset-token:" + token_ref, 5, 900)
     user = db.get(User, consume_action(db, payload.token, "reset"))
     if not user.active:
         raise HTTPException(400, "Account unavailable")
@@ -147,6 +155,14 @@ def reset_password(payload: ResetInput, db: Session = Depends(get_db)):
     audit(db, user, "password_reset", "user", user.id)
     db.commit()
     return {"detail": "Password changed; sign in again"}
+
+
+@router.post("/reset-password/status")
+def reset_password_status(payload: ActionInput, request: Request, db: Session = Depends(get_db)):
+    token_ref = hashlib.sha256(payload.token.encode()).hexdigest()
+    rate_limit(db, "reset-status:" + request.client.host, 30, 900)
+    rate_limit(db, "reset-status-token:" + token_ref, 10, 900)
+    return {"status": action_status(db, payload.token, "reset")}
 
 
 # ---- Google / Apple OAuth -------------------------------------------------

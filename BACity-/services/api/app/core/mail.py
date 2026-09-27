@@ -29,7 +29,18 @@ def queue_action(db, user, purpose):
                        expires_at=now + timedelta(minutes=30 if purpose == 'reset' else 1440)))
     url = f'{get_settings().account_action_url.rstrip("/")}/account?action={purpose}&token={token}'
     subject = 'Reset your BACity password' if purpose == 'reset' else 'Verify your BACity email'
-    body = f'Open this link to {purpose} your BACity account:\n{url}\nIf you did not request this, ignore this email.'
+    if purpose == 'reset':
+        body = (
+            'Reset your BACity password\n\n'
+            f'Open this link within 30 minutes to choose a new password:\n{url}\n\n'
+            'If you did not request a password reset, you can safely ignore this email.'
+        )
+    else:
+        body = (
+            'Verify your BACity email address\n\n'
+            f'Open this link within 24 hours to verify your BACity account:\n{url}\n\n'
+            'If you did not create this account, you can safely ignore this email.'
+        )
     # Replace an unsent obsolete message instead of creating a retry storm of
     # links whose tokens were invalidated above.
     pending = db.query(MailOutbox).filter_by(recipient=user.email, subject=subject, sent_at=None).first()
@@ -151,3 +162,18 @@ def consume_action(db, token, purpose):
         raise HTTPException(400, 'Invalid or expired link')
     item.used_at = now
     return item.user_id
+
+
+def action_status(db, token, purpose):
+    """Return an action-link state without consuming or logging its bearer token."""
+    now = datetime.utcnow()
+    item = db.query(ActionToken).filter_by(
+        token_hash=hashlib.sha256(token.encode()).hexdigest(), purpose=purpose
+    ).first()
+    if not item:
+        return 'invalid'
+    if item.used_at:
+        return 'used'
+    if item.expires_at < now:
+        return 'expired'
+    return 'valid'

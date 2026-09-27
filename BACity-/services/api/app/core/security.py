@@ -8,7 +8,10 @@ from passlib.context import CryptContext
 from app.config import get_settings
 
 settings = get_settings()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# bcrypt_sha256 removes bcrypt's 72-byte input limit while retaining support
+# for every existing bcrypt hash. Successful logins can continue to verify old
+# hashes without a flag day or a second account system.
+pwd_context = CryptContext(schemes=["bcrypt_sha256", "bcrypt"], deprecated="auto")
 
 
 def hash_password(password: str) -> str:
