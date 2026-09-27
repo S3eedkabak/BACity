@@ -28,7 +28,19 @@ function price(event: EventOut) {
   return event.price + " " + (event.currency ?? "EUR");
 }
 
-export function EventCard({ event }: { event: EventOut }) {
+export function EventCard({
+  event,
+  explanation,
+  saved,
+  saving = false,
+  onToggleSave,
+}: {
+  event: EventOut;
+  explanation?: string;
+  saved?: boolean;
+  saving?: boolean;
+  onToggleSave?: () => void;
+}) {
   const image = event.image_url || imageForCategory(event.category);
 
   return (
@@ -38,6 +50,10 @@ export function EventCard({ event }: { event: EventOut }) {
     >
       <Image source={{ uri: image }} style={styles.image} />
       <View style={styles.body}>
+        {explanation ? <View style={styles.reasonRow}>
+          <Ionicons name="sparkles" size={12} color={colors.primaryDark} />
+          <Text style={styles.reason} numberOfLines={1}>{explanation}</Text>
+        </View> : null}
         <View style={styles.metaRow}>
           <View style={styles.categoryPill}>
             <Text style={styles.category}>{event.category}</Text>
@@ -58,9 +74,19 @@ export function EventCard({ event }: { event: EventOut }) {
           </Text>
         </View>
       </View>
-      <View style={styles.chevron}>
+      {onToggleSave ? <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={saved ? "Remove from saved events" : "Save event"}
+        accessibilityState={{ checked: !!saved, disabled: saving }}
+        disabled={saving}
+        hitSlop={8}
+        onPress={(pressEvent) => { pressEvent.stopPropagation(); onToggleSave(); }}
+        style={({ pressed }) => [styles.chevron, pressed && styles.savePressed]}
+      >
+        <Ionicons name={saved ? "heart" : "heart-outline"} size={16} color={saved ? colors.primary : colors.text} />
+      </Pressable> : <View style={styles.chevron}>
         <Ionicons name="arrow-up-outline" size={14} color={colors.text} />
-      </View>
+      </View>}
     </Pressable>
   );
 }
@@ -68,7 +94,7 @@ export function EventCard({ event }: { event: EventOut }) {
 const styles = StyleSheet.create({
   card: {
     flexDirection: "row",
-    minHeight: 126,
+    minHeight: 132,
     backgroundColor: colors.surface,
     borderRadius: 22,
     marginBottom: 12,
@@ -86,10 +112,12 @@ const styles = StyleSheet.create({
   },
   image: {
     width: 108,
-    height: 126,
+    alignSelf: "stretch",
     backgroundColor: colors.primarySoft,
   },
   body: { flex: 1, padding: 12, paddingRight: 30 },
+  reasonRow: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 7 },
+  reason: { flex: 1, color: colors.primaryDark, fontFamily: fonts.semibold, fontSize: 9 },
   metaRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -140,4 +168,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  savePressed: { opacity: 0.65, transform: [{ scale: 0.92 }] },
 });

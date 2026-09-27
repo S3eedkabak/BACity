@@ -39,6 +39,12 @@
           "microphonePermission": false
         }
       ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow BACity to use your approximate location for nearby event recommendations."
+        }
+      ],
       "@maplibre/maplibre-react-native"
     ],
     "extra": {

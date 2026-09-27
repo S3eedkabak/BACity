@@ -1,9 +1,9 @@
 from datetime import datetime, timedelta
-from math import cos, radians, sqrt
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query, HTTPException
-from sqlalchemy import func
-from sqlalchemy.orm import Session
+from pydantic import BaseModel, Field, model_validator
+from sqlalchemy import and_, func, or_
+from sqlalchemy.orm import joinedload, Session
 from app.database import get_db
 from app.api.deps import get_current_user
 from app.core.community import blocked_ids, owned_organization, require_verified, audit, notify, row, rate_limit
@@ -14,60 +14,95 @@ from app.schemas.event import EventOut
 from app.schemas.community import RecurringEvents, EventSubmission
 from app.api.routes.community import publish
 from app.models.community import Submission
+from app.core.recommendations import RecommendationContext, rank_events
 
 router = APIRouter(tags=['personalization and organizers'])
+
+
+class RecommendationRequest(BaseModel):
+    latitude: float | None = Field(None, ge=48, le=48.35)
+    longitude: float | None = Field(None, ge=16.9, le=17.35)
+    offset: int = Field(0, ge=0, le=1000)
+    limit: int = Field(30, ge=1, le=100)
+
+    @model_validator(mode='after')
+    def coordinates_together(self):
+        if (self.latitude is None) != (self.longitude is None):
+            raise ValueError('Provide both coordinates')
+        return self
+
+
+def _recommendations(user, db, latitude, longitude, offset, limit):
+    if (latitude is None) != (longitude is None):
+        raise HTTPException(422, 'Provide both coordinates')
+    now = datetime.utcnow()
+    excluded = blocked_ids(db, user.id)
+    query = db.query(Event).options(joinedload(Event.venue)).filter(
+        Event.start_time >= now,
+        Event.start_time < now + timedelta(days=90),
+        Event.status.in_([EventStatus.fresh, EventStatus.stale]),
+    )
+    if excluded:
+        query = query.filter(or_(Event.contributor_id.is_(None), ~Event.contributor_id.in_(excluded)))
+    candidates = query.order_by(Event.start_time).limit(1000).all()
+    interests = {i.casefold() for i in user.interests}
+    following = {(f.target_type.casefold(), f.target_id.casefold())
+                 for f in db.query(Follow).filter_by(user_id=user.id)}
+    saved_categories = {str(c.value).casefold() for (c,) in db.query(Event.category).join(SavedEvent, SavedEvent.event_id == Event.id).filter(SavedEvent.user_id == user.id).distinct()}
+    candidate_ids = [event.id for event in candidates]
+    saved_event_ids = frozenset(event_id for (event_id,) in db.query(SavedEvent.event_id).filter(
+        SavedEvent.user_id == user.id,
+        SavedEvent.event_id.in_(candidate_ids),
+    )) if candidate_ids else frozenset()
+    counts = {}
+    if candidate_ids:
+        counts = dict(
+            db.query(SavedEvent.event_id, func.count(func.distinct(SavedEvent.user_id)))
+            .join(Event, Event.id == SavedEvent.event_id)
+            .outerjoin(OrganizationMember, and_(
+                OrganizationMember.organization_id == Event.organization_id,
+                OrganizationMember.user_id == SavedEvent.user_id,
+            ))
+            .filter(
+                SavedEvent.event_id.in_(candidate_ids),
+                OrganizationMember.id.is_(None),
+                or_(Event.contributor_id.is_(None), Event.contributor_id != SavedEvent.user_id),
+            )
+            .group_by(SavedEvent.event_id)
+            .all()
+        )
+    context = RecommendationContext(
+        interests=frozenset(interests),
+        saved_categories=frozenset(saved_categories),
+        following=frozenset(following),
+        save_counts=counts,
+        saved_event_ids=saved_event_ids,
+        latitude=latitude,
+        longitude=longitude,
+    )
+    ranked = rank_events(candidates, context, now=now)
+    return [{
+        'event': EventOut.model_validate(item.event),
+        'reasons': list(item.reasons),
+        'saved': item.event.id in saved_event_ids,
+    } for item in ranked[offset:offset + limit]]
 
 
 @router.get('/recommendations')
 def recommendations(user=Depends(get_current_user), db: Session = Depends(get_db),
                     latitude: float | None = Query(None, ge=48, le=48.35),
                     longitude: float | None = Query(None, ge=16.9, le=17.35),
+                    offset: int = Query(0, ge=0, le=1000),
                     limit: int = Query(30, ge=1, le=100)):
-    if (latitude is None) != (longitude is None):
-        raise HTTPException(422, 'Provide both coordinates')
-    now = datetime.utcnow()
-    excluded = blocked_ids(db, user.id)
-    query = db.query(Event).filter(Event.start_time >= now, Event.start_time < now + timedelta(days=90), Event.status.in_([EventStatus.fresh, EventStatus.stale]))
-    if excluded:
-        from sqlalchemy import or_
-        query = query.filter(or_(Event.contributor_id.is_(None), ~Event.contributor_id.in_(excluded)))
-    candidates = query.order_by(Event.start_time).limit(1000).all()
-    interests = {i.casefold() for i in user.interests}
-    following = {(f.target_type, f.target_id) for f in db.query(Follow).filter_by(user_id=user.id)}
-    saved_categories = {str(c.value).casefold() for (c,) in db.query(Event.category).join(SavedEvent, SavedEvent.event_id == Event.id).filter(SavedEvent.user_id == user.id).distinct()}
-    counts = dict(db.query(SavedEvent.event_id, func.count(SavedEvent.id)).group_by(SavedEvent.event_id).all())
-    ranked = []
-    for event in candidates:
-        score, reasons = 0.0, []
-        category = event.category.value.casefold()
-        if category in interests or interests.intersection(t.casefold() for t in event.tags):
-            score += 5
-            reasons.append('Matches your interests')
-        if category in saved_categories:
-            score += 2
-            reasons.append('Similar to events you saved')
-        for kind, value in [('venue', event.venue_id), ('organizer', event.organization_id), ('neighborhood', event.neighborhood), ('category', event.category.value), ('guide', event.contributor_id), ('user', event.contributor_id)]:
-            if value and (kind, str(value)) in following:
-                score += 4
-                reasons.append(f'From a {kind} you follow')
-        if latitude is not None and event.latitude is not None and event.longitude is not None:
-            distance = 111 * sqrt((latitude-event.latitude)**2 + (cos(radians(latitude))*(longitude-event.longitude))**2)
-            score += max(0, 3-distance/2)
-            if distance < 5:
-                reasons.append(f'{distance:.1f} km away')
-        if event.start_time < now + timedelta(days=7):
-            score += 1
-            reasons.append('Happening this week')
-        if event.last_verified_at and event.last_verified_at > now-timedelta(days=2):
-            score += 1
-            reasons.append('Recently checked')
-        count = counts.get(event.id, 0)
-        score += min(count, 20) / 10
-        if count:
-            reasons.append(f'Saved by {count} people')
-        ranked.append((score, event.start_time, {'event': EventOut.model_validate(event), 'reasons': reasons or ['Upcoming in Bratislava']}))
-    ranked.sort(key=lambda x: (-x[0], x[1]))
-    return [r[2] for r in ranked[:limit]]
+    """Backward-compatible recommendation endpoint for existing clients."""
+    return _recommendations(user, db, latitude, longitude, offset, limit)
+
+
+@router.post('/recommendations/query')
+def recommendation_query(payload: RecommendationRequest, user=Depends(get_current_user),
+                         db: Session = Depends(get_db)):
+    """Body-based query keeps approximate coordinates out of access-log URLs."""
+    return _recommendations(user, db, payload.latitude, payload.longitude, payload.offset, payload.limit)
 
 
 @router.get('/promotions')

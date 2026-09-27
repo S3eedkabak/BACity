@@ -8,6 +8,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "test:api-url": "node --experimental-strip-types --test src/api/apiUrl.test.mjs",
+    "test:recommendations": "node --experimental-strip-types --test src/recommendations/locationPolicy.test.mjs",
     "test:map-markers": "node --test src/map/eventGeoJson.test.cjs",
     "typecheck": "tsc --noEmit"
   },
@@ -28,6 +29,7 @@
     "expo-font": "~12.0.10",
     "expo-image-picker": "~15.1.0",
     "expo-linking": "~6.3.0",
+    "expo-location": "~17.0.1",
     "expo-router": "~3.5.0",
     "expo-secure-store": "~13.0.0",
     "expo-status-bar": "~1.12.0",
