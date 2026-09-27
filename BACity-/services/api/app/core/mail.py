@@ -97,7 +97,25 @@ def deliver_pending_mail(db, *, now: datetime | None = None, limit: int = 50) ->
         except (OSError, smtplib.SMTPException) as exc:
             item.error = type(exc).__name__
             item.next_attempt_at = now + timedelta(seconds=min(3600, 30 * 2 ** item.attempts))
-            if isinstance(exc, smtplib.SMTPAuthenticationError) or phase == "authentication":
+            if isinstance(exc, smtplib.SMTPAuthenticationError):
+                failure = "authentication"
+                smtp_response = exc.smtp_error
+                if isinstance(smtp_response, bytes):
+                    smtp_response = smtp_response.decode("utf-8", errors="replace")
+                smtp_response = str(smtp_response).replace("\r", " ").replace("\n", " ")
+                transport_mode = "ssl" if settings.smtp_ssl else (
+                    "starttls" if settings.smtp_starttls else "plain"
+                )
+                log.warning(
+                    "Account email SMTP authentication diagnostic smtp_code=%s "
+                    "smtp_response=%s smtp_host=%s smtp_port=%s smtp_mode=%s",
+                    exc.smtp_code,
+                    smtp_response,
+                    settings.smtp_host,
+                    settings.smtp_port,
+                    transport_mode,
+                )
+            elif phase == "authentication":
                 failure = "authentication"
             elif phase == "connection":
                 failure = "connection"

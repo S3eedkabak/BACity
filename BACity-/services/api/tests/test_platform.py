@@ -153,7 +153,9 @@ def test_smtp_failure_keeps_reset_response_private_and_retry_bounded(client, db_
     monkeypatch.setattr(settings, 'smtp_password', 'smtp-secret')
 
     with patch('app.core.mail.smtplib.SMTP') as smtp:
-        smtp.return_value.login.side_effect = smtplib.SMTPAuthenticationError(535, b'rejected')
+        smtp.return_value.login.side_effect = smtplib.SMTPAuthenticationError(
+            535, b'5.7.8 Authentication rejected'
+        )
         existing = client.post('/auth/request-reset', json={'email': 'private@example.com'})
         missing = client.post('/auth/request-reset', json={'email': 'missing@example.com'})
 
@@ -164,5 +166,11 @@ def test_smtp_failure_keeps_reset_response_private_and_retry_bounded(client, db_
     ).one()
     assert mail.attempts == 1 and mail.sent_at is None
     assert mail.error == 'SMTPAuthenticationError'
+    assert 'smtp_code=535' in caplog.text
+    assert 'smtp_response=5.7.8 Authentication rejected' in caplog.text
+    assert 'smtp_host=smtp.example.test' in caplog.text
+    assert 'smtp_port=587' in caplog.text
+    assert 'smtp_mode=starttls' in caplog.text
+    assert 'smtp-login' not in caplog.text
     assert 'smtp-secret' not in caplog.text
     assert 'private@example.com' not in caplog.text
