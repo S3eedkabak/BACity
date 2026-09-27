@@ -6,8 +6,10 @@
  * -> client circular dependency.
  */
 import { getSessionToken } from "../store/tokenSession";
+import { Platform } from "react-native";
+import { resolveApiUrl } from "./apiUrl";
 
-export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8000";
+export const API_URL = resolveApiUrl(process.env.EXPO_PUBLIC_API_URL, Platform.OS);
 
 export class ApiError extends Error {
   status: number;

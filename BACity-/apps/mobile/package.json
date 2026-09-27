@@ -7,6 +7,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
+    "test:api-url": "node --experimental-strip-types --test src/api/apiUrl.test.mjs",
     "test:map-markers": "node --test src/map/eventGeoJson.test.cjs",
     "typecheck": "tsc --noEmit"
   },
