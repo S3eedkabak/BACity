@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     environment: Literal["development", "staging", "production"] = "development"
     ingestion_api_key: str = ""
     public_app_url: str = "http://localhost:8081"
+    account_action_base_url: str = ""
 
     # Browser OAuth. The callback URL is registered with Google/Apple; the
     # app redirect is the Expo/React Native deep link receiving a short-lived
@@ -30,10 +31,14 @@ class Settings(BaseSettings):
     oauth_app_redirect_uri: str = "bratislava-events://oauth"
     google_oauth_client_id: str = ""
     google_oauth_client_secret: str = ""
+    google_android_client_id: str = ""
+    google_ios_client_id: str = ""
     apple_oauth_client_id: str = ""
+    apple_ios_client_id: str = "com.bratislavaevents.app"
     apple_team_id: str = ""
     apple_key_id: str = ""
     apple_private_key: str = ""
+    oauth_token_encryption_key: str = ""
 
     smtp_host: str = ""
     smtp_port: int = 587
@@ -42,6 +47,7 @@ class Settings(BaseSettings):
     smtp_starttls: bool = True
     smtp_ssl: bool = False
     mail_from: str = "noreply@example.com"
+    mail_from_name: str = "BACity"
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
     stripe_pro_price_id: str = ""
@@ -92,11 +98,19 @@ class Settings(BaseSettings):
                 raise ValueError("Apple OAuth requires client ID, team ID, key ID and private key")
             if any(apple_parts) and not self.oauth_callback_base_url.startswith("https://"):
                 raise ValueError("Apple OAuth requires an HTTPS OAUTH_CALLBACK_BASE_URL")
+            if any(apple_parts) and not self.oauth_token_encryption_key:
+                raise ValueError("Apple OAuth requires OAUTH_TOKEN_ENCRYPTION_KEY for revocable credentials")
             if self.environment == "production":
                 if not all(google_parts) or not all(apple_parts):
                     raise ValueError("Production requires Google and Apple OAuth credentials")
+                if not self.google_android_client_id or not self.google_ios_client_id:
+                    raise ValueError("Production requires Android and iOS Google OAuth client IDs")
+                if not self.apple_ios_client_id:
+                    raise ValueError("Production requires the Apple iOS client ID")
                 if not self.oauth_callback_base_url.startswith("https://"):
                     raise ValueError("Production OAuth callbacks require HTTPS")
+                if self.account_action_url and not self.account_action_url.startswith("https://"):
+                    raise ValueError("Production account action links require HTTPS")
         if self.smtp_ssl and self.smtp_starttls:
             raise ValueError("Choose either SMTP_SSL or SMTP_STARTTLS, not both")
         return self
@@ -110,6 +124,10 @@ class Settings(BaseSettings):
         return bool(self.google_oauth_client_id and self.google_oauth_client_secret)
 
     @property
+    def google_native_configured(self) -> bool:
+        return bool(self.google_oauth_client_id and (self.google_android_client_id or self.google_ios_client_id))
+
+    @property
     def apple_oauth_configured(self) -> bool:
         return bool(
             self.apple_oauth_client_id
@@ -117,6 +135,15 @@ class Settings(BaseSettings):
             and self.apple_key_id
             and self.apple_private_key
         )
+
+    @property
+    def apple_native_configured(self) -> bool:
+        return bool(self.apple_ios_client_id and self.apple_team_id and self.apple_key_id and self.apple_private_key
+                    and self.oauth_token_encryption_key)
+
+    @property
+    def account_action_url(self) -> str:
+        return self.account_action_base_url or self.public_app_url
 
 
 @lru_cache

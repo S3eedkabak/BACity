@@ -733,20 +733,27 @@ def export_account(user=Depends(get_current_user), db: Session = Depends(get_db)
     review_ids = [item.id for item in db.query(Review.id).filter_by(user_id=user_id)]
     profile = record(user)
     profile.pop('hashed_password', None)
+    profile.pop('token_version', None)
+    submissions = [{key: value for key, value in record(item).items()
+                    if key not in {'risk_flags', 'reviewer_id'}}
+                   for item in db.query(Submission).filter(Submission.user_id == user_id).all()]
     export = {
         'schema_version': 1,
         'exported_at': datetime.utcnow(),
         'profile': profile,
-        'oauth_identities': records(db.query(OAuthIdentity).filter_by(user_id=user_id)),
+        'linked_sign_in_providers': [
+            {'provider': item.provider, 'linked_at': item.created_at}
+            for item in db.query(OAuthIdentity).filter_by(user_id=user_id).all()
+        ],
         'saved_events': records(db.query(SavedEvent).filter_by(user_id=user_id)),
-        'submissions': records(db.query(Submission).filter(or_(Submission.user_id == user_id, Submission.reviewer_id == user_id))),
-        'audit_logs': records(db.query(AuditLog).filter(or_(AuditLog.actor_id == user_id, and_(AuditLog.target_type == 'user', AuditLog.target_id == user_id_text)))),
+        'submissions': submissions,
         'follows': records(db.query(Follow).filter(or_(Follow.user_id == user_id, and_(Follow.target_type.in_(['user', 'guide']), Follow.target_id == user_id_text)))),
         'blocks': records(db.query(UserBlock).filter(or_(UserBlock.user_id == user_id, UserBlock.blocked_id == user_id))),
         'reports': records(db.query(Report).filter_by(user_id=user_id)),
         'organization_memberships': records(db.query(OrganizationMember).filter_by(user_id=user_id)),
         'places_contributed': records(db.query(Place).filter_by(contributor_id=user_id)),
         'utilities_contributed': records(db.query(CityUtility).filter_by(contributor_id=user_id)),
+        'events_contributed': records(db.query(Event).filter_by(contributor_id=user_id)),
         'utility_confirmations': records(db.query(UtilityConfirmation).filter_by(user_id=user_id)),
         'reviews': records(db.query(Review).filter_by(user_id=user_id)),
         'review_revisions': records(db.query(ReviewRevision).filter(ReviewRevision.review_id.in_(review_ids))) if review_ids else [],
@@ -766,6 +773,15 @@ def delete_account(payload: Reason, user=Depends(get_current_user), db: Session 
     """Erase private/activity data and anonymize retained public or compliance records."""
     user_id, old_email = user.id, user.email
     _avatar_path(user_id).unlink(missing_ok=True)
+    provider_revocation = {}
+    for identity in db.query(OAuthIdentity).filter_by(user_id=user_id).all():
+        if identity.provider == 'apple' and identity.refresh_token_encrypted:
+            from app.api.routes.auth import revoke_apple_token
+            client_id = settings.apple_ios_client_id or settings.apple_oauth_client_id
+            provider_revocation['apple'] = 'revoked' if revoke_apple_token(identity.refresh_token_encrypted, client_id) else 'manual_revoke_required'
+        else:
+            provider_revocation.setdefault(identity.provider, 'local_link_removed')
+
     # Provider subjects and all private/security records are erased immediately.
     db.query(OAuthIdentity).filter_by(user_id=user_id).delete(synchronize_session=False)
     db.query(ActionToken).filter_by(user_id=user_id).delete(synchronize_session=False)
@@ -802,5 +818,8 @@ def delete_account(payload: Reason, user=Depends(get_current_user), db: Session 
     user.allow_general_messages = False
     user.public_profile = False
     audit(db, user, 'account_deleted', 'user', user.id)
+    db.add(MailOutbox(recipient=old_email, subject='Your BACity account was deleted',
+                      body='Your BACity account has been disabled and personal profile data was anonymized. '
+                           'If you used a social provider, review that provider’s connected-app settings as well.'))
     db.commit()
-    return {'deleted': True}
+    return {'deleted': True, 'provider_revocation': provider_revocation}

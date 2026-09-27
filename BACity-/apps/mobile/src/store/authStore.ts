@@ -3,6 +3,7 @@ import { tokenStorage as SecureStore } from "./tokenStorage";
 import { apiRequest } from "../api/client";
 import * as authApi from "../api/auth";
 import { setSessionToken } from "./tokenSession";
+import { NativeModules, Platform } from "react-native";
 
 const TOKEN_KEY = "bratislava_events_token";
 
@@ -14,6 +15,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, displayName?: string) => Promise<void>;
   completeOAuth: (code: string) => Promise<void>;
+  completeNativeOAuth: (provider: "google" | "apple", identityToken: string, authorizationCode?: string | null, displayName?: string | null) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -68,6 +70,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await persistSession(access_token, set);
   },
 
+  completeNativeOAuth: async (provider, identityToken, authorizationCode, displayName) => {
+    const { access_token } = await authApi.nativeOAuth(provider, identityToken, authorizationCode, displayName);
+    await persistSession(access_token, set);
+  },
+
   logout: async () => {
     try {
       await apiRequest("/auth/logout", { method: "POST", auth: true });
@@ -75,6 +82,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Local logout still succeeds if the API is temporarily unavailable.
     }
     await SecureStore.deleteItemAsync(TOKEN_KEY);
+    if (Platform.OS !== "web" && NativeModules.RNGoogleSignin) {
+      try { await require("@react-native-google-signin/google-signin").GoogleSignin.signOut(); } catch { /* BACity logout remains authoritative. */ }
+    }
     setSessionToken(null);
     set({ token: null, user: null });
   },

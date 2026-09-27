@@ -24,7 +24,16 @@ export interface TokenResponse {
 
 export interface OAuthStatus {
   google: boolean;
+  google_native?: boolean;
   apple: boolean;
+  apple_native?: boolean;
+}
+
+export function nativeOAuth(provider: "google" | "apple", identityToken: string, authorizationCode?: string | null, displayName?: string | null): Promise<TokenResponse> {
+  return apiRequest<TokenResponse>("/auth/oauth/native", {
+    method: "POST",
+    body: { provider, identity_token: identityToken, authorization_code: authorizationCode, display_name: displayName },
+  });
 }
 
 export function register(email: string, password: string, display_name?: string): Promise<UserOut> {

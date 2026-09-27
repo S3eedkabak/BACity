@@ -3,7 +3,7 @@ from io import BytesIO
 import re
 from PIL import Image
 from app.models.user import User
-from app.models.community import MailOutbox, Submission, Organization, OrganizationMember, Message, CityUtility, Review
+from app.models.community import ActionToken, MailOutbox, Submission, Organization, OrganizationMember, Message, CityUtility, Review
 from app.models.oauth_identity import OAuthIdentity
 from app.models.event import Event
 
@@ -41,6 +41,30 @@ def test_verified_account_and_single_use_reset(client, db_session):
     assert client.post('/auth/reset-password', json={'token': token, 'password': 'newpassword123'}).status_code == 200
     assert client.get('/users/me', headers=headers).status_code == 401
     assert client.post('/auth/reset-password', json={'token': token, 'password': 'newpassword123'}).status_code == 400
+
+
+def test_resend_replaces_pending_email_and_invalidates_old_token(client, db_session):
+    user, headers = account(client, db_session, 'resend', verified=False)
+    first = db_session.query(MailOutbox).filter_by(recipient=user.email).one()
+    first_token = re.search(r'token=([^\s]+)', first.body).group(1)
+    assert client.post('/auth/request-verification', headers=headers).status_code == 200
+    db_session.expire_all()
+    messages = db_session.query(MailOutbox).filter_by(recipient=user.email).all()
+    assert len(messages) == 1 and messages[0].attempts == 0
+    second_token = re.search(r'token=([^\s]+)', messages[0].body).group(1)
+    assert second_token != first_token
+    assert client.post('/auth/verify-email', json={'token': first_token}).status_code == 400
+    assert client.post('/auth/verify-email', json={'token': second_token}).status_code == 200
+
+
+def test_expired_action_token_is_rejected(client, db_session):
+    user, _ = account(client, db_session, 'expired', verified=False)
+    mail = db_session.query(MailOutbox).filter_by(recipient=user.email).one()
+    token = re.search(r'token=([^\s]+)', mail.body).group(1)
+    action = db_session.query(ActionToken).filter_by(user_id=user.id, purpose='verify').one()
+    action.expires_at = datetime.utcnow() - timedelta(seconds=1)
+    db_session.commit()
+    assert client.post('/auth/verify-email', json={'token': token}).status_code == 400
 
 
 def test_pending_moderation_and_guide_permissions(client, db_session):
@@ -177,7 +201,10 @@ def test_account_export_and_complete_private_data_erasure(client, db_session):
     payload = exported.json()
     assert payload['profile']['email'] == 'privacy@example.com'
     assert 'hashed_password' not in payload['profile']
-    assert payload['oauth_identities'][0]['subject'] == 'provider-subject'
+    assert payload['linked_sign_in_providers'] == [{'provider': 'google', 'linked_at': payload['linked_sign_in_providers'][0]['linked_at']}]
+    assert 'subject' not in payload['linked_sign_in_providers'][0]
+    assert 'token_version' not in payload['profile']
+    assert 'audit_logs' not in payload
     assert payload['messages'][0]['body'] == 'private text'
 
     deleted = client.request('DELETE', '/community/account', json={'reason': 'Privacy request'}, headers=headers)
@@ -187,7 +214,8 @@ def test_account_export_and_complete_private_data_erasure(client, db_session):
     assert anonymized.email.endswith('@example.invalid') and not anonymized.active
     assert db_session.query(OAuthIdentity).filter_by(user_id=user.id).count() == 0
     assert db_session.query(Message).filter(Message.sender_id == user.id).count() == 0
-    assert db_session.query(MailOutbox).filter_by(recipient='privacy@example.com').count() == 0
+    deletion_mail = db_session.query(MailOutbox).filter_by(recipient='privacy@example.com').one()
+    assert deletion_mail.subject == 'Your BACity account was deleted'
 
 
 def test_rich_profile_social_pagination_and_avatar(client, db_session, sample_event, tmp_path, monkeypatch):

@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import {
@@ -6,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  NativeModules,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,6 +20,10 @@ import { useAuthStore } from "../src/store/authStore";
 import { colors } from "../src/theme/colors";
 import { fonts } from "../src/theme/fonts";
 
+const GoogleNative = Platform.OS !== "web" && NativeModules.RNGoogleSignin
+  ? require("@react-native-google-signin/google-signin")
+  : null;
+
 export default function AuthScreen() {
   const params = useLocalSearchParams<{ mode?: string }>();
   const initialMode = useMemo(() => (params.mode === "register" ? "register" : "login"), [params.mode]);
@@ -29,6 +35,7 @@ export default function AuthScreen() {
   const [error, setError] = useState("");
   const login = useAuthStore((s) => s.login);
   const register = useAuthStore((s) => s.register);
+  const completeNativeOAuth = useAuthStore((s) => s.completeNativeOAuth);
 
   async function submit() {
     setBusy(true);
@@ -45,6 +52,37 @@ export default function AuthScreen() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function signInWithApple() {
+    setBusy(true); setError("");
+    try {
+      const credential = await AppleAuthentication.signInAsync({ requestedScopes: [AppleAuthentication.AppleAuthenticationScope.FULL_NAME, AppleAuthentication.AppleAuthenticationScope.EMAIL] });
+      if (!credential.identityToken || !credential.authorizationCode) throw new Error("Apple did not return complete sign-in credentials.");
+      const displayName = [credential.fullName?.givenName, credential.fullName?.familyName].filter(Boolean).join(" ") || null;
+      await completeNativeOAuth("apple", credential.identityToken, credential.authorizationCode, displayName);
+      router.replace("/(tabs)/discover");
+    } catch (e: any) {
+      if (e?.code !== "ERR_REQUEST_CANCELED") setError(e?.message ?? "Apple sign in could not be completed");
+    } finally { setBusy(false); }
+  }
+
+  async function signInWithGoogle() {
+    setBusy(true); setError("");
+    try {
+      if (!GoogleNative) throw new Error("Google sign in requires a BACity development or production build.");
+      const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+      const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+      if (!webClientId || (Platform.OS === "ios" && !iosClientId)) throw new Error("Google sign in is not configured for this build.");
+      GoogleNative.GoogleSignin.configure({ webClientId, iosClientId, offlineAccess: false });
+      if (Platform.OS === "android") await GoogleNative.GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const response = await GoogleNative.GoogleSignin.signIn();
+      if (response.type !== "success") return;
+      if (!response.data.idToken) throw new Error("Google did not return an identity token.");
+      await completeNativeOAuth("google", response.data.idToken);
+      router.replace("/(tabs)/discover");
+    } catch (e: any) { setError(e?.message ?? "Google sign in could not be completed"); }
+    finally { setBusy(false); }
   }
 
   return (
@@ -141,6 +179,18 @@ export default function AuthScreen() {
               </>
             )}
           </Pressable>
+
+          {Platform.OS !== "web" && <Pressable disabled={busy} style={({ pressed }) => [styles.googleButton, pressed && styles.pressed, busy && styles.disabled]} onPress={signInWithGoogle}>
+            <Text style={styles.googleMark}>G</Text><Text style={styles.googleText}>Continue with Google</Text>
+          </Pressable>}
+
+          {Platform.OS === "ios" && <AppleAuthentication.AppleAuthenticationButton
+            buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+            cornerRadius={17}
+            style={styles.appleButton}
+            onPress={signInWithApple}
+          />}
 
           {mode === "login" && (
             <Pressable onPress={() => router.push("/account")} style={styles.textButton}>
@@ -255,6 +305,10 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.9, transform: [{ scale: 0.985 }] },
   disabled: { opacity: 0.6 },
   textButton: { alignItems: "center", paddingVertical: 15 },
+  appleButton: { width: "100%", height: 52, marginTop: 10 },
+  googleButton: { width: "100%", minHeight: 52, marginTop: 10, borderRadius: 17, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9 },
+  googleMark: { color: "#4285F4", fontFamily: fonts.black, fontSize: 19 },
+  googleText: { color: colors.text, fontFamily: fonts.semibold, fontSize: 13 },
   textButtonLabel: { color: colors.primaryDark, fontFamily: fonts.semibold, fontSize: 12 },
   switch: {
     marginTop: "auto",

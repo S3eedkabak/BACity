@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Column, String, DateTime, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, String, Text, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.sql import func
 
 from app.database import Base
@@ -18,4 +18,5 @@ class OAuthIdentity(Base):
     user_id = Column(GUID(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     provider = Column(String(20), nullable=False)
     subject = Column(String(255), nullable=False)
+    refresh_token_encrypted = Column(Text, nullable=True)
     created_at = Column(DateTime, nullable=False, server_default=func.now())

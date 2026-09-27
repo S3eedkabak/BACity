@@ -5,6 +5,7 @@ import smtplib
 import time
 from datetime import datetime, timedelta
 from email.message import EmailMessage
+from email.utils import formataddr
 from app.config import get_settings
 from app.database import SessionLocal
 from app.models.community import MailOutbox, Message, ActionToken, RateBucket
@@ -28,7 +29,7 @@ def tick():
                 item.attempts += 1
                 try:
                     message = EmailMessage()
-                    message['From'], message['To'], message['Subject'] = s.mail_from, item.recipient, item.subject
+                    message['From'], message['To'], message['Subject'] = formataddr((s.mail_from_name, s.mail_from)), item.recipient, item.subject
                     message.set_content(item.body)
                     smtp_class = smtplib.SMTP_SSL if s.smtp_ssl else smtplib.SMTP
                     with smtp_class(s.smtp_host, s.smtp_port, timeout=15) as smtp:

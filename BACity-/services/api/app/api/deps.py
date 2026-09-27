@@ -29,3 +29,16 @@ def get_current_user(
     if not user or not user.active or user.token_version != token_version(token):
         raise credentials_exception
     return user
+
+
+def get_optional_user(
+    token: Optional[str] = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+) -> Optional[User]:
+    if not token:
+        return None
+    email = decode_access_token(token)
+    user = db.query(User).filter(User.email == email).first() if email else None
+    if not user or not user.active or user.token_version != token_version(token):
+        raise HTTPException(status_code=401, detail="Could not validate credentials")
+    return user
