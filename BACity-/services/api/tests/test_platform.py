@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from app.config import Settings, get_settings
 from app.api.routes.billing import verify_signature
 from app.models.community import Organization, BillingReceipt, MailOutbox, Message
+from app.models.user import User
 from tests.test_community import account
 
 
@@ -76,24 +77,92 @@ def test_mail_delivery_retry_and_retention(client, db_session, monkeypatch):
     from tests.conftest import TestingSessionLocal
     monkeypatch.setattr(worker, 'SessionLocal', TestingSessionLocal)
     settings = get_settings()
+    user, _ = account(client, db_session, 'mailer')
     monkeypatch.setattr(settings, 'smtp_host', 'mailpit')
     monkeypatch.setattr(settings, 'smtp_starttls', False)
-    user, _ = account(client, db_session, 'mailer')
-    with patch('app.worker.smtplib.SMTP', side_effect=OSError('unavailable')):
+    with patch('app.core.mail.smtplib.SMTP', side_effect=OSError('unavailable')):
         worker.tick()
     mail = db_session.query(MailOutbox).one()
     assert mail.attempts == 1 and mail.sent_at is None
     mail.next_attempt_at = datetime.utcnow()-timedelta(seconds=1)
     db_session.commit()
-    with patch('app.worker.smtplib.SMTP') as smtp:
+    with patch('app.core.mail.smtplib.SMTP') as smtp:
+        smtp.return_value.send_message.return_value = {}
         worker.tick()
-        assert smtp.return_value.__enter__.return_value.send_message.call_count == 1
+        assert smtp.return_value.send_message.call_count == 1
     db_session.refresh(mail)
     assert mail.sent_at and mail.body == '[Delivered]'
     mail.sent_at = None
     mail.attempts = 10
     mail.next_attempt_at = datetime.utcnow()-timedelta(seconds=1)
     db_session.commit()
-    with patch('app.worker.smtplib.SMTP') as smtp:
+    with patch('app.core.mail.smtplib.SMTP') as smtp:
+        smtp.return_value.send_message.return_value = {}
         worker.tick()
         smtp.assert_not_called()
+
+
+def test_auth_routes_attempt_the_shared_smtp_transport(client, db_session, monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, 'smtp_host', 'smtp.example.test')
+    monkeypatch.setattr(settings, 'smtp_port', 587)
+    monkeypatch.setattr(settings, 'smtp_starttls', True)
+    monkeypatch.setattr(settings, 'smtp_ssl', False)
+    monkeypatch.setattr(settings, 'smtp_username', 'smtp-login')
+    monkeypatch.setattr(settings, 'smtp_password', 'smtp-secret')
+
+    with patch('app.core.mail.smtplib.SMTP') as smtp:
+        smtp.return_value.send_message.return_value = {}
+        registered = client.post('/auth/register', json={
+            'email': 'transport@example.com', 'password': 'password123'
+        })
+        assert registered.status_code == 201
+        assert smtp.return_value.starttls.call_count == 1
+        assert smtp.return_value.login.call_count == 1
+        assert smtp.return_value.send_message.call_count == 1
+
+        token = client.post('/auth/login', json={
+            'email': 'transport@example.com', 'password': 'password123'
+        }).json()['access_token']
+        verification = client.post('/auth/request-verification', headers={
+            'Authorization': 'Bearer ' + token
+        })
+        assert verification.status_code == 200
+        assert smtp.return_value.send_message.call_count == 2
+
+        reset = client.post('/auth/request-reset', json={'email': 'transport@example.com'})
+        assert reset.status_code == 200
+        assert smtp.return_value.send_message.call_count == 3
+
+        user = db_session.query(User).filter_by(email='transport@example.com').one()
+        user.email_verified = True
+        db_session.commit()
+        verified = client.post('/auth/request-verification', headers={
+            'Authorization': 'Bearer ' + token
+        })
+        assert verified.status_code == 200
+        assert smtp.return_value.send_message.call_count == 3
+
+
+def test_smtp_failure_keeps_reset_response_private_and_retry_bounded(client, db_session, monkeypatch, caplog):
+    import smtplib
+    settings = get_settings()
+    client.post('/auth/register', json={'email': 'private@example.com', 'password': 'password123'})
+    monkeypatch.setattr(settings, 'smtp_host', 'smtp.example.test')
+    monkeypatch.setattr(settings, 'smtp_username', 'smtp-login')
+    monkeypatch.setattr(settings, 'smtp_password', 'smtp-secret')
+
+    with patch('app.core.mail.smtplib.SMTP') as smtp:
+        smtp.return_value.login.side_effect = smtplib.SMTPAuthenticationError(535, b'rejected')
+        existing = client.post('/auth/request-reset', json={'email': 'private@example.com'})
+        missing = client.post('/auth/request-reset', json={'email': 'missing@example.com'})
+
+    assert existing.status_code == missing.status_code == 200
+    assert existing.json() == missing.json()
+    mail = db_session.query(MailOutbox).filter_by(
+        recipient='private@example.com', subject='Reset your BACity password'
+    ).one()
+    assert mail.attempts == 1 and mail.sent_at is None
+    assert mail.error == 'SMTPAuthenticationError'
+    assert 'smtp-secret' not in caplog.text
+    assert 'private@example.com' not in caplog.text

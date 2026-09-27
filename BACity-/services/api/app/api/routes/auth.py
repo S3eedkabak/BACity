@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from urllib.parse import urlencode, quote
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, Request, Form
 from fastapi.responses import RedirectResponse
 from jose import JWTError, jwt
 from cryptography.fernet import Fernet, InvalidToken
@@ -22,7 +22,7 @@ from app.models.oauth_identity import OAuthIdentity
 from app.schemas.auth import UserRegister, UserLogin, UserOut, Token
 from app.api.deps import get_current_user, get_optional_user
 from app.core.community import rate_limit, audit
-from app.core.mail import queue_action, consume_action
+from app.core.mail import queue_action, consume_action, dispatch_pending_mail
 from app.models.community import ActionToken
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -30,8 +30,13 @@ settings = get_settings()
 _DUMMY_PASSWORD_HASH = hash_password("BACity timing equalization password")
 
 
+def _schedule_mail_delivery(background_tasks: BackgroundTasks, db: Session) -> None:
+    background_tasks.add_task(dispatch_pending_mail, db.get_bind())
+
+
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-def register(payload: UserRegister, request: Request, db: Session = Depends(get_db)):
+def register(payload: UserRegister, request: Request, background_tasks: BackgroundTasks,
+             db: Session = Depends(get_db)):
     rate_limit(db, "register:" + request.client.host, 20)
     payload.email = payload.email.lower()
     existing = db.query(User).filter(User.email == payload.email).first()
@@ -48,6 +53,7 @@ def register(payload: UserRegister, request: Request, db: Session = Depends(get_
     queue_action(db, user, "verify")
     db.commit()
     db.refresh(user)
+    _schedule_mail_delivery(background_tasks, db)
     return user
 
 
@@ -95,21 +101,27 @@ class NativeOAuthInput(BaseModel):
 
 
 @router.post("/request-reset")
-def request_reset(payload: EmailInput, request: Request, db: Session = Depends(get_db)):
+def request_reset(payload: EmailInput, request: Request, background_tasks: BackgroundTasks,
+                  db: Session = Depends(get_db)):
     rate_limit(db, "reset:" + request.client.host, 10)
     user = db.query(User).filter_by(email=payload.email.lower(), active=True).first()
     if user:
         queue_action(db, user, "reset")
         db.commit()
+    # Schedule this for both outcomes so transport work cannot reveal whether
+    # the supplied address belongs to an account.
+    _schedule_mail_delivery(background_tasks, db)
     return {"detail": "If the account exists, a reset email has been queued"}
 
 
 @router.post("/request-verification")
-def request_verification(user=Depends(get_current_user), db: Session = Depends(get_db)):
+def request_verification(background_tasks: BackgroundTasks, user=Depends(get_current_user),
+                         db: Session = Depends(get_db)):
     rate_limit(db, "verify:" + str(user.id), 3)
     if not user.email_verified:
         queue_action(db, user, "verify")
         db.commit()
+    _schedule_mail_delivery(background_tasks, db)
     return {"detail": "Verification email queued if needed"}
 
 
