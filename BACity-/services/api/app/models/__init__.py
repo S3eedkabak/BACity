@@ -7,10 +7,12 @@ from app.models.saved_event import SavedEvent
 from app.models.event_source import EventSource
 from app.models.entitlement import ConsumerSubscription, EntitlementGrant
 from app.models.group import GroupSession, GroupParticipant, GroupMatchRound, GroupCandidate, GroupVote
+from app.models.area_watch import AreaWatch
 from app.models import community
 
 __all__ = [
     "Source", "CrawlerRun", "Venue", "Event", "User", "OAuthIdentity", "SavedEvent",
     "ConsumerSubscription", "EntitlementGrant", "GroupSession", "GroupParticipant",
     "GroupMatchRound", "GroupCandidate", "GroupVote",
+    "AreaWatch",
 ]

@@ -192,6 +192,23 @@ function GroupsEntry() {
   </Pressable>;
 }
 
+function AreaWatchEntry() {
+  return <PlusGateAction feature="area_watch" onAllowed={() => router.push("/area-watches")}>
+    {({ onPress, loading }) => <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Open Area Watch"
+      accessibilityState={{ disabled: loading }}
+      disabled={loading}
+      onPress={onPress}
+      style={({ pressed }) => [styles.tonightEntry, pressed && styles.pressed, loading && styles.tonightDisabled]}
+    >
+      <View style={styles.areaWatchIcon}><Ionicons name="radio-outline" size={21} color={colors.white} /></View>
+      <View style={styles.tonightCopy}><Text style={styles.tonightTitle}>Area Watch</Text><Text style={styles.tonightText}>See newly discovered activity in an area you choose.</Text></View>
+      <Ionicons name="chevron-forward" size={18} color={colors.text} />
+    </Pressable>}
+  </PlusGateAction>;
+}
+
 export default function HomeScreen() {
   const user = useAuthStore((state) => state.user);
   const token = useAuthStore((state) => state.token);
@@ -254,6 +271,7 @@ export default function HomeScreen() {
     <EveningPlanEntry />
     <WeekendPlanEntry />
     <GroupsEntry />
+    <AreaWatchEntry />
     {token ? <LocationPreference location={location} /> : null}
     <SectionHeader title={token ? "For you" : "Happening in Bratislava"} action="Explore" onAction={() => router.push("/(tabs)/explore")} />
     {loading ? <SkeletonList rows={5} /> : null}
@@ -322,6 +340,7 @@ const styles = StyleSheet.create({
   eveningIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: colors.primaryDark, alignItems: "center", justifyContent: "center" },
   weekendIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: "#7557A8", alignItems: "center", justifyContent: "center" },
   groupsIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: "#347A72", alignItems: "center", justifyContent: "center" },
+  areaWatchIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: "#426CA8", alignItems: "center", justifyContent: "center" },
   tonightCopy: { flex: 1 }, tonightTitle: { color: colors.text, fontFamily: fonts.black, fontSize: 15 }, tonightText: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 10, lineHeight: 15, marginTop: 3 },
   featured: {
     height: 408,

@@ -56,6 +56,13 @@ test("premium action has feature-scoped paywall navigation while Plus permits ca
     kind: "paywall", route: { pathname: "/plus", params: { feature: "group_match", unavailable: "1" } },
   });
   assert.deepEqual(resolvePlusAction("allow", "group_match"), { kind: "allow" });
+  assert.deepEqual(resolvePlusAction("paywall", "area_watch"), {
+    kind: "paywall", route: { pathname: "/plus", params: { feature: "area_watch" } },
+  });
+  assert.deepEqual(resolvePlusAction("error", "area_watch"), {
+    kind: "paywall", route: { pathname: "/plus", params: { feature: "area_watch", unavailable: "1" } },
+  });
+  assert.deepEqual(resolvePlusAction("allow", "area_watch"), { kind: "allow" });
   assert.deepEqual(plusPaywallRoute("area_watch", true), {
     pathname: "/plus", params: { feature: "area_watch", unavailable: "1" },
   });

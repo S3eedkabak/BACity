@@ -24,6 +24,7 @@ from app.models.community import (Submission, AuditLog, Follow, UserBlock, Repor
     HelpfulVote, Collection, Comment, Message, Notification)
 from app.models.community import ActionToken, MailOutbox, RateBucket
 from app.models.group import GroupSession, GroupParticipant, GroupVote
+from app.models.area_watch import AreaWatch
 from app.schemas.community import (ProfileUpdate, EventSubmission, PlaceInput, UtilityInput,
     ModerationDecision, Reason, FollowInput, ReportInput, ReviewInput, BodyInput,
     OrganizationInput, ClaimInput, RoleInput, CollectionInput, CorrectionInput, Confirmation)
@@ -769,6 +770,7 @@ def export_account(user=Depends(get_current_user), db: Session = Depends(get_db)
         ],
         'group_participation': records(db.query(GroupParticipant).filter_by(user_id=user_id)),
         'group_votes': records(db.query(GroupVote).filter_by(user_id=user_id)),
+        'area_watches': records(db.query(AreaWatch).filter_by(user_id=user_id)),
     }
     audit(db, user, 'account_exported', 'user', user.id)
     db.commit()
@@ -810,6 +812,7 @@ def delete_account(payload: Reason, user=Depends(get_current_user), db: Session 
         }, synchronize_session=False)
     db.query(GroupVote).filter_by(user_id=user_id).delete(synchronize_session=False)
     db.query(GroupParticipant).filter_by(user_id=user_id).delete(synchronize_session=False)
+    db.query(AreaWatch).filter_by(user_id=user_id).delete(synchronize_session=False)
     db.query(RateBucket).filter(or_(RateBucket.key.contains(str(user_id)), RateBucket.key.contains(old_email))).delete(synchronize_session=False)
 
     # Unpublished submissions are retained only as empty workflow tombstones.

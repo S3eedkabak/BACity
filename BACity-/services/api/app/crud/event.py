@@ -8,7 +8,6 @@ see docs/architecture.md); everywhere else (SQLite, for tests/local dev)
 it does a cheap bounding-box prefilter plus a haversine distance check in
 Python. Same inputs, same result shape, either way.
 """
-import math
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
@@ -17,8 +16,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from app.models.event import Event, EventStatus
-
-EARTH_RADIUS_KM = 6371.0
+from app.core.planning import haversine_km
 
 
 def get_event(db: Session, event_id: UUID) -> Optional[Event]:
@@ -114,13 +112,6 @@ def nearby_events(
         .where(Event.longitude.between(lng - deg_pad, lng + deg_pad))
     )
     candidates = list(db.scalars(stmt))
-
-    def haversine_km(lat1, lon1, lat2, lon2):
-        p1, p2 = math.radians(lat1), math.radians(lat2)
-        dphi = math.radians(lat2 - lat1)
-        dlambda = math.radians(lon2 - lon1)
-        a = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlambda / 2) ** 2
-        return 2 * EARTH_RADIUS_KM * math.asin(math.sqrt(a))
 
     scored = [
         (haversine_km(lat, lng, e.latitude, e.longitude), e)

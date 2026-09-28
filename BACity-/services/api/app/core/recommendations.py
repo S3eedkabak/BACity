@@ -1,10 +1,12 @@
 """Deterministic, explainable recommendation ranking for upcoming events."""
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from math import asin, cos, log1p, radians, sin, sqrt
+from math import log1p
 from typing import Callable
 import re
 import unicodedata
+
+from app.core.planning import haversine_km
 
 
 @dataclass(frozen=True)
@@ -34,7 +36,7 @@ def _normalized(value: str | None) -> str:
     return re.sub(r"[^a-z0-9]+", " ", value).strip()
 
 
-def _duplicate_key(event) -> tuple:
+def event_duplicate_key(event) -> tuple:
     place = str(event.venue_id) if event.venue_id else _normalized(event.address)
     time_bucket = (event.start_time.date(), event.start_time.hour // 2)
     return (_normalized(event.title), time_bucket, place)
@@ -43,11 +45,7 @@ def _duplicate_key(event) -> tuple:
 def _distance_km(latitude: float, longitude: float, event) -> float | None:
     if event.latitude is None or event.longitude is None:
         return None
-    lat1, lat2 = radians(latitude), radians(event.latitude)
-    delta_lat = lat2 - lat1
-    delta_lng = radians(event.longitude - longitude)
-    root = sin(delta_lat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(delta_lng / 2) ** 2
-    return 6371.0 * 2 * asin(sqrt(root))
+    return haversine_km(latitude, longitude, event.latitude, event.longitude)
 
 
 def _follow_reasons(event, following: frozenset[tuple[str, str]]) -> list[str]:
@@ -158,7 +156,7 @@ def rank_events(
     deduplicated: list[RankedEvent] = []
     seen = set()
     for item in scored:
-        key = _duplicate_key(item.event)
+        key = event_duplicate_key(item.event)
         if key in seen:
             continue
         seen.add(key)

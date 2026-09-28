@@ -56,17 +56,22 @@ def event_coordinates(event) -> tuple[float, float] | None:
     return None
 
 
+def haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    """Canonical great-circle distance used by location-aware product features."""
+    lat1r, lat2r = radians(lat1), radians(lat2)
+    delta_lat = lat2r - lat1r
+    delta_lng = radians(lng2 - lng1)
+    root = sin(delta_lat / 2) ** 2 + cos(lat1r) * cos(lat2r) * sin(delta_lng / 2) ** 2
+    return 6371.0 * 2 * asin(sqrt(root))
+
+
 def distance_km(first, second) -> float | None:
     left, right = event_coordinates(first), event_coordinates(second)
     if left is None or right is None:
         return None
     lat1, lng1 = left
     lat2, lng2 = right
-    lat1r, lat2r = radians(lat1), radians(lat2)
-    delta_lat = lat2r - lat1r
-    delta_lng = radians(lng2 - lng1)
-    root = sin(delta_lat / 2) ** 2 + cos(lat1r) * cos(lat2r) * sin(delta_lng / 2) ** 2
-    return 6371.0 * 2 * asin(sqrt(root))
+    return haversine_km(lat1, lng1, lat2, lng2)
 
 
 def required_transition(first, second) -> Transition:
