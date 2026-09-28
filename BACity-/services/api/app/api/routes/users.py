@@ -2,11 +2,12 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, get_entitlements
 from app.crud import saved_event as saved_event_crud
 from app.models.user import User
 from app.schemas.auth import UserOut, InterestsUpdate
 from app.schemas.event import EventOut
+from app.schemas.entitlement import EntitlementsOut
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -14,6 +15,11 @@ router = APIRouter(prefix="/users", tags=["users"])
 @router.get("/me", response_model=UserOut)
 def read_current_user(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.get("/me/entitlements", response_model=EntitlementsOut)
+def read_current_user_entitlements(entitlements=Depends(get_entitlements)):
+    return entitlements
 
 
 @router.patch("/me", response_model=UserOut)

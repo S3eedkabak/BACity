@@ -52,6 +52,7 @@ class Settings(BaseSettings):
     stripe_webhook_secret: str = ""
     stripe_pro_price_id: str = ""
     stripe_business_price_id: str = ""
+    enable_development_plus_grants: bool = False
     message_retention_days: int = Field(90, ge=1, le=3650)
     utility_sync_enabled: bool = False
     utility_sync_interval_hours: int = Field(24, ge=1, le=168)
@@ -66,6 +67,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def deployment_secrets(self):
+        if self.environment != "development" and self.enable_development_plus_grants:
+            raise ValueError("Development BACity+ grants must be disabled outside development")
         if self.environment != "development":
             if len(self.jwt_secret) < 32 or self.jwt_secret == "change-me-in-production":
                 raise ValueError("Set a random JWT_SECRET of at least 32 characters")

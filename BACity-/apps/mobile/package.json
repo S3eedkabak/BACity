@@ -10,6 +10,7 @@
     "test:api-url": "node --experimental-strip-types --test src/api/apiUrl.test.mjs",
     "test:recommendations": "node --experimental-strip-types --test src/recommendations/locationPolicy.test.mjs",
     "test:map-markers": "node --test src/map/eventGeoJson.test.cjs",
+    "test:plus": "node --experimental-strip-types --test src/plus/policy.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

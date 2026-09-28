@@ -5,6 +5,10 @@ from app.models.user import User
 from app.models.oauth_identity import OAuthIdentity
 from app.models.saved_event import SavedEvent
 from app.models.event_source import EventSource
+from app.models.entitlement import ConsumerSubscription, EntitlementGrant
 from app.models import community
 
-__all__ = ["Source", "CrawlerRun", "Venue", "Event", "User", "OAuthIdentity", "SavedEvent"]
+__all__ = [
+    "Source", "CrawlerRun", "Venue", "Event", "User", "OAuthIdentity", "SavedEvent",
+    "ConsumerSubscription", "EntitlementGrant",
+]
