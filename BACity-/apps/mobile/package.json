@@ -17,6 +17,7 @@
     "test:weekend": "node --experimental-strip-types --test src/weekend/presentation.test.mjs",
     "test:groups": "node --experimental-strip-types --test src/groups/presentation.test.mjs",
     "test:area-watch": "node --experimental-strip-types --test src/areaWatch/presentation.test.mjs",
+    "test:billing": "node --experimental-strip-types --test src/billing/presentation.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

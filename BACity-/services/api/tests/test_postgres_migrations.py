@@ -40,7 +40,7 @@ def test_upgrade_backfills_existing_source_references():
             row = connection.execute(text('SELECT title_key,source_url FROM event_sources')).one()
             assert row.title_key == 'test jazz'
             assert row.source_url == 'https://venue.example/event'
-            assert connection.execute(text('SELECT version_num FROM alembic_version')).scalar() == '0010'
+            assert connection.execute(text('SELECT version_num FROM alembic_version')).scalar() == '0011'
             assert connection.execute(text('SELECT trust_level FROM events')).scalar() == 'Unverified'
             assert connection.execute(text('SELECT count(*) FROM submissions')).scalar() == 0
             assert connection.execute(text('SELECT count(*) FROM oauth_identities')).scalar() == 0
@@ -54,6 +54,8 @@ def test_upgrade_backfills_existing_source_references():
             assert connection.execute(text('SELECT count(*) FROM group_candidates')).scalar() == 0
             assert connection.execute(text('SELECT count(*) FROM group_votes')).scalar() == 0
             assert connection.execute(text('SELECT count(*) FROM area_watches')).scalar() == 0
+            assert connection.execute(text('SELECT count(*) FROM consumer_billing_customers')).scalar() == 0
+            assert connection.execute(text('SELECT count(*) FROM provider_event_receipts')).scalar() == 0
             jsonb_columns = set(connection.execute(text("""
                 SELECT table_name || '.' || column_name
                 FROM information_schema.columns
@@ -70,13 +72,22 @@ def test_upgrade_backfills_existing_source_references():
                     'uq_group_candidate_position', 'uq_group_vote', 'ck_group_vote_value',
                     'ck_group_session_status', 'ck_group_session_participant_limit',
                     'uq_area_watch_user_name', 'ck_area_watch_latitude', 'ck_area_watch_longitude',
-                    'ck_area_watch_radius'} <= constraints
+                    'ck_area_watch_radius', 'uq_consumer_billing_customer_provider_user',
+                    'uq_consumer_billing_customer_provider_external', 'uq_provider_event_receipt'} <= constraints
             indexes = set(connection.execute(text("""
                 SELECT indexname FROM pg_indexes WHERE schemaname = 'public'
             """)).scalars())
             assert {'uq_group_match_active_round', 'ix_group_sessions_host_status',
                     'ix_group_participants_user_group', 'ix_group_votes_user_candidate',
                     'ix_area_watches_user_active', 'ix_events_area_watch_discovery'} <= indexes
+            assert {'ix_consumer_billing_customers_user_id',
+                    'ix_provider_event_receipts_provider_created'} <= indexes
+            columns = set(connection.execute(text("""
+                SELECT table_name || '.' || column_name FROM information_schema.columns
+                WHERE table_schema = 'public'
+            """)).scalars())
+            assert {'consumer_subscriptions.livemode', 'consumer_subscriptions.last_reconciled_at',
+                    'consumer_billing_customers.pending_checkout_session_id'} <= columns
             cascades = connection.execute(text("""
                 SELECT count(*) FROM pg_constraint
                 WHERE connamespace = 'public'::regnamespace

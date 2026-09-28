@@ -52,6 +52,16 @@ class Settings(BaseSettings):
     stripe_webhook_secret: str = ""
     stripe_pro_price_id: str = ""
     stripe_business_price_id: str = ""
+    consumer_billing_enabled: bool = False
+    stripe_consumer_secret_key: str = ""
+    stripe_consumer_webhook_secret: str = ""
+    stripe_consumer_plus_price_id: str = ""
+    stripe_consumer_plus_product_id: str = ""
+    stripe_consumer_success_url: str = "http://localhost:8081/plus?billing=success"
+    stripe_consumer_cancel_url: str = "http://localhost:8081/plus?billing=cancelled"
+    stripe_consumer_portal_return_url: str = "http://localhost:8081/plus"
+    stripe_consumer_livemode: bool = False
+    stripe_consumer_api_version: str = "2024-06-20"
     enable_development_plus_grants: bool = False
     message_retention_days: int = Field(90, ge=1, le=3650)
     utility_sync_enabled: bool = False
@@ -67,6 +77,33 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def deployment_secrets(self):
+        if self.consumer_billing_enabled:
+            required = (
+                self.stripe_consumer_secret_key,
+                self.stripe_consumer_webhook_secret,
+                self.stripe_consumer_plus_price_id,
+                self.stripe_consumer_success_url,
+                self.stripe_consumer_cancel_url,
+                self.stripe_consumer_portal_return_url,
+            )
+            if not all(required):
+                raise ValueError("Consumer billing requires Stripe secret, webhook secret, price and return URLs")
+            from urllib.parse import urlsplit
+            allowed = {f"{part.scheme}://{part.netloc}" for value in [self.public_app_url, *self.cors_origin_list]
+                       if (part := urlsplit(value)).scheme and part.netloc}
+            for value in (self.stripe_consumer_success_url, self.stripe_consumer_cancel_url,
+                          self.stripe_consumer_portal_return_url):
+                part = urlsplit(value)
+                if f"{part.scheme}://{part.netloc}" not in allowed:
+                    raise ValueError("Consumer billing return URLs must use an allowlisted BACity origin")
+            if self.environment == "production":
+                if not self.stripe_consumer_livemode or not self.stripe_consumer_secret_key.startswith("sk_live_"):
+                    raise ValueError("Production consumer billing requires Stripe live mode credentials")
+                if any(not value.startswith("https://") for value in (
+                    self.stripe_consumer_success_url, self.stripe_consumer_cancel_url,
+                    self.stripe_consumer_portal_return_url,
+                )):
+                    raise ValueError("Production consumer billing return URLs require HTTPS")
         if self.environment != "development" and self.enable_development_plus_grants:
             raise ValueError("Development BACity+ grants must be disabled outside development")
         if self.environment != "development":

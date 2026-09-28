@@ -26,6 +26,7 @@ from app.models.community import (Submission, AuditLog, Follow, UserBlock, Repor
 from app.models.community import ActionToken, MailOutbox, RateBucket
 from app.models.group import GroupSession, GroupParticipant, GroupVote
 from app.models.area_watch import AreaWatch
+from app.models.entitlement import ConsumerBillingCustomer, ConsumerSubscription
 from app.schemas.community import (ProfileUpdate, EventSubmission, PlaceInput, UtilityInput,
     ModerationDecision, Reason, FollowInput, ReportInput, ReviewInput, BodyInput,
     OrganizationInput, ClaimInput, RoleInput, CollectionInput, CorrectionInput, Confirmation)
@@ -741,6 +742,18 @@ def export_account(user=Depends(get_current_user), db: Session = Depends(get_db)
                     if key not in {'risk_flags', 'reviewer_id'}}
                    for item in db.query(Submission).filter(Submission.user_id == user_id).all()]
     plus = EntitlementService(db).get_entitlement(user_id, BACITY_PLUS)
+    consumer_billing = [
+        {
+            'provider': item.provider,
+            'product': BACITY_PLUS,
+            'status': item.status,
+            'current_period_start': item.current_period_start,
+            'current_period_end': item.current_period_end,
+            'cancel_at_period_end': item.cancel_at_period_end,
+            'cancelled_at': item.cancelled_at,
+        }
+        for item in db.query(ConsumerSubscription).filter_by(user_id=user_id).all()
+    ]
     export = {
         'schema_version': 1,
         'exported_at': datetime.utcnow(),
@@ -756,6 +769,7 @@ def export_account(user=Depends(get_current_user), db: Session = Depends(get_db)
                 'management_channel': plus.management_channel,
             }
         },
+        'consumer_billing': consumer_billing,
         'saved_events': records(db.query(SavedEvent).filter_by(user_id=user_id)),
         'submissions': submissions,
         'follows': records(db.query(Follow).filter(or_(Follow.user_id == user_id, and_(Follow.target_type.in_(['user', 'guide']), Follow.target_id == user_id_text)))),
@@ -790,8 +804,14 @@ def export_account(user=Depends(get_current_user), db: Session = Depends(get_db)
 def delete_account(payload: Reason, user=Depends(get_current_user), db: Session = Depends(get_db)):
     """Erase private/activity data and anonymize retained public or compliance records."""
     user_id, old_email = user.id, user.email
+    billing_customer = db.query(ConsumerBillingCustomer).filter_by(provider='stripe', user_id=user_id).first()
+    if billing_customer:
+        if not settings.stripe_consumer_secret_key:
+            raise HTTPException(409, 'Cancel consumer billing before deleting this account')
+        from app.core.consumer_billing import StripeConsumerClient, cancel_consumer_billing_for_deletion
+        cancel_consumer_billing_for_deletion(db, user, StripeConsumerClient(settings), settings)
     _avatar_path(user_id).unlink(missing_ok=True)
-    provider_revocation = {}
+    provider_revocation = {'stripe': 'cancelled'} if billing_customer else {}
     for identity in db.query(OAuthIdentity).filter_by(user_id=user_id).all():
         if identity.provider == 'apple' and identity.refresh_token_encrypted:
             from app.api.routes.auth import revoke_apple_token

@@ -1,19 +1,73 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors } from "../src/theme/colors";
 import { fonts } from "../src/theme/fonts";
 import { dismissPlusPaywall, isPlusFeature, PLUS_FEATURES } from "../src/plus/policy";
+import { createConsumerCheckout, createConsumerPortal, getConsumerBillingStatus, reconcileConsumerBilling, ConsumerBillingStatus } from "../src/api/consumerBilling";
+import { billingMessage, billingReturnState, canShowWebPurchase } from "../src/billing/presentation";
+import { useEntitlements } from "../src/hooks/useEntitlements";
+import { useAuthStore } from "../src/store/authStore";
 
 export default function PlusPaywallScreen() {
-  const params = useLocalSearchParams<{ feature?: string | string[]; unavailable?: string }>();
+  const params = useLocalSearchParams<{ feature?: string | string[]; unavailable?: string; billing?: string | string[] }>();
   const feature = isPlusFeature(params.feature) ? params.feature : null;
+  const entitlement = useEntitlements();
+  const accountId = useAuthStore(state => state.user?.id ?? null);
+  const [billing, setBilling] = useState<ConsumerBillingStatus | null>(null);
+  const [working, setWorking] = useState(false);
+  const [billingError, setBillingError] = useState<string | null>(null);
+  const returned = billingReturnState(params.billing);
+  const active = entitlement.plus?.active === true || billing?.plus_active === true;
+  const returnMessage = useMemo(() => billingMessage(returned, working, active), [returned, working, active]);
   const dismiss = () => dismissPlusPaywall(
     () => router.canGoBack(),
     () => router.back(),
     path => router.replace(path),
   );
+
+  const loadBilling = async () => {
+    if (Platform.OS !== "web" || !entitlement.authenticated) return;
+    try { setBilling(await getConsumerBillingStatus()); } catch { setBillingError("Billing status is temporarily unavailable."); }
+  };
+
+  useEffect(() => {
+    setBilling(null);
+    setBillingError(null);
+    if (accountId) void loadBilling();
+  }, [accountId]);
+  useEffect(() => {
+    if (Platform.OS !== "web" || returned !== "success" || !entitlement.authenticated) return;
+    let mounted = true;
+    void verifySubscription(() => mounted);
+    return () => { mounted = false; };
+  }, [returned, entitlement.authenticated, accountId]);
+
+  const verifySubscription = async (isMounted = () => true) => {
+    setWorking(true); setBillingError(null);
+    try {
+      await reconcileConsumerBilling();
+      await entitlement.refresh();
+      if (isMounted()) await loadBilling();
+    } catch {
+      if (isMounted()) setBillingError("Stripe has not confirmed the subscription yet. Retry verification shortly.");
+    } finally {
+      if (isMounted()) setWorking(false);
+    }
+  };
+
+  const openProvider = async (create: () => Promise<{ url: string }>) => {
+    setWorking(true); setBillingError(null);
+    try {
+      const { url } = await create();
+      if (Platform.OS === "web" && typeof window !== "undefined") window.location.assign(url);
+    } catch (error) {
+      setBillingError(error instanceof Error ? error.message : "Billing is temporarily unavailable.");
+      setWorking(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
@@ -29,6 +83,8 @@ export default function PlusPaywallScreen() {
         <Text style={styles.title}>Premium discovery tools for deciding what to do.</Text>
         {feature ? <Text style={styles.context}>{PLUS_FEATURES[feature]} is planned as a BACity+ feature.</Text> : null}
         {params.unavailable === "1" ? <Text style={styles.notice}>We could not verify your access right now. Try again when your connection is available.</Text> : null}
+        {returnMessage ? <Text style={styles.notice}>{returnMessage}</Text> : null}
+        {billingError ? <Text style={styles.notice}>{billingError}</Text> : null}
         <View style={styles.list}>
           {Object.values(PLUS_FEATURES).map(label => (
             <View key={label} style={styles.row}>
@@ -37,7 +93,26 @@ export default function PlusPaywallScreen() {
             </View>
           ))}
         </View>
-        <Text style={styles.coming}>Purchasing and pricing are not available yet.</Text>
+        {Platform.OS === "web" && billing?.cancel_at_period_end && billing.current_period_end ? (
+          <Text style={styles.coming}>Active until {new Date(billing.current_period_end).toLocaleDateString()}; renewal is cancelled.</Text>
+        ) : null}
+        {canShowWebPurchase(Platform.OS, billing?.billing_enabled === true, billing?.checkout_available === true) ? (
+          <Pressable disabled={working} accessibilityRole="button" onPress={() => void openProvider(createConsumerCheckout)} style={({ pressed }) => [styles.button, (pressed || working) && styles.pressed]}>
+            <Text style={styles.buttonText}>{working ? "Verifying…" : "Subscribe on web"}</Text>
+          </Pressable>
+        ) : null}
+        {Platform.OS === "web" && billing?.portal_available ? (
+          <Pressable disabled={working} accessibilityRole="button" onPress={() => void openProvider(createConsumerPortal)} style={({ pressed }) => [styles.secondaryButton, (pressed || working) && styles.pressed]}>
+            <Text style={styles.secondaryText}>Manage billing</Text>
+          </Pressable>
+        ) : null}
+        {Platform.OS === "web" && returned === "success" && !active && !working ? (
+          <Pressable accessibilityRole="button" onPress={() => void verifySubscription()} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
+            <Text style={styles.secondaryText}>Retry verification</Text>
+          </Pressable>
+        ) : null}
+        {Platform.OS !== "web" ? <Text style={styles.coming}>Purchasing is not available in this native phase. Existing verified access still works.</Text> : null}
+        {Platform.OS === "web" && billing?.billing_enabled === false ? <Text style={styles.coming}>Web purchasing is currently unavailable.</Text> : null}
         <Pressable accessibilityRole="button" onPress={dismiss} style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
           <Text style={styles.buttonText}>Not now</Text>
         </Pressable>
@@ -63,4 +138,6 @@ const styles = StyleSheet.create({
   coming: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, textAlign: "center", marginTop: 28 },
   button: { width: "100%", minHeight: 54, borderRadius: 18, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center", marginTop: 18 },
   buttonText: { color: colors.white, fontFamily: fonts.black, fontSize: 14 }, pressed: { opacity: .75, transform: [{ scale: .98 }] },
+  secondaryButton: { width: "100%", minHeight: 50, borderRadius: 18, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center", marginTop: 10 },
+  secondaryText: { color: colors.text, fontFamily: fonts.semibold, fontSize: 14 },
 });

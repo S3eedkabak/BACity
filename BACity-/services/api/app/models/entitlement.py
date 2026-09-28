@@ -34,8 +34,46 @@ class ConsumerSubscription(Base):
     cancelled_at = Column(DateTime)
     expires_at = Column(DateTime)
     provider_updated_at = Column(DateTime)
+    livemode = Column(Boolean, nullable=False, default=False)
+    last_reconciled_at = Column(DateTime)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ConsumerBillingCustomer(Base):
+    """Stable provider identity for a BACity consumer account."""
+    __tablename__ = "consumer_billing_customers"
+    __table_args__ = (
+        UniqueConstraint("provider", "user_id", name="uq_consumer_billing_customer_provider_user"),
+        UniqueConstraint("provider", "external_customer_id", name="uq_consumer_billing_customer_provider_external"),
+    )
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    user_id = Column(GUID(), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    provider = Column(String(32), nullable=False)
+    external_customer_id = Column(String(255), nullable=False)
+    livemode = Column(Boolean, nullable=False, default=False)
+    pending_checkout_session_id = Column(String(255))
+    pending_checkout_expires_at = Column(DateTime)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ProviderEventReceipt(Base):
+    """Minimal durable webhook idempotency record; raw payloads are not retained."""
+    __tablename__ = "provider_event_receipts"
+    __table_args__ = (
+        UniqueConstraint("provider", "external_event_id", name="uq_provider_event_receipt"),
+        Index("ix_provider_event_receipts_provider_created", "provider", "provider_created_at"),
+    )
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    provider = Column(String(32), nullable=False)
+    external_event_id = Column(String(255), nullable=False)
+    event_type = Column(String(128), nullable=False)
+    provider_created_at = Column(DateTime)
+    outcome = Column(String(32), nullable=False)
+    processed_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
 
 class EntitlementGrant(Base):
