@@ -23,6 +23,7 @@ from app.models.community import (Submission, AuditLog, Follow, UserBlock, Repor
     OrganizationMember, Place, CityUtility, UtilityConfirmation, Review, ReviewRevision,
     HelpfulVote, Collection, Comment, Message, Notification)
 from app.models.community import ActionToken, MailOutbox, RateBucket
+from app.models.group import GroupSession, GroupParticipant, GroupVote
 from app.schemas.community import (ProfileUpdate, EventSubmission, PlaceInput, UtilityInput,
     ModerationDecision, Reason, FollowInput, ReportInput, ReviewInput, BodyInput,
     OrganizationInput, ClaimInput, RoleInput, CollectionInput, CorrectionInput, Confirmation)
@@ -762,6 +763,12 @@ def export_account(user=Depends(get_current_user), db: Session = Depends(get_db)
         'comments': records(db.query(Comment).filter_by(user_id=user_id)),
         'messages': records(db.query(Message).filter(or_(Message.sender_id == user_id, Message.recipient_id == user_id))),
         'notifications': records(db.query(Notification).filter_by(user_id=user_id)),
+        'groups_hosted': [
+            {key: value for key, value in record(item).items() if key != 'invite_token_hash'}
+            for item in db.query(GroupSession).filter_by(host_id=user_id)
+        ],
+        'group_participation': records(db.query(GroupParticipant).filter_by(user_id=user_id)),
+        'group_votes': records(db.query(GroupVote).filter_by(user_id=user_id)),
     }
     audit(db, user, 'account_exported', 'user', user.id)
     db.commit()
@@ -796,6 +803,13 @@ def delete_account(payload: Reason, user=Depends(get_current_user), db: Session 
     db.query(UtilityConfirmation).filter_by(user_id=user_id).delete(synchronize_session=False)
     db.query(Report).filter_by(user_id=user_id).delete(synchronize_session=False)
     db.query(Collection).filter(Collection.user_id == user_id, Collection.public.is_(False)).delete(synchronize_session=False)
+    hosted_group_ids = [group_id for (group_id,) in db.query(GroupSession.id).filter_by(host_id=user_id)]
+    if hosted_group_ids:
+        db.query(GroupSession).filter(GroupSession.id.in_(hosted_group_ids)).update({
+            'status': 'cancelled', 'invite_token_hash': None, 'invite_expires_at': None,
+        }, synchronize_session=False)
+    db.query(GroupVote).filter_by(user_id=user_id).delete(synchronize_session=False)
+    db.query(GroupParticipant).filter_by(user_id=user_id).delete(synchronize_session=False)
     db.query(RateBucket).filter(or_(RateBucket.key.contains(str(user_id)), RateBucket.key.contains(old_email))).delete(synchronize_session=False)
 
     # Unpublished submissions are retained only as empty workflow tombstones.

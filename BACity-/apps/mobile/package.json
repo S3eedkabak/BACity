@@ -15,6 +15,7 @@
     "test:event-chains": "node --experimental-strip-types --test src/eventChains/presentation.test.mjs",
     "test:evening": "node --experimental-strip-types --test src/evening/presentation.test.mjs",
     "test:weekend": "node --experimental-strip-types --test src/weekend/presentation.test.mjs",
+    "test:groups": "node --experimental-strip-types --test src/groups/presentation.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -3,20 +3,21 @@ from typing import Literal
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import and_, func, or_
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import joinedload, Session
 from app.database import get_db
 from app.api.deps import get_current_user, require_plus
 from app.config import get_settings
 from app.core.community import blocked_ids, owned_organization, require_verified, audit, notify, row, rate_limit
 from app.models.event import Event, EventCategory, EventStatus
-from app.models.saved_event import SavedEvent
 from app.models.community import Follow, Promotion, Organization, OrganizationMember
+from app.models.saved_event import SavedEvent
 from app.schemas.event import EventOut
 from app.schemas.community import RecurringEvents, EventSubmission
 from app.api.routes.community import publish
 from app.models.community import Submission
-from app.core.recommendations import RecommendationContext, rank_events
+from app.core.recommendations import rank_events
+from app.core.recommendation_context import build_recommendation_context
 from app.core.tonight import MAX_CANDIDATES, MAX_RESULTS, rank_tonight_events, tonight_window
 from app.core.event_chains import (
     CHAIN_HORIZON,
@@ -201,46 +202,6 @@ class WeekendPlanResponse(BaseModel):
     plans: list[WeekendPlanAlternativeOut]
 
 
-def _recommendation_context(db, user, candidates, latitude, longitude):
-    interests = {i.casefold() for i in user.interests}
-    following = {(f.target_type.casefold(), f.target_id.casefold())
-                 for f in db.query(Follow).filter_by(user_id=user.id)}
-    saved_categories = {str(c.value).casefold() for (c,) in db.query(Event.category).join(
-        SavedEvent, SavedEvent.event_id == Event.id
-    ).filter(SavedEvent.user_id == user.id).distinct()}
-    candidate_ids = [event.id for event in candidates]
-    saved_event_ids = frozenset(event_id for (event_id,) in db.query(SavedEvent.event_id).filter(
-        SavedEvent.user_id == user.id,
-        SavedEvent.event_id.in_(candidate_ids),
-    )) if candidate_ids else frozenset()
-    counts = {}
-    if candidate_ids:
-        counts = dict(
-            db.query(SavedEvent.event_id, func.count(func.distinct(SavedEvent.user_id)))
-            .join(Event, Event.id == SavedEvent.event_id)
-            .outerjoin(OrganizationMember, and_(
-                OrganizationMember.organization_id == Event.organization_id,
-                OrganizationMember.user_id == SavedEvent.user_id,
-            ))
-            .filter(
-                SavedEvent.event_id.in_(candidate_ids),
-                OrganizationMember.id.is_(None),
-                or_(Event.contributor_id.is_(None), Event.contributor_id != SavedEvent.user_id),
-            )
-            .group_by(SavedEvent.event_id)
-            .all()
-        )
-    return RecommendationContext(
-        interests=frozenset(interests),
-        saved_categories=frozenset(saved_categories),
-        following=frozenset(following),
-        save_counts=counts,
-        saved_event_ids=saved_event_ids,
-        latitude=latitude,
-        longitude=longitude,
-    )
-
-
 def _recommendations(user, db, latitude, longitude, offset, limit):
     if (latitude is None) != (longitude is None):
         raise HTTPException(422, 'Provide both coordinates')
@@ -254,7 +215,7 @@ def _recommendations(user, db, latitude, longitude, offset, limit):
     if excluded:
         query = query.filter(or_(Event.contributor_id.is_(None), ~Event.contributor_id.in_(excluded)))
     candidates = query.order_by(Event.start_time).limit(1000).all()
-    context = _recommendation_context(db, user, candidates, latitude, longitude)
+    context = build_recommendation_context(db, user, candidates, latitude, longitude)
     ranked = rank_events(candidates, context, now=now)
     return [{
         'event': EventOut.model_validate(item.event),
@@ -308,7 +269,7 @@ def tonight_recommendations(
     if excluded:
         query = query.filter(or_(Event.contributor_id.is_(None), ~Event.contributor_id.in_(excluded)))
     candidates = query.order_by(Event.start_time, Event.id).limit(MAX_CANDIDATES).all()
-    context = _recommendation_context(db, user, candidates, payload.latitude, payload.longitude)
+    context = build_recommendation_context(db, user, candidates, payload.latitude, payload.longitude)
     ranked = rank_tonight_events(candidates, context, window)
     return {
         'timezone': window.timezone,
@@ -356,7 +317,7 @@ def event_chain_recommendations(
     if excluded:
         query = query.filter(or_(Event.contributor_id.is_(None), ~Event.contributor_id.in_(excluded)))
     candidates = query.order_by(Event.start_time, Event.id).limit(MAX_CHAIN_CANDIDATES).all()
-    context = _recommendation_context(db, user, candidates, None, None)
+    context = build_recommendation_context(db, user, candidates, None, None)
     chains = build_event_chains(anchor, candidates, context, payload.mode)
     return {
         'anchor_event_id': anchor.id,
@@ -400,7 +361,7 @@ def evening_plan_recommendations(
     if excluded:
         query = query.filter(or_(Event.contributor_id.is_(None), ~Event.contributor_id.in_(excluded)))
     candidates = query.order_by(Event.start_time, Event.id).limit(MAX_EVENING_CANDIDATES).all()
-    context = _recommendation_context(db, user, candidates, payload.latitude, payload.longitude)
+    context = build_recommendation_context(db, user, candidates, payload.latitude, payload.longitude)
     selected_categories = frozenset(category.value.casefold() for category in payload.categories)
     plans = build_evening_plans(candidates, context, window, selected_categories)
     return {
@@ -453,7 +414,7 @@ def weekend_plan_recommendations(
     if excluded:
         query = query.filter(or_(Event.contributor_id.is_(None), ~Event.contributor_id.in_(excluded)))
     candidates = query.order_by(Event.start_time, Event.id).limit(MAX_WEEKEND_CANDIDATES).all()
-    context = _recommendation_context(db, user, candidates, payload.latitude, payload.longitude)
+    context = build_recommendation_context(db, user, candidates, payload.latitude, payload.longitude)
     selected_categories = frozenset(category.value.casefold() for category in payload.categories)
     day_inputs = tuple(WeekendDayInput(day, window, tuple(candidates)) for day, window in zip(requested_dates, windows))
     plans = build_weekend_plans(day_inputs, context, selected_categories)

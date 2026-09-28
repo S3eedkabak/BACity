@@ -179,6 +179,19 @@ function WeekendPlanEntry() {
   </PlusGateAction>;
 }
 
+function GroupsEntry() {
+  return <Pressable
+    accessibilityRole="button"
+    accessibilityLabel="Open Groups and Group Match"
+    onPress={() => router.push("/groups")}
+    style={({ pressed }) => [styles.tonightEntry, pressed && styles.pressed]}
+  >
+    <View style={styles.groupsIcon}><Ionicons name="people" size={21} color={colors.white} /></View>
+    <View style={styles.tonightCopy}><Text style={styles.tonightTitle}>Groups & Group Match</Text><Text style={styles.tonightText}>Create with BACity+, or join and vote for free.</Text></View>
+    <Ionicons name="chevron-forward" size={18} color={colors.text} />
+  </Pressable>;
+}
+
 export default function HomeScreen() {
   const user = useAuthStore((state) => state.user);
   const token = useAuthStore((state) => state.token);
@@ -240,6 +253,7 @@ export default function HomeScreen() {
     <TonightEntry />
     <EveningPlanEntry />
     <WeekendPlanEntry />
+    <GroupsEntry />
     {token ? <LocationPreference location={location} /> : null}
     <SectionHeader title={token ? "For you" : "Happening in Bratislava"} action="Explore" onAction={() => router.push("/(tabs)/explore")} />
     {loading ? <SkeletonList rows={5} /> : null}
@@ -307,6 +321,7 @@ const styles = StyleSheet.create({
   tonightDisabled: { opacity: .65 }, tonightIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
   eveningIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: colors.primaryDark, alignItems: "center", justifyContent: "center" },
   weekendIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: "#7557A8", alignItems: "center", justifyContent: "center" },
+  groupsIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: "#347A72", alignItems: "center", justifyContent: "center" },
   tonightCopy: { flex: 1 }, tonightTitle: { color: colors.text, fontFamily: fonts.black, fontSize: 15 }, tonightText: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 10, lineHeight: 15, marginTop: 3 },
   featured: {
     height: 408,
