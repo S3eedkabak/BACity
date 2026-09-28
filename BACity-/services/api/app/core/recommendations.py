@@ -78,7 +78,7 @@ def rank_events(
     scored: list[RankedEvent] = []
     for event in events:
         status = str(getattr(event.status, "value", event.status))
-        if (event.start_time < now and not include_started) or status not in {"fresh", "stale"}:
+        if (not include_started and event.start_time < now) or status not in {"fresh", "stale"}:
             continue
         score = 0.0
         reasons: list[str] = []

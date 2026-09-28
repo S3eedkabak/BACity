@@ -12,6 +12,7 @@
     "test:map-markers": "node --test src/map/eventGeoJson.test.cjs",
     "test:plus": "node --experimental-strip-types --test src/plus/policy.test.mjs",
     "test:tonight": "node --experimental-strip-types --test src/tonight/presentation.test.mjs",
+    "test:event-chains": "node --experimental-strip-types --test src/eventChains/presentation.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

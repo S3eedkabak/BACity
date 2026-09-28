@@ -10,6 +10,8 @@ import { EmptyState } from "../../src/components/EmptyState";
 import { imageForCategory } from "../../src/theme/categoryImages";
 import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
+import { PlusGateAction } from "../../src/plus/usePlusGate";
+import { eventChainsRoute } from "../../src/eventChains/presentation";
 
 function formatWhen(iso: string) {
   return new Date(iso).toLocaleString(undefined, {
@@ -119,6 +121,23 @@ export default function EventDetailScreen() {
           </Text>
         </Pressable>
       )}
+
+      <PlusGateAction feature="event_chains" onAllowed={() => router.push(eventChainsRoute(event.id))}>
+        {({ onPress, loading }) => <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Build around this event"
+          style={({ pressed }) => [styles.chainButton, pressed && styles.chainPressed, loading && styles.chainDisabled]}
+          onPress={onPress}
+          disabled={loading}
+        >
+          <View style={styles.chainIcon}><Ionicons name="git-branch-outline" size={20} color={colors.white} /></View>
+          <View style={styles.chainCopy}>
+            <Text style={styles.chainTitle}>Build around this event</Text>
+            <Text style={styles.chainSubtitle}>Find compatible events before or after</Text>
+          </View>
+          {loading ? <Ionicons name="ellipsis-horizontal" size={18} color={colors.primaryDark} /> : <Ionicons name="chevron-forward" size={18} color={colors.text} />}
+        </Pressable>}
+      </PlusGateAction>
 
       <Pressable style={styles.sourceButton} onPress={() => Linking.openURL(event.source_url)}>
         <Text style={styles.sourceText}>View original event</Text>
@@ -232,6 +251,9 @@ const styles = StyleSheet.create({
   saved: { backgroundColor: colors.primary, borderColor: colors.primary },
   saveText: { color: colors.text, fontFamily: fonts.semibold, fontSize: 12 },
   savedText: { color: colors.white },
+  chainButton: { minHeight: 72, marginHorizontal: 18, marginTop: 10, paddingHorizontal: 13, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, flexDirection: "row", alignItems: "center", gap: 11 },
+  chainPressed: { opacity: .7 }, chainDisabled: { opacity: .62 }, chainIcon: { width: 42, height: 42, borderRadius: 15, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
+  chainCopy: { flex: 1 }, chainTitle: { color: colors.text, fontFamily: fonts.black, fontSize: 13 }, chainSubtitle: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 10, marginTop: 3 },
   sourceButton: {
     alignSelf: "center",
     flexDirection: "row",

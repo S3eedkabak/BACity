@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Literal
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query, HTTPException
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import joinedload, Session
 from app.database import get_db
@@ -18,6 +18,13 @@ from app.api.routes.community import publish
 from app.models.community import Submission
 from app.core.recommendations import RecommendationContext, rank_events
 from app.core.tonight import MAX_CANDIDATES, MAX_RESULTS, rank_tonight_events, tonight_window
+from app.core.event_chains import (
+    CHAIN_HORIZON,
+    MAX_CANDIDATES as MAX_CHAIN_CANDIDATES,
+    ChainMode,
+    build_event_chains,
+    utc_naive,
+)
 
 router = APIRouter(tags=['personalization and organizers'])
 
@@ -59,6 +66,31 @@ class TonightResponse(BaseModel):
     window_end: datetime
     location_used: bool
     items: list[TonightRecommendationOut]
+
+
+class EventChainRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    anchor_event_id: UUID
+    mode: ChainMode = ChainMode.full
+
+
+class EventChainItemOut(BaseModel):
+    event: EventOut
+    relation: Literal['before', 'anchor', 'after']
+    is_anchor: bool
+    reasons: list[str]
+    location_confidence: Literal['nearby', 'distance_buffered', 'location_unknown'] | None = None
+
+
+class EventChainAlternativeOut(BaseModel):
+    id: str
+    items: list[EventChainItemOut]
+
+
+class EventChainResponse(BaseModel):
+    anchor_event_id: UUID
+    mode: ChainMode
+    chains: list[EventChainAlternativeOut]
 
 
 def _recommendation_context(db, user, candidates, latitude, longitude):
@@ -181,6 +213,56 @@ def tonight_recommendations(
             'reasons': list(item.reasons),
             'saved': item.event.id in context.saved_event_ids,
         } for item in ranked[:MAX_RESULTS]],
+    }
+
+
+@router.post('/recommendations/event-chain', response_model=EventChainResponse)
+def event_chain_recommendations(
+    payload: EventChainRequest,
+    user=Depends(require_plus),
+    db: Session = Depends(get_db),
+):
+    """Ephemeral premium chains around a server-loaded anchor event."""
+    anchor = db.query(Event).options(joinedload(Event.venue)).filter(Event.id == payload.anchor_event_id).first()
+    if not anchor:
+        raise HTTPException(404, 'Anchor event not found')
+    if anchor.status not in {EventStatus.fresh, EventStatus.stale}:
+        raise HTTPException(409, 'Anchor event is not available for planning')
+    anchor_start = utc_naive(anchor.start_time)
+    anchor_end = utc_naive(anchor.end_time) if anchor.end_time else None
+    if anchor_end is not None and anchor_end <= anchor_start:
+        raise HTTPException(409, 'Anchor event has invalid timing')
+    now = datetime.utcnow()
+    if (anchor_end is not None and anchor_end <= now) or (anchor_end is None and anchor_start <= now):
+        raise HTTPException(409, 'Anchor event can no longer be planned safely')
+
+    lower = anchor_start - CHAIN_HORIZON
+    upper = (anchor_end or anchor_start) + CHAIN_HORIZON
+    excluded = blocked_ids(db, user.id)
+    query = db.query(Event).options(joinedload(Event.venue)).filter(
+        Event.id != anchor.id,
+        Event.status.in_([EventStatus.fresh, EventStatus.stale]),
+        Event.start_time >= lower,
+        Event.start_time <= upper,
+    )
+    if excluded:
+        query = query.filter(or_(Event.contributor_id.is_(None), ~Event.contributor_id.in_(excluded)))
+    candidates = query.order_by(Event.start_time, Event.id).limit(MAX_CHAIN_CANDIDATES).all()
+    context = _recommendation_context(db, user, candidates, None, None)
+    chains = build_event_chains(anchor, candidates, context, payload.mode)
+    return {
+        'anchor_event_id': anchor.id,
+        'mode': payload.mode,
+        'chains': [{
+            'id': f'chain-{index}',
+            'items': [{
+                'event': EventOut.model_validate(item.event),
+                'relation': item.relation.value,
+                'is_anchor': item.event.id == anchor.id,
+                'reasons': list(item.reasons),
+                'location_confidence': item.location_confidence,
+            } for item in chain.items],
+        } for index, chain in enumerate(chains, start=1)],
     }
 
 
