@@ -1,23 +1,26 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getEntitlements } from "../api/entitlements";
+import { accountQueryKey } from "../api/accountQueryKey";
 import { useAuthStore } from "../store/authStore";
 
-export const ENTITLEMENTS_QUERY_KEY = ["entitlements"] as const;
-
 export function useEntitlements() {
-  const authenticated = useAuthStore(state => !!state.token);
+  const token = useAuthStore(state => state.token);
+  const accountId = useAuthStore(state => state.user?.id ?? null);
+  const authenticated = !!token && !!accountId;
   const queryClient = useQueryClient();
+  const queryKey = accountQueryKey("entitlements", accountId);
   const query = useQuery({
-    queryKey: ENTITLEMENTS_QUERY_KEY,
+    queryKey,
     queryFn: getEntitlements,
     enabled: authenticated,
-    staleTime: 60_000,
+    staleTime: 15_000,
+    refetchInterval: authenticated ? 60_000 : false,
   });
 
   return {
     ...query,
     authenticated,
     plus: query.data?.bacity_plus ?? null,
-    refresh: () => queryClient.invalidateQueries({ queryKey: ENTITLEMENTS_QUERY_KEY }),
+    refresh: () => queryClient.invalidateQueries({ queryKey }),
   };
 }

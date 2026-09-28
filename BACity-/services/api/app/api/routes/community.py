@@ -14,6 +14,7 @@ from app.api.deps import get_current_user
 from app.core.community import (require_verified, require_moderator, require_admin, row,
     audit, notify, blocked, blocked_ids, rate_limit, reputation_level, owned_organization)
 from app.core.utilities import nearby_query, utility_record, viewport_query
+from app.core.entitlements import BACITY_PLUS, EntitlementService
 from app.models.user import User
 from app.models.oauth_identity import OAuthIdentity
 from app.models.saved_event import SavedEvent
@@ -739,6 +740,7 @@ def export_account(user=Depends(get_current_user), db: Session = Depends(get_db)
     submissions = [{key: value for key, value in record(item).items()
                     if key not in {'risk_flags', 'reviewer_id'}}
                    for item in db.query(Submission).filter(Submission.user_id == user_id).all()]
+    plus = EntitlementService(db).get_entitlement(user_id, BACITY_PLUS)
     export = {
         'schema_version': 1,
         'exported_at': datetime.utcnow(),
@@ -747,6 +749,13 @@ def export_account(user=Depends(get_current_user), db: Session = Depends(get_db)
             {'provider': item.provider, 'linked_at': item.created_at}
             for item in db.query(OAuthIdentity).filter_by(user_id=user_id).all()
         ],
+        'consumer_entitlements': {
+            BACITY_PLUS: {
+                'active': plus.active,
+                'expires_at': plus.expires_at,
+                'management_channel': plus.management_channel,
+            }
+        },
         'saved_events': records(db.query(SavedEvent).filter_by(user_id=user_id)),
         'submissions': submissions,
         'follows': records(db.query(Follow).filter(or_(Follow.user_id == user_id, and_(Follow.target_type.in_(['user', 'guide']), Follow.target_id == user_id_text)))),

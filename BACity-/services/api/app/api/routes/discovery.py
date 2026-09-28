@@ -248,6 +248,7 @@ def tonight_recommendations(
     db: Session = Depends(get_db),
 ):
     """Small premium decision set; request-scoped approximate coordinates are never persisted."""
+    rate_limit(db, f'plus-tonight:{user.id}', 120)
     now = datetime.utcnow()
     window = tonight_window(now, get_settings().default_timezone)
     excluded = blocked_ids(db, user.id)
@@ -292,6 +293,7 @@ def event_chain_recommendations(
     db: Session = Depends(get_db),
 ):
     """Ephemeral premium chains around a server-loaded anchor event."""
+    rate_limit(db, f'plus-event-chain:{user.id}', 60)
     anchor = db.query(Event).options(joinedload(Event.venue)).filter(Event.id == payload.anchor_event_id).first()
     if not anchor:
         raise HTTPException(404, 'Anchor event not found')
@@ -342,6 +344,7 @@ def evening_plan_recommendations(
     db: Session = Depends(get_db),
 ):
     """Generate ephemeral plans from a validated local availability window."""
+    rate_limit(db, f'plus-evening-plan:{user.id}', 30)
     settings = get_settings()
     try:
         window = local_planning_window(payload.date, payload.start_time, payload.end_time, settings.default_timezone)
@@ -390,6 +393,7 @@ def weekend_plan_recommendations(
     db: Session = Depends(get_db),
 ):
     """Generate bounded, ephemeral Saturday/Sunday plans from real BACity events."""
+    rate_limit(db, f'plus-weekend-plan:{user.id}', 20)
     timezone_name = get_settings().default_timezone
     saturday = payload.weekend_start
     requested_dates = {

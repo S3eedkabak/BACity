@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import get_current_user, require_plus
 from app.config import get_settings
-from app.core.community import blocked, blocked_ids, notify, rate_limit, row
+from app.core.community import blocked, blocked_ids, notify, rate_limit
 from app.core.entitlements import BACITY_PLUS, EntitlementService
 from app.core.group_match import MAX_DB_CANDIDATES, ParticipantPreference, rank_group_candidates
 from app.core.planning import local_planning_window
@@ -55,8 +55,13 @@ def _refresh_expiration(group: GroupSession):
         group.invite_expires_at = None
 
 
-def _group(db, identifier) -> GroupSession:
-    group = row(db, GroupSession, identifier)
+def _group(db, identifier, *, for_update: bool = False) -> GroupSession:
+    query = db.query(GroupSession).filter(GroupSession.id == identifier)
+    if for_update:
+        query = query.with_for_update()
+    group = query.first()
+    if not group:
+        raise HTTPException(404, "Not found")
     _refresh_expiration(group)
     return group
 
@@ -281,7 +286,7 @@ def get_group(identifier: UUID, user=Depends(get_current_user), db: Session = De
 
 @router.patch("/{identifier}", response_model=GroupDetailOut)
 def update_group(identifier: UUID, payload: GroupUpdate, user=Depends(get_current_user), db: Session = Depends(get_db)):
-    group = _group(db, identifier)
+    group = _group(db, identifier, for_update=True)
     _membership(db, group, user)
     _host(group, user)
     if group.status not in {"open", "ready", "completed"}:
@@ -302,7 +307,7 @@ def update_group(identifier: UUID, payload: GroupUpdate, user=Depends(get_curren
 @router.post("/{identifier}/invite", response_model=InviteOut)
 def rotate_invite(identifier: UUID, user=Depends(get_current_user), db: Session = Depends(get_db)):
     rate_limit(db, f"group-invite:{user.id}", 20)
-    group = _group(db, identifier)
+    group = _group(db, identifier, for_update=True)
     _membership(db, group, user)
     _host(group, user)
     if group.status not in {"open", "ready"}:
@@ -315,7 +320,7 @@ def rotate_invite(identifier: UUID, user=Depends(get_current_user), db: Session 
 @router.patch("/{identifier}/preferences", response_model=GroupDetailOut)
 def update_preferences(identifier: UUID, payload: PreferenceUpdate, user=Depends(get_current_user), db: Session = Depends(get_db)):
     rate_limit(db, f"group-preferences:{user.id}", 60)
-    group = _group(db, identifier)
+    group = _group(db, identifier, for_update=True)
     member = _membership(db, group, user)
     if group.status == "voting" or group.status in {"expired", "cancelled"}:
         raise HTTPException(409, "Preferences are locked")
@@ -329,7 +334,7 @@ def update_preferences(identifier: UUID, payload: PreferenceUpdate, user=Depends
 
 @router.delete("/{identifier}/members/me")
 def leave_group(identifier: UUID, user=Depends(get_current_user), db: Session = Depends(get_db)):
-    group = _group(db, identifier)
+    group = _group(db, identifier, for_update=True)
     member = _membership(db, group, user)
     if group.status in {"expired", "cancelled"}:
         raise HTTPException(409, "This group is read-only")
@@ -348,7 +353,7 @@ def leave_group(identifier: UUID, user=Depends(get_current_user), db: Session = 
 
 @router.delete("/{identifier}/members/{participant_id}", response_model=GroupDetailOut)
 def remove_participant(identifier: UUID, participant_id: UUID, user=Depends(get_current_user), db: Session = Depends(get_db)):
-    group = _group(db, identifier)
+    group = _group(db, identifier, for_update=True)
     _membership(db, group, user)
     _host(group, user)
     if group.status in {"expired", "cancelled"}:
@@ -372,7 +377,7 @@ def remove_participant(identifier: UUID, participant_id: UUID, user=Depends(get_
 @router.post("/{identifier}/matches", response_model=GroupDetailOut)
 def generate_match(identifier: UUID, payload: MatchRequest, user=Depends(get_current_user), db: Session = Depends(get_db)):
     rate_limit(db, f"group-match:{user.id}", 5)
-    group = _group(db, identifier)
+    group = _group(db, identifier, for_update=True)
     _membership(db, group, user)
     _host(group, user)
     if not EntitlementService(db).has_entitlement(user.id, BACITY_PLUS):
@@ -433,7 +438,7 @@ def generate_match(identifier: UUID, payload: MatchRequest, user=Depends(get_cur
 @router.patch("/{identifier}/rounds/{round_id}/vote", response_model=GroupDetailOut)
 def cast_vote(identifier: UUID, round_id: UUID, payload: VoteRequest, user=Depends(get_current_user), db: Session = Depends(get_db)):
     rate_limit(db, f"group-vote:{user.id}", 200)
-    group = _group(db, identifier)
+    group = _group(db, identifier, for_update=True)
     _membership(db, group, user)
     if group.status in {"expired", "cancelled"}:
         raise HTTPException(409, "Voting is closed")
@@ -456,7 +461,7 @@ def cast_vote(identifier: UUID, round_id: UUID, payload: VoteRequest, user=Depen
 
 @router.post("/{identifier}/rounds/{round_id}/reveal", response_model=GroupDetailOut)
 def reveal_round(identifier: UUID, round_id: UUID, user=Depends(get_current_user), db: Session = Depends(get_db)):
-    group = _group(db, identifier)
+    group = _group(db, identifier, for_update=True)
     _membership(db, group, user)
     _host(group, user)
     if group.status in {"expired", "cancelled"}:
@@ -477,7 +482,7 @@ def reveal_round(identifier: UUID, round_id: UUID, user=Depends(get_current_user
 
 @router.post("/{identifier}/cancel", response_model=GroupDetailOut)
 def cancel_group(identifier: UUID, user=Depends(get_current_user), db: Session = Depends(get_db)):
-    group = _group(db, identifier)
+    group = _group(db, identifier, for_update=True)
     _membership(db, group, user)
     _host(group, user)
     if group.status in {"expired", "cancelled"}:

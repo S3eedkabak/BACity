@@ -1,5 +1,6 @@
 """Optional real Postgres migration/backfill test, in an isolated temporary DB."""
 import os
+from datetime import date, datetime, timedelta
 from pathlib import Path
 import subprocess
 import sys
@@ -8,6 +9,14 @@ import uuid
 import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.orm import sessionmaker
+
+from app.api.routes.area_watches import _lock_owner, _owned
+from app.api.routes.groups import _group
+from app.models.area_watch import AreaWatch
+from app.models.group import GroupSession
+from app.models.user import User
 
 
 @pytest.mark.skipif(not os.getenv('TEST_POSTGRES_URL'), reason='TEST_POSTGRES_URL not configured')
@@ -81,6 +90,42 @@ def test_upgrade_backfills_existing_source_references():
                   AND confdeltype = 'c' AND conrelid::regclass::text = 'area_watches'
             """)).scalar()
             assert area_watch_cascade == 1
+
+        sessions = sessionmaker(bind=db)
+        with sessions.begin() as seed:
+            owner = User(email='locking@example.com', hashed_password='not-used')
+            seed.add(owner)
+            seed.flush()
+            group = GroupSession(
+                host_id=owner.id, name='Lock audit', target_date=date.today(),
+                starts_at=datetime.utcnow(), ends_at=datetime.utcnow() + timedelta(hours=2),
+                categories=[], expires_at=datetime.utcnow() + timedelta(days=1),
+                purge_after=datetime.utcnow() + timedelta(days=31),
+            )
+            watch = AreaWatch(
+                user_id=owner.id, name='Lock audit', center_latitude=48.1486,
+                center_longitude=17.1077, radius_km=2, categories=[],
+            )
+            seed.add_all([group, watch])
+            seed.flush()
+            owner_id, group_id, watch_id = owner.id, group.id, watch.id
+
+        def assert_row_lock(acquire):
+            first, second = sessions(), sessions()
+            try:
+                acquire(first)
+                second.execute(text("SET LOCAL lock_timeout = '100ms'"))
+                with pytest.raises(OperationalError):
+                    acquire(second)
+            finally:
+                second.rollback()
+                first.rollback()
+                second.close()
+                first.close()
+
+        assert_row_lock(lambda session: _group(session, group_id, for_update=True))
+        assert_row_lock(lambda session: _owned(session, watch_id, owner_id, for_update=True))
+        assert_row_lock(lambda session: _lock_owner(session, owner_id))
         subprocess.run([sys.executable, '-m', 'alembic', 'downgrade', '0003'], cwd=api_dir, env=env, check=True, capture_output=True)
         subprocess.run([sys.executable, '-m', 'alembic', 'upgrade', 'head'], cwd=api_dir, env=env, check=True, capture_output=True)
     finally:

@@ -1,10 +1,10 @@
-scrapy==2.11.2
+scrapy==2.14.2
 beautifulsoup4==4.12.3
 python-dateutil==2.9.0.post0
 rapidfuzz==3.9.7
 pytz==2024.1
 pytest==8.3.3
-requests==2.32.3
+requests==2.33.0
 Twisted==24.11.0
 scrapy-playwright==0.0.48
 filelock>=3.16,<4

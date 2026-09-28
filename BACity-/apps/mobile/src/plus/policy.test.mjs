@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { dismissPlusPaywall, plusPaywallRoute, resolvePlusAction, resolvePlusGate } from "./policy.ts";
+import { accountQueryKey } from "../api/accountQueryKey.ts";
 
 test("free, active Plus, and expired canonical states gate correctly", () => {
   assert.equal(resolvePlusGate({ authenticated: true, pending: false, failed: false, active: false }), "paywall");
@@ -82,4 +83,10 @@ test("paywall dismiss uses back navigation and has a safe Home fallback", () => 
   assert.equal(action, "back");
   dismissPlusPaywall(() => false, () => { action = "back"; }, path => { action = path; });
   assert.equal(action, "/(tabs)/discover");
+});
+
+test("authenticated query keys isolate premium data between accounts", () => {
+  assert.notDeepEqual(accountQueryKey("entitlements", "user-a"), accountQueryKey("entitlements", "user-b"));
+  assert.notDeepEqual(accountQueryKey("groups", "user-a", "group-1"), accountQueryKey("groups", "user-b", "group-1"));
+  assert.notDeepEqual(accountQueryKey("area-watches", "user-a"), accountQueryKey("area-watches", "user-b"));
 });

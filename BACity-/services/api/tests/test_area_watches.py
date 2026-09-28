@@ -165,6 +165,7 @@ def test_limits_pagination_edit_and_no_category_filter(client, db_session):
     second = client.get(f"/area-watches/{watch['id']}/events?limit=2&cursor={first['next_cursor']}", headers=headers).json()
     assert not ({item['event']['id'] for item in first['items']} & {item['event']['id'] for item in second['items']})
     assert client.get(f"/area-watches/{watch['id']}/events?limit=51", headers=headers).status_code == 422
+    assert client.get(f"/area-watches/{watch['id']}/events?cursor={'x' * 513}", headers=headers).status_code == 422
     updated = client.patch(f"/area-watches/{watch['id']}", json={"categories": ["Culture"], "radius_km": 5}, headers=headers)
     assert updated.status_code == 200 and updated.json()["categories"] == ["Culture"]
 

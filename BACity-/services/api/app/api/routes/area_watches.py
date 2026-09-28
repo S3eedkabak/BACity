@@ -17,6 +17,7 @@ from app.core.recommendations import event_duplicate_key
 from app.database import get_db
 from app.models.area_watch import AreaWatch
 from app.models.event import Event, EventStatus
+from app.models.user import User
 from app.models.venue import Venue
 from app.schemas.area_watch import AreaWatchCreate, AreaWatchFeedOut, AreaWatchOut, AreaWatchSummaryOut, AreaWatchUpdate, SeenRequest
 from app.schemas.event import EventOut
@@ -29,11 +30,19 @@ MAX_PAGE_SIZE = 50
 SQL_FETCH_MULTIPLIER = 5
 
 
-def _owned(db: Session, identifier: UUID, user_id: UUID) -> AreaWatch:
-    watch = db.query(AreaWatch).filter_by(id=identifier, user_id=user_id).first()
+def _owned(db: Session, identifier: UUID, user_id: UUID, *, for_update: bool = False) -> AreaWatch:
+    query = db.query(AreaWatch).filter_by(id=identifier, user_id=user_id)
+    if for_update:
+        query = query.with_for_update()
+    watch = query.first()
     if not watch:
         raise HTTPException(404, "Area watch not found")
     return watch
+
+
+def _lock_owner(db: Session, user_id: UUID) -> None:
+    """Serialize per-user watch-limit checks on PostgreSQL."""
+    db.query(User).filter(User.id == user_id).with_for_update().one()
 
 
 def _plus(db: Session, user_id: UUID) -> bool:
@@ -131,6 +140,9 @@ def list_watches(user=Depends(get_current_user), db: Session = Depends(get_db)):
 @router.post("", response_model=AreaWatchOut)
 def create_watch(payload: AreaWatchCreate, user=Depends(require_plus), db: Session = Depends(get_db)):
     rate_limit(db, f"area-watch-create:{user.id}", 10, 86400)
+    # Serialize the count-and-create operation per owner so simultaneous
+    # requests cannot exceed the five-watch limit.
+    _lock_owner(db, user.id)
     if db.query(AreaWatch).filter_by(user_id=user.id).count() >= MAX_WATCHES:
         raise HTTPException(409, "Area Watch limit reached")
     watch = AreaWatch(
@@ -158,7 +170,7 @@ def get_watch(identifier: UUID, user=Depends(get_current_user), db: Session = De
 @router.patch("/{identifier}", response_model=AreaWatchOut)
 def update_watch(identifier: UUID, payload: AreaWatchUpdate, user=Depends(get_current_user), db: Session = Depends(get_db)):
     rate_limit(db, f"area-watch-update:{user.id}", 30)
-    watch = _owned(db, identifier, user.id)
+    watch = _owned(db, identifier, user.id, for_update=True)
     _require_active_plus(db, user.id)
     for key, value in payload.model_dump(exclude_unset=True).items():
         if key == "categories":
@@ -174,7 +186,7 @@ def update_watch(identifier: UUID, payload: AreaWatchUpdate, user=Depends(get_cu
 
 @router.delete("/{identifier}")
 def delete_watch(identifier: UUID, user=Depends(get_current_user), db: Session = Depends(get_db)):
-    watch = _owned(db, identifier, user.id)
+    watch = _owned(db, identifier, user.id, for_update=True)
     db.delete(watch)
     db.commit()
     return {"deleted": True}
@@ -182,7 +194,7 @@ def delete_watch(identifier: UUID, user=Depends(get_current_user), db: Session =
 
 @router.get("/{identifier}/events", response_model=AreaWatchFeedOut)
 def watch_events(
-    identifier: UUID, cursor: str | None = None,
+    identifier: UUID, cursor: str | None = Query(None, max_length=512),
     limit: int = Query(20, ge=1, le=MAX_PAGE_SIZE),
     user=Depends(get_current_user), db: Session = Depends(get_db),
 ):
@@ -225,7 +237,8 @@ def watch_events(
 @router.post("/{identifier}/seen", response_model=AreaWatchOut)
 def mark_seen(identifier: UUID, payload: SeenRequest, user=Depends(get_current_user), db: Session = Depends(get_db)):
     rate_limit(db, f"area-watch-seen:{user.id}", 120)
-    watch = _owned(db, identifier, user.id)
+    # The row lock makes the monotonic watermark comparison atomic.
+    watch = _owned(db, identifier, user.id, for_update=True)
     _require_active_plus(db, user.id)
     watermark = payload.watermark.astimezone(timezone.utc).replace(tzinfo=None) if payload.watermark.tzinfo else payload.watermark
     now = datetime.utcnow()

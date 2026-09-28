@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
@@ -139,3 +140,53 @@ def test_development_fixture_is_explicit_deterministic_and_refuses_non_developme
             database_url="postgresql://localhost/bacity", public_app_url="https://bacity.example",
             cors_origins="https://bacity.example", _env_file=None,
         )
+
+
+def test_complete_premium_access_matrix_and_stale_token(client, db_session):
+    free, free_headers = _account(client, db_session, "matrix-free@example.com")
+    expired, expired_headers = _account(client, db_session, "matrix-expired@example.com")
+    plus, plus_headers = _account(client, db_session, "matrix-plus@example.com")
+    now = datetime.utcnow()
+    db_session.add(_grant(expired, valid_from=now - timedelta(days=2), valid_until=now - timedelta(days=1)))
+    db_session.add(_grant(plus))
+    db_session.commit()
+
+    requests = [
+        ("/recommendations/tonight", {}),
+        ("/recommendations/event-chain", {"anchor_event_id": str(uuid4()), "mode": "full"}),
+        ("/recommendations/evening-plan", {"date": "2030-06-01", "start_time": "18:00", "end_time": "23:00", "categories": []}),
+        ("/recommendations/weekend-plan", {"weekend_start": "2030-06-01", "mode": "weekend", "categories": []}),
+        ("/groups", {"name": "Audit", "target_date": "2030-06-01", "categories": [], "max_participants": 4}),
+        ("/area-watches", {"name": "Audit", "center_latitude": 48.1486, "center_longitude": 17.1077, "radius_km": 2, "categories": []}),
+    ]
+    for path, payload in requests:
+        assert client.post(path, json=payload).status_code == 401
+        assert client.post(path + "?is_plus=true", json=payload, headers=free_headers).status_code == 403
+        assert client.post(path, json={**payload, "is_plus": True}, headers=free_headers).status_code == 403
+        assert client.post(path, json=payload, headers=expired_headers).status_code == 403
+        assert client.post(path, json=payload, headers=plus_headers).status_code not in {401, 403}
+
+    stale_headers = dict(free_headers)
+    assert client.post("/auth/logout", headers=free_headers).status_code == 200
+    assert client.get("/users/me/entitlements", headers=stale_headers).status_code == 401
+
+
+def test_trialing_expiration_and_safe_entitlement_export(client, db_session):
+    user, headers = _account(client, db_session, "trial-export@example.com")
+    now = datetime.utcnow()
+    subscription = ConsumerSubscription(
+        user_id=user.id, entitlement=BACITY_PLUS, provider="apple", product_id="plus.monthly",
+        status="trialing", current_period_start=now - timedelta(days=1),
+        current_period_end=now + timedelta(days=1), external_customer_id="private-customer",
+        external_subscription_id="private-subscription",
+    )
+    db_session.add(subscription); db_session.commit()
+    assert EntitlementService(db_session).has_entitlement(user.id, BACITY_PLUS, now=now)
+    exported = client.get("/community/account/export", headers=headers)
+    assert exported.status_code == 200
+    safe = exported.json()["consumer_entitlements"][BACITY_PLUS]
+    assert safe["active"] is True and safe["management_channel"] == "app_store"
+    assert "private-customer" not in exported.text and "private-subscription" not in exported.text
+    subscription.current_period_end = now - timedelta(seconds=1)
+    db_session.commit()
+    assert EntitlementService(db_session).has_entitlement(user.id, BACITY_PLUS, now=now) is False
