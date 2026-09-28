@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { dismissPlusPaywall, plusPaywallRoute, resolvePlusGate } from "./policy.ts";
+import { dismissPlusPaywall, plusPaywallRoute, resolvePlusAction, resolvePlusGate } from "./policy.ts";
 
 test("free, active Plus, and expired canonical states gate correctly", () => {
   assert.equal(resolvePlusGate({ authenticated: true, pending: false, failed: false, active: false }), "paywall");
@@ -16,12 +16,23 @@ test("loading and request failure never grant access", () => {
 });
 
 test("premium action has feature-scoped paywall navigation while Plus permits callback", () => {
+  assert.deepEqual(plusPaywallRoute("tonight"), {
+    pathname: "/plus", params: { feature: "tonight" },
+  });
   assert.deepEqual(plusPaywallRoute("build_my_evening"), {
     pathname: "/plus", params: { feature: "build_my_evening" },
   });
   assert.deepEqual(plusPaywallRoute("area_watch", true), {
     pathname: "/plus", params: { feature: "area_watch", unavailable: "1" },
   });
+  assert.deepEqual(resolvePlusAction("paywall", "tonight"), {
+    kind: "paywall", route: { pathname: "/plus", params: { feature: "tonight" } },
+  });
+  assert.deepEqual(resolvePlusAction("error", "tonight"), {
+    kind: "paywall", route: { pathname: "/plus", params: { feature: "tonight", unavailable: "1" } },
+  });
+  assert.deepEqual(resolvePlusAction("allow", "tonight"), { kind: "allow" });
+  assert.deepEqual(resolvePlusAction("loading", "tonight"), { kind: "wait" });
 });
 
 test("paywall dismiss uses back navigation and has a safe Home fallback", () => {

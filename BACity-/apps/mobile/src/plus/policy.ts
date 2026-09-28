@@ -35,6 +35,15 @@ export function plusPaywallRoute(feature: PlusFeature, unavailable = false) {
   };
 }
 
+export function resolvePlusAction(decision: PlusGateDecision, feature: PlusFeature) {
+  if (decision === "allow") return { kind: "allow" as const };
+  if (decision === "loading") return { kind: "wait" as const };
+  return {
+    kind: "paywall" as const,
+    route: plusPaywallRoute(feature, decision === "error"),
+  };
+}
+
 export function dismissPlusPaywall(
   canGoBack: () => boolean,
   back: () => void,

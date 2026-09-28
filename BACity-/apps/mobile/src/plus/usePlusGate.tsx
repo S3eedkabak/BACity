@@ -1,7 +1,7 @@
 import { ReactNode, useCallback } from "react";
 import { router } from "expo-router";
 import { useEntitlements } from "../hooks/useEntitlements";
-import { PlusFeature, plusPaywallRoute, resolvePlusGate } from "./policy";
+import { PlusFeature, resolvePlusAction, resolvePlusGate } from "./policy";
 
 export function usePlusGate() {
   const entitlements = useEntitlements();
@@ -13,10 +13,9 @@ export function usePlusGate() {
   });
 
   const run = useCallback((feature: PlusFeature, onAllowed: () => void) => {
-    if (decision === "allow") onAllowed();
-    else if (decision === "paywall" || decision === "error") {
-      router.push(plusPaywallRoute(feature, decision === "error"));
-    }
+    const action = resolvePlusAction(decision, feature);
+    if (action.kind === "allow") onAllowed();
+    else if (action.kind === "paywall") router.push(action.route);
   }, [decision]);
 
   return { decision, run, refresh: entitlements.refresh };

@@ -18,6 +18,7 @@ import { excludeFeaturedEvent, selectFeaturedEvent } from "../../src/recommendat
 import { useRecommendationLocation } from "../../src/recommendations/useRecommendationLocation";
 import { useAuthStore } from "../../src/store/authStore";
 import { imageForCategory } from "../../src/theme/categoryImages";
+import { PlusGateAction } from "../../src/plus/usePlusGate";
 import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
 import { EventOut } from "../../src/types/event";
@@ -128,6 +129,22 @@ function LocationPreference({ location }: { location: ReturnType<typeof useRecom
   </View>;
 }
 
+function TonightEntry() {
+  return <PlusGateAction feature="tonight" onAllowed={() => router.push("/tonight")}>
+    {({ onPress, loading }) => <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Open Tonight and Right Now"
+      disabled={loading}
+      onPress={onPress}
+      style={({ pressed }) => [styles.tonightEntry, pressed && styles.pressed, loading && styles.tonightDisabled]}
+    >
+      <View style={styles.tonightIcon}><Ionicons name="moon" size={21} color={colors.white} /></View>
+      <View style={styles.tonightCopy}><Text style={styles.tonightTitle}>Tonight / Right Now</Text><Text style={styles.tonightText}>A small set of realistic options for this evening.</Text></View>
+      {loading ? <ActivityIndicator color={colors.primaryDark} /> : <Ionicons name="chevron-forward" size={18} color={colors.text} />}
+    </Pressable>}
+  </PlusGateAction>;
+}
+
 export default function HomeScreen() {
   const user = useAuthStore((state) => state.user);
   const token = useAuthStore((state) => state.token);
@@ -186,6 +203,7 @@ export default function HomeScreen() {
       title="The city is quiet"
       subtitle="Fresh events will appear here as soon as BACity finds them."
     /> : null}
+    <TonightEntry />
     {token ? <LocationPreference location={location} /> : null}
     <SectionHeader title={token ? "For you" : "Happening in Bratislava"} action="Explore" onAction={() => router.push("/(tabs)/explore")} />
     {loading ? <SkeletonList rows={5} /> : null}
@@ -249,6 +267,9 @@ const styles = StyleSheet.create({
   filterActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   filterText: { color: colors.textMuted, fontFamily: fonts.semibold, fontSize: 10 },
   filterTextActive: { color: colors.white },
+  tonightEntry: { minHeight: 78, flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 22, paddingHorizontal: 14, marginTop: 16 },
+  tonightDisabled: { opacity: .65 }, tonightIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
+  tonightCopy: { flex: 1 }, tonightTitle: { color: colors.text, fontFamily: fonts.black, fontSize: 15 }, tonightText: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 10, lineHeight: 15, marginTop: 3 },
   featured: {
     height: 408,
     borderRadius: 28,

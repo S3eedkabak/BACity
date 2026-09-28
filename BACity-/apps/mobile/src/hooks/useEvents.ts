@@ -57,6 +57,7 @@ export function useToggleSaveEvent() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["saved-events"] });
       queryClient.invalidateQueries({ queryKey: ["recommendations"] });
+      queryClient.invalidateQueries({ queryKey: ["tonight"] });
     },
   });
 }

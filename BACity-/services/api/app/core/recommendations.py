@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from math import asin, cos, log1p, radians, sin, sqrt
+from typing import Callable
 import re
 import unicodedata
 
@@ -62,13 +63,22 @@ def _follow_reasons(event, following: frozenset[tuple[str, str]]) -> list[str]:
             if value is not None and (kind, str(value).casefold()) in following]
 
 
-def rank_events(events, context: RecommendationContext, *, now: datetime | None = None) -> list[RankedEvent]:
+def rank_events(
+    events,
+    context: RecommendationContext,
+    *,
+    now: datetime | None = None,
+    include_started: bool = False,
+    include_timing_signal: bool = True,
+    additional_signal: Callable[[object], tuple[float, tuple[str, ...]]] | None = None,
+    max_reasons: int = 3,
+) -> list[RankedEvent]:
     """Rank, suppress near-duplicates, and diversify a bounded candidate set."""
     now = now or datetime.utcnow()
     scored: list[RankedEvent] = []
     for event in events:
         status = str(getattr(event.status, "value", event.status))
-        if event.start_time < now or status not in {"fresh", "stale"}:
+        if (event.start_time < now and not include_started) or status not in {"fresh", "stale"}:
             continue
         score = 0.0
         reasons: list[str] = []
@@ -108,13 +118,14 @@ def rank_events(events, context: RecommendationContext, *, now: datetime | None 
                 elif distance > 20:
                     score -= min(2.5, (distance - 20) / 10)
 
-        until = event.start_time - now
-        if until <= timedelta(days=3):
-            score += 1.5
-            reasons.append("Happening soon")
-        elif until <= timedelta(days=7):
-            score += 1.0
-            reasons.append("Happening this week")
+        if include_timing_signal:
+            until = event.start_time - now
+            if until <= timedelta(days=3):
+                score += 1.5
+                reasons.append("Happening soon")
+            elif until <= timedelta(days=7):
+                score += 1.0
+                reasons.append("Happening this week")
 
         if event.created_at and event.created_at >= now - timedelta(days=3):
             score += 0.75
@@ -131,10 +142,15 @@ def rank_events(events, context: RecommendationContext, *, now: datetime | None 
         if status == "stale":
             score -= 0.5
 
+        if additional_signal:
+            extra_score, extra_reasons = additional_signal(event)
+            score += extra_score
+            reasons = list(extra_reasons) + reasons
+
         scored.append(RankedEvent(
             event=event,
             score=score,
-            reasons=tuple(dict.fromkeys(reasons))[:3] or ("Upcoming in Bratislava",),
+            reasons=tuple(dict.fromkeys(reasons))[:max_reasons] or ("Upcoming in Bratislava",),
         ))
 
     scored.sort(key=lambda item: (-item.score, item.event.start_time, str(item.event.id)))
