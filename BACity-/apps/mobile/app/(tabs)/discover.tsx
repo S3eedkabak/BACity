@@ -23,6 +23,7 @@ import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
 import { EventOut } from "../../src/types/event";
 import { eveningPlanRoute } from "../../src/evening/presentation";
+import { weekendPlanRoute } from "../../src/weekend/presentation";
 
 const FILTERS = ["All", "Music", "Culture", "Nightlife", "Free"];
 
@@ -162,6 +163,22 @@ function EveningPlanEntry() {
   </PlusGateAction>;
 }
 
+function WeekendPlanEntry() {
+  return <PlusGateAction feature="weekend_generator" onAllowed={() => router.push(weekendPlanRoute())}>
+    {({ onPress, loading }) => <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Open Weekend Generator"
+      disabled={loading}
+      onPress={onPress}
+      style={({ pressed }) => [styles.tonightEntry, pressed && styles.pressed, loading && styles.tonightDisabled]}
+    >
+      <View style={styles.weekendIcon}><Ionicons name="calendar" size={21} color={colors.white} /></View>
+      <View style={styles.tonightCopy}><Text style={styles.tonightTitle}>Weekend Generator</Text><Text style={styles.tonightText}>Build a realistic Saturday, Sunday, or full weekend.</Text></View>
+      {loading ? <ActivityIndicator color={colors.primaryDark} /> : <Ionicons name="chevron-forward" size={18} color={colors.text} />}
+    </Pressable>}
+  </PlusGateAction>;
+}
+
 export default function HomeScreen() {
   const user = useAuthStore((state) => state.user);
   const token = useAuthStore((state) => state.token);
@@ -222,6 +239,7 @@ export default function HomeScreen() {
     /> : null}
     <TonightEntry />
     <EveningPlanEntry />
+    <WeekendPlanEntry />
     {token ? <LocationPreference location={location} /> : null}
     <SectionHeader title={token ? "For you" : "Happening in Bratislava"} action="Explore" onAction={() => router.push("/(tabs)/explore")} />
     {loading ? <SkeletonList rows={5} /> : null}
@@ -288,6 +306,7 @@ const styles = StyleSheet.create({
   tonightEntry: { minHeight: 78, flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 22, paddingHorizontal: 14, marginTop: 16 },
   tonightDisabled: { opacity: .65 }, tonightIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
   eveningIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: colors.primaryDark, alignItems: "center", justifyContent: "center" },
+  weekendIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: "#7557A8", alignItems: "center", justifyContent: "center" },
   tonightCopy: { flex: 1 }, tonightTitle: { color: colors.text, fontFamily: fonts.black, fontSize: 15 }, tonightText: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 10, lineHeight: 15, marginTop: 3 },
   featured: {
     height: 408,

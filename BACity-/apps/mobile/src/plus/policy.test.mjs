@@ -38,6 +38,17 @@ test("premium action has feature-scoped paywall navigation while Plus permits ca
   });
   assert.deepEqual(resolvePlusAction("allow", "build_my_evening"), { kind: "allow" });
   assert.deepEqual(resolvePlusAction("loading", "build_my_evening"), { kind: "wait" });
+  assert.deepEqual(plusPaywallRoute("weekend_generator"), {
+    pathname: "/plus", params: { feature: "weekend_generator" },
+  });
+  assert.deepEqual(resolvePlusAction("paywall", "weekend_generator"), {
+    kind: "paywall", route: { pathname: "/plus", params: { feature: "weekend_generator" } },
+  });
+  assert.deepEqual(resolvePlusAction("error", "weekend_generator"), {
+    kind: "paywall", route: { pathname: "/plus", params: { feature: "weekend_generator", unavailable: "1" } },
+  });
+  assert.deepEqual(resolvePlusAction("allow", "weekend_generator"), { kind: "allow" });
+  assert.deepEqual(resolvePlusAction("loading", "weekend_generator"), { kind: "wait" });
   assert.deepEqual(plusPaywallRoute("area_watch", true), {
     pathname: "/plus", params: { feature: "area_watch", unavailable: "1" },
   });

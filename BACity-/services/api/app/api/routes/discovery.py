@@ -32,6 +32,15 @@ from app.core.evening_planner import (
     PlanningStrategy,
     build_evening_plans,
 )
+from app.core.weekend_planner import (
+    MAX_CANDIDATES as MAX_WEEKEND_CANDIDATES,
+    MAX_PLANS as MAX_WEEKEND_PLANS,
+    WeekendDayInput,
+    WeekendMode,
+    WeekendStrategy,
+    build_weekend_plans,
+    weekend_window,
+)
 
 router = APIRouter(tags=['personalization and organizers'])
 
@@ -140,6 +149,56 @@ class EveningPlanResponse(BaseModel):
     window_end: datetime
     location_used: bool
     plans: list[EveningPlanAlternativeOut]
+
+
+class WeekendPlanRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    weekend_start: date
+    mode: WeekendMode = WeekendMode.weekend
+    categories: list[EventCategory] = Field(default_factory=list, max_length=6)
+    latitude: float | None = Field(None, ge=48, le=48.35)
+    longitude: float | None = Field(None, ge=16.9, le=17.35)
+
+    @model_validator(mode='after')
+    def validate_request(self):
+        if self.weekend_start.weekday() != 5:
+            raise ValueError('weekend_start must be a Saturday')
+        if (self.latitude is None) != (self.longitude is None):
+            raise ValueError('Provide both coordinates')
+        if len(self.categories) != len(set(self.categories)):
+            raise ValueError('Categories must be unique')
+        return self
+
+
+class WeekendPlanItemOut(BaseModel):
+    event: EventOut
+    reasons: list[str]
+    location_confidence: Literal['nearby', 'distance_buffered', 'location_unknown'] | None = None
+
+
+class WeekendDayPlanOut(BaseModel):
+    date: date
+    day: Literal['Saturday', 'Sunday']
+    window_start: datetime
+    window_end: datetime
+    limited: bool
+    items: list[WeekendPlanItemOut]
+
+
+class WeekendPlanAlternativeOut(BaseModel):
+    id: str
+    strategy: WeekendStrategy
+    explanation: str
+    limited: bool
+    days: list[WeekendDayPlanOut]
+
+
+class WeekendPlanResponse(BaseModel):
+    timezone: str
+    weekend_start: date
+    mode: WeekendMode
+    location_used: bool
+    plans: list[WeekendPlanAlternativeOut]
 
 
 def _recommendation_context(db, user, candidates, latitude, longitude):
@@ -360,6 +419,67 @@ def evening_plan_recommendations(
                 'location_confidence': item.location_confidence,
             } for item in plan.items],
         } for index, plan in enumerate(plans, start=1)],
+    }
+
+
+@router.post('/recommendations/weekend-plan', response_model=WeekendPlanResponse)
+def weekend_plan_recommendations(
+    payload: WeekendPlanRequest,
+    user=Depends(require_plus),
+    db: Session = Depends(get_db),
+):
+    """Generate bounded, ephemeral Saturday/Sunday plans from real BACity events."""
+    timezone_name = get_settings().default_timezone
+    saturday = payload.weekend_start
+    requested_dates = {
+        WeekendMode.saturday: (saturday,),
+        WeekendMode.sunday: (saturday + timedelta(days=1),),
+        WeekendMode.weekend: (saturday, saturday + timedelta(days=1)),
+    }[payload.mode]
+    try:
+        windows = tuple(weekend_window(day, timezone_name) for day in requested_dates)
+    except (ValueError, KeyError) as exc:
+        raise HTTPException(422, str(exc)) from exc
+    now = datetime.utcnow()
+    if all(window.ends_at_utc <= now for window in windows):
+        raise HTTPException(422, 'Choose a weekend that has not ended')
+
+    excluded = blocked_ids(db, user.id)
+    query = db.query(Event).options(joinedload(Event.venue)).filter(
+        Event.status.in_([EventStatus.fresh, EventStatus.stale]),
+        Event.start_time >= max(min(window.starts_at_utc for window in windows), now),
+        Event.start_time < max(window.ends_at_utc for window in windows),
+    )
+    if excluded:
+        query = query.filter(or_(Event.contributor_id.is_(None), ~Event.contributor_id.in_(excluded)))
+    candidates = query.order_by(Event.start_time, Event.id).limit(MAX_WEEKEND_CANDIDATES).all()
+    context = _recommendation_context(db, user, candidates, payload.latitude, payload.longitude)
+    selected_categories = frozenset(category.value.casefold() for category in payload.categories)
+    day_inputs = tuple(WeekendDayInput(day, window, tuple(candidates)) for day, window in zip(requested_dates, windows))
+    plans = build_weekend_plans(day_inputs, context, selected_categories)
+    return {
+        'timezone': timezone_name,
+        'weekend_start': saturday,
+        'mode': payload.mode,
+        'location_used': payload.latitude is not None,
+        'plans': [{
+            'id': f'weekend-plan-{index}',
+            'strategy': plan.strategy.value,
+            'explanation': plan.explanation,
+            'limited': plan.limited,
+            'days': [{
+                'date': day.day,
+                'day': 'Saturday' if day.day.weekday() == 5 else 'Sunday',
+                'window_start': day.window.starts_at_utc.replace(tzinfo=timezone.utc),
+                'window_end': day.window.ends_at_utc.replace(tzinfo=timezone.utc),
+                'limited': day.limited,
+                'items': [{
+                    'event': EventOut.model_validate(item.event),
+                    'reasons': list(item.reasons),
+                    'location_confidence': item.location_confidence,
+                } for item in day.items],
+            } for day in plan.days],
+        } for index, plan in enumerate(plans[:MAX_WEEKEND_PLANS], start=1)],
     }
 
 
