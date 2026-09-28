@@ -1,10 +1,17 @@
 """Bounded, deterministic planning primitives for BACity+ Event Chains."""
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from enum import Enum
-from math import asin, cos, radians, sin, sqrt
 
 from app.core.recommendations import RecommendationContext, RankedEvent, rank_events
+from app.core.planning import (
+    Transition,
+    event_coordinates,
+    distance_km,
+    following_transition,
+    required_transition,
+    utc_naive,
+)
 
 CHAIN_HORIZON = timedelta(hours=8)
 MAX_CANDIDATES = 300
@@ -26,14 +33,6 @@ class ChainRelation(str, Enum):
 
 
 @dataclass(frozen=True)
-class Transition:
-    feasible: bool
-    required_gap: timedelta
-    distance_km: float | None
-    location_confidence: str
-
-
-@dataclass(frozen=True)
 class PlannedItem:
     event: object
     relation: ChainRelation
@@ -47,67 +46,12 @@ class PlannedChain:
     score: float
 
 
-def utc_naive(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        return value
-    return value.astimezone(timezone.utc).replace(tzinfo=None)
-
-
-def event_coordinates(event) -> tuple[float, float] | None:
-    if event.latitude is not None and event.longitude is not None:
-        return float(event.latitude), float(event.longitude)
-    venue = getattr(event, "venue", None)
-    if venue and venue.latitude is not None and venue.longitude is not None:
-        return float(venue.latitude), float(venue.longitude)
-    return None
-
-
-def distance_km(first, second) -> float | None:
-    left, right = event_coordinates(first), event_coordinates(second)
-    if left is None or right is None:
-        return None
-    lat1, lng1 = left
-    lat2, lng2 = right
-    lat1r, lat2r = radians(lat1), radians(lat2)
-    delta_lat = lat2r - lat1r
-    delta_lng = radians(lng2 - lng1)
-    root = sin(delta_lat / 2) ** 2 + cos(lat1r) * cos(lat2r) * sin(delta_lng / 2) ** 2
-    return 6371.0 * 2 * asin(sqrt(root))
-
-
-def required_transition(first, second) -> Transition:
-    """Conservative buffers are feasibility heuristics, never travel-time claims."""
-    distance = distance_km(first, second)
-    if distance is None:
-        return Transition(True, timedelta(minutes=60), None, "location_unknown")
-    if distance <= 1.5:
-        return Transition(True, timedelta(minutes=20), distance, "nearby")
-    if distance <= 5:
-        return Transition(True, timedelta(minutes=35), distance, "nearby")
-    if distance <= 10:
-        return Transition(True, timedelta(minutes=60), distance, "distance_buffered")
-    return Transition(True, timedelta(minutes=90), distance, "distance_buffered")
-
-
-def _valid_interval(event) -> bool:
-    start = utc_naive(event.start_time)
-    return event.end_time is None or utc_naive(event.end_time) > start
-
-
 def _before_transition(candidate, anchor) -> Transition | None:
-    if not _valid_interval(candidate) or candidate.end_time is None:
-        return None
-    transition = required_transition(candidate, anchor)
-    gap = utc_naive(anchor.start_time) - utc_naive(candidate.end_time)
-    return transition if transition.feasible and gap >= transition.required_gap else None
+    return following_transition(candidate, anchor)
 
 
 def _after_transition(anchor, candidate) -> Transition | None:
-    if not _valid_interval(anchor) or not _valid_interval(candidate) or anchor.end_time is None:
-        return None
-    transition = required_transition(anchor, candidate)
-    gap = utc_naive(candidate.start_time) - utc_naive(anchor.end_time)
-    return transition if transition.feasible and gap >= transition.required_gap else None
+    return following_transition(anchor, candidate)
 
 
 def _candidate_score(ranked: RankedEvent, transition: Transition, first, second) -> float:

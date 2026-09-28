@@ -22,6 +22,7 @@ import { PlusGateAction } from "../../src/plus/usePlusGate";
 import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
 import { EventOut } from "../../src/types/event";
+import { eveningPlanRoute } from "../../src/evening/presentation";
 
 const FILTERS = ["All", "Music", "Culture", "Nightlife", "Free"];
 
@@ -145,6 +146,22 @@ function TonightEntry() {
   </PlusGateAction>;
 }
 
+function EveningPlanEntry() {
+  return <PlusGateAction feature="build_my_evening" onAllowed={() => router.push(eveningPlanRoute())}>
+    {({ onPress, loading }) => <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Build My Evening"
+      disabled={loading}
+      onPress={onPress}
+      style={({ pressed }) => [styles.tonightEntry, pressed && styles.pressed, loading && styles.tonightDisabled]}
+    >
+      <View style={styles.eveningIcon}><Ionicons name="sparkles" size={21} color={colors.white} /></View>
+      <View style={styles.tonightCopy}><Text style={styles.tonightTitle}>Build My Evening</Text><Text style={styles.tonightText}>Turn a free evening into a realistic plan.</Text></View>
+      {loading ? <ActivityIndicator color={colors.primaryDark} /> : <Ionicons name="chevron-forward" size={18} color={colors.text} />}
+    </Pressable>}
+  </PlusGateAction>;
+}
+
 export default function HomeScreen() {
   const user = useAuthStore((state) => state.user);
   const token = useAuthStore((state) => state.token);
@@ -204,6 +221,7 @@ export default function HomeScreen() {
       subtitle="Fresh events will appear here as soon as BACity finds them."
     /> : null}
     <TonightEntry />
+    <EveningPlanEntry />
     {token ? <LocationPreference location={location} /> : null}
     <SectionHeader title={token ? "For you" : "Happening in Bratislava"} action="Explore" onAction={() => router.push("/(tabs)/explore")} />
     {loading ? <SkeletonList rows={5} /> : null}
@@ -269,6 +287,7 @@ const styles = StyleSheet.create({
   filterTextActive: { color: colors.white },
   tonightEntry: { minHeight: 78, flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 22, paddingHorizontal: 14, marginTop: 16 },
   tonightDisabled: { opacity: .65 }, tonightIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
+  eveningIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: colors.primaryDark, alignItems: "center", justifyContent: "center" },
   tonightCopy: { flex: 1 }, tonightTitle: { color: colors.text, fontFamily: fonts.black, fontSize: 15 }, tonightText: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 10, lineHeight: 15, marginTop: 3 },
   featured: {
     height: 408,

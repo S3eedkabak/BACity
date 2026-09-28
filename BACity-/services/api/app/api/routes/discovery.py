@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Literal
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query, HTTPException
@@ -9,7 +9,7 @@ from app.database import get_db
 from app.api.deps import get_current_user, require_plus
 from app.config import get_settings
 from app.core.community import blocked_ids, owned_organization, require_verified, audit, notify, row, rate_limit
-from app.models.event import Event, EventStatus
+from app.models.event import Event, EventCategory, EventStatus
 from app.models.saved_event import SavedEvent
 from app.models.community import Follow, Promotion, Organization, OrganizationMember
 from app.schemas.event import EventOut
@@ -24,6 +24,13 @@ from app.core.event_chains import (
     ChainMode,
     build_event_chains,
     utc_naive,
+)
+from app.core.planning import local_planning_window
+from app.core.evening_planner import (
+    MAX_CANDIDATES as MAX_EVENING_CANDIDATES,
+    MAX_WINDOW,
+    PlanningStrategy,
+    build_evening_plans,
 )
 
 router = APIRouter(tags=['personalization and organizers'])
@@ -91,6 +98,48 @@ class EventChainResponse(BaseModel):
     anchor_event_id: UUID
     mode: ChainMode
     chains: list[EventChainAlternativeOut]
+
+
+class EveningPlanRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    date: date
+    start_time: time
+    end_time: time
+    categories: list[EventCategory] = Field(default_factory=list, max_length=6)
+    latitude: float | None = Field(None, ge=48, le=48.35)
+    longitude: float | None = Field(None, ge=16.9, le=17.35)
+
+    @model_validator(mode='after')
+    def validate_request(self):
+        if (self.latitude is None) != (self.longitude is None):
+            raise ValueError('Provide both coordinates')
+        if len(self.categories) != len(set(self.categories)):
+            raise ValueError('Categories must be unique')
+        if self.start_time.tzinfo is not None or self.end_time.tzinfo is not None:
+            raise ValueError('Times must be local clock values without an offset')
+        return self
+
+
+class EveningPlanItemOut(BaseModel):
+    event: EventOut
+    reasons: list[str]
+    location_confidence: Literal['nearby', 'distance_buffered', 'location_unknown'] | None = None
+
+
+class EveningPlanAlternativeOut(BaseModel):
+    id: str
+    strategy: PlanningStrategy
+    explanation: str
+    limited: bool
+    items: list[EveningPlanItemOut]
+
+
+class EveningPlanResponse(BaseModel):
+    timezone: str
+    window_start: datetime
+    window_end: datetime
+    location_used: bool
+    plans: list[EveningPlanAlternativeOut]
 
 
 def _recommendation_context(db, user, candidates, latitude, longitude):
@@ -263,6 +312,54 @@ def event_chain_recommendations(
                 'location_confidence': item.location_confidence,
             } for item in chain.items],
         } for index, chain in enumerate(chains, start=1)],
+    }
+
+
+@router.post('/recommendations/evening-plan', response_model=EveningPlanResponse)
+def evening_plan_recommendations(
+    payload: EveningPlanRequest,
+    user=Depends(require_plus),
+    db: Session = Depends(get_db),
+):
+    """Generate ephemeral plans from a validated local availability window."""
+    settings = get_settings()
+    try:
+        window = local_planning_window(payload.date, payload.start_time, payload.end_time, settings.default_timezone)
+    except (ValueError, KeyError) as exc:
+        raise HTTPException(422, str(exc)) from exc
+    if window.duration <= timedelta(0) or window.duration > MAX_WINDOW:
+        raise HTTPException(422, 'Availability window must be no longer than 10 hours')
+    if window.starts_at_utc < datetime.utcnow():
+        raise HTTPException(422, 'Availability window must start in the future')
+
+    excluded = blocked_ids(db, user.id)
+    query = db.query(Event).options(joinedload(Event.venue)).filter(
+        Event.status.in_([EventStatus.fresh, EventStatus.stale]),
+        Event.start_time >= window.starts_at_utc,
+        Event.start_time < window.ends_at_utc,
+    )
+    if excluded:
+        query = query.filter(or_(Event.contributor_id.is_(None), ~Event.contributor_id.in_(excluded)))
+    candidates = query.order_by(Event.start_time, Event.id).limit(MAX_EVENING_CANDIDATES).all()
+    context = _recommendation_context(db, user, candidates, payload.latitude, payload.longitude)
+    selected_categories = frozenset(category.value.casefold() for category in payload.categories)
+    plans = build_evening_plans(candidates, context, window, selected_categories)
+    return {
+        'timezone': window.timezone,
+        'window_start': window.starts_at_utc.replace(tzinfo=timezone.utc),
+        'window_end': window.ends_at_utc.replace(tzinfo=timezone.utc),
+        'location_used': payload.latitude is not None,
+        'plans': [{
+            'id': f'plan-{index}',
+            'strategy': plan.strategy.value,
+            'explanation': plan.explanation,
+            'limited': plan.limited,
+            'items': [{
+                'event': EventOut.model_validate(item.event),
+                'reasons': list(item.reasons),
+                'location_confidence': item.location_confidence,
+            } for item in plan.items],
+        } for index, plan in enumerate(plans, start=1)],
     }
 
 
