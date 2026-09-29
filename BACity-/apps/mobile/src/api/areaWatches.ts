@@ -30,9 +30,9 @@ export interface AreaWatchInput {
 export const areaWatchesApi = {
   list: () => apiRequest<AreaWatchSummary[]>("/area-watches", { auth: true }),
   get: (id: string) => apiRequest<AreaWatch>(`/area-watches/${id}`, { auth: true }),
-  create: (payload: AreaWatchInput) => apiRequest<AreaWatch>("/area-watches", { method: "POST", auth: true, body: JSON.stringify(payload) }),
-  update: (id: string, payload: Partial<AreaWatchInput> & { active?: boolean }) => apiRequest<AreaWatch>(`/area-watches/${id}`, { method: "PATCH", auth: true, body: JSON.stringify(payload) }),
+  create: (payload: AreaWatchInput) => apiRequest<AreaWatch>("/area-watches", { method: "POST", auth: true, body: payload }),
+  update: (id: string, payload: Partial<AreaWatchInput> & { active?: boolean }) => apiRequest<AreaWatch>(`/area-watches/${id}`, { method: "PATCH", auth: true, body: payload }),
   remove: (id: string) => apiRequest<{ deleted: boolean }>(`/area-watches/${id}`, { method: "DELETE", auth: true }),
   events: (id: string, cursor?: string | null) => apiRequest<AreaWatchFeed>(`/area-watches/${id}/events`, { auth: true, params: { limit: 20, ...(cursor ? { cursor } : {}) } }),
-  seen: (id: string, watermark: string) => apiRequest<AreaWatch>(`/area-watches/${id}/seen`, { method: "POST", auth: true, body: JSON.stringify({ watermark }) }),
+  seen: (id: string, watermark: string) => apiRequest<AreaWatch>(`/area-watches/${id}/seen`, { method: "POST", auth: true, body: { watermark } }),
 };

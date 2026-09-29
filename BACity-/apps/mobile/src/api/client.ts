@@ -8,6 +8,7 @@
 import { getSessionToken } from "../store/tokenSession";
 import { Platform } from "react-native";
 import { resolveApiUrl } from "./apiUrl";
+import { serializeRequestBody } from "./requestBody";
 
 export const API_URL = resolveApiUrl(process.env.EXPO_PUBLIC_API_URL, Platform.OS);
 
@@ -53,10 +54,10 @@ export async function apiRequest<T>(
   let res: Response;
   try {
     res = await fetch(`${API_URL}${path}${buildQuery(params)}`, {
-    method,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-    signal: controller.signal,
+      method,
+      headers,
+      body: serializeRequestBody(body),
+      signal: controller.signal,
     });
   } finally {
     clearTimeout(timeout);

@@ -8,10 +8,10 @@ import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { useEvents } from "../../src/hooks/useEvents";
 import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
 import { nearbyUtilities, utilitiesInViewport, type UtilityBounds } from "../../src/api/utilities";
+import { eventsInViewport, nearbyEvents } from "../../src/api/events";
 import type { EventOut } from "../../src/types/event";
 import type { Utility } from "../../src/api/utilities";
 import {
@@ -22,6 +22,7 @@ import {
   mergeViewportUtilities,
   updateMapSnapshot,
 } from "../../src/map/mapCache";
+import { mergeViewportEvents } from "../../src/map/viewportData";
 import {
   buildEventFeatureCollection,
   hasValidMapCoordinates,
@@ -84,7 +85,6 @@ function distanceKm(a: Coordinates, b: Coordinates) {
 }
 
 export default function MapScreen() {
-  const eventsQuery = useEvents({ limit: 100 });
   const cameraRef = useRef<CameraRef>(null);
   const mapRef = useRef<MapViewRef>(null);
   const eventSourceRef = useRef<ShapeSourceRef>(null);
@@ -92,7 +92,7 @@ export default function MapScreen() {
   const requestedBoundsRef = useRef(INITIAL_BOUNDS);
   const [nearMeActive, setNearMeActive] = useState(false);
   const [showUtilities, setShowUtilities] = useState(false);
-  const [utilityBounds, setUtilityBounds] = useState(INITIAL_BOUNDS);
+  const [mapBounds, setMapBounds] = useState(INITIAL_BOUNDS);
   const [cachedEvents, setCachedEvents] = useState<EventOut[]>([]);
   const [cachedUtilities, setCachedUtilities] = useState<Utility[]>([]);
   const [cacheSavedAt, setCacheSavedAt] = useState(0);
@@ -114,13 +114,6 @@ export default function MapScreen() {
   }, []);
 
   useEffect(() => {
-    if (!eventsQuery.data) return;
-    setCachedEvents(eventsQuery.data.items);
-    const snapshot = updateMapSnapshot({ events: eventsQuery.data.items });
-    setCacheSavedAt(snapshot.savedAt);
-  }, [eventsQuery.data]);
-
-  useEffect(() => {
     if (ambientCacheConfigured || !OfflineManager) return;
     ambientCacheConfigured = true;
     void OfflineManager.setMaximumAmbientCacheSize(AMBIENT_TILE_CACHE_BYTES).catch(() => {
@@ -128,11 +121,9 @@ export default function MapScreen() {
     });
   }, []);
 
-  const eventItems = eventsQuery.data?.items ?? cachedEvents;
-
   const pins = useMemo(
-    () => eventItems.filter(hasValidMapCoordinates),
-    [eventItems]
+    () => cachedEvents.filter(hasValidMapCoordinates),
+    [cachedEvents]
   );
 
   const nearbyPins = useMemo(() => {
@@ -151,9 +142,50 @@ export default function MapScreen() {
     longitude: Number(currentLocation.longitude.toFixed(3)),
   } : null, [currentLocation]);
 
+  const eventViewport = useQuery({
+    queryKey: ["map-events-viewport", boundsKey(mapBounds)],
+    queryFn: () => eventsInViewport(mapBounds),
+    enabled: !showUtilities && !nearMeActive,
+    staleTime: MAP_DATA_STALE_MS,
+    gcTime: MAP_QUERY_GC_MS,
+    placeholderData: (previous) => previous,
+    refetchOnWindowFocus: false,
+  });
+  const eventNearby = useQuery({
+    queryKey: ["map-events-nearby", roundedLocation?.latitude, roundedLocation?.longitude, NEARBY_RADIUS_KM],
+    queryFn: () => nearbyEvents(roundedLocation!.latitude, roundedLocation!.longitude, NEARBY_RADIUS_KM, 200),
+    enabled: !showUtilities && nearMeActive && roundedLocation != null,
+    staleTime: 2 * 60_000,
+    gcTime: MAP_QUERY_GC_MS,
+    placeholderData: (previous) => previous,
+    refetchOnWindowFocus: false,
+  });
+
+  useEffect(() => {
+    if (!eventViewport.data || eventViewport.isPlaceholderData) return;
+    setCachedEvents((current) => {
+      const merged = mergeViewportEvents(current, eventViewport.data, mapBounds);
+      const snapshot = updateMapSnapshot({ events: merged });
+      setCacheSavedAt(snapshot.savedAt);
+      return merged;
+    });
+  }, [eventViewport.data, eventViewport.isPlaceholderData, mapBounds]);
+
+  useEffect(() => {
+    if (!eventNearby.data || eventNearby.isPlaceholderData) return;
+    setCachedEvents((current) => {
+      const mergedById = new Map(current.map((item) => [item.id, item]));
+      for (const item of eventNearby.data) mergedById.set(item.id, item);
+      const merged = Array.from(mergedById.values()).slice(-1_000);
+      const snapshot = updateMapSnapshot({ events: merged });
+      setCacheSavedAt(snapshot.savedAt);
+      return merged;
+    });
+  }, [eventNearby.data, eventNearby.isPlaceholderData]);
+
   const utilityViewport = useQuery({
-    queryKey: ["map-utilities-viewport", boundsKey(utilityBounds)],
-    queryFn: () => utilitiesInViewport(utilityBounds),
+    queryKey: ["map-utilities-viewport", boundsKey(mapBounds)],
+    queryFn: () => utilitiesInViewport(mapBounds),
     enabled: showUtilities && !nearMeActive,
     staleTime: MAP_DATA_STALE_MS,
     gcTime: MAP_QUERY_GC_MS,
@@ -173,12 +205,12 @@ export default function MapScreen() {
   useEffect(() => {
     if (!utilityViewport.data || utilityViewport.isPlaceholderData) return;
     setCachedUtilities((current) => {
-      const merged = mergeViewportUtilities(current, utilityViewport.data, utilityBounds);
+      const merged = mergeViewportUtilities(current, utilityViewport.data, mapBounds);
       const snapshot = updateMapSnapshot({ utilities: merged });
       setCacheSavedAt(snapshot.savedAt);
       return merged;
     });
-  }, [utilityBounds, utilityViewport.data, utilityViewport.isPlaceholderData]);
+  }, [mapBounds, utilityViewport.data, utilityViewport.isPlaceholderData]);
 
   useEffect(() => {
     if (!utilityNearby.data || utilityNearby.isPlaceholderData) return;
@@ -242,8 +274,9 @@ export default function MapScreen() {
   }), [utilities]);
 
   const activeUtilityQuery = nearMeActive ? utilityNearby : utilityViewport;
-  const isRefreshing = showUtilities ? activeUtilityQuery.isFetching : eventsQuery.isFetching;
-  const dataUnavailable = showUtilities ? activeUtilityQuery.isError : eventsQuery.isError;
+  const activeEventQuery = nearMeActive ? eventNearby : eventViewport;
+  const isRefreshing = showUtilities ? activeUtilityQuery.isFetching : activeEventQuery.isFetching;
+  const dataUnavailable = showUtilities ? activeUtilityQuery.isError : activeEventQuery.isError;
   const hasCachedLayer = showUtilities ? utilities.length > 0 : pins.length > 0;
   const cacheIsOld = cacheSavedAt > 0 && Date.now() - cacheSavedAt > MAP_DATA_STALE_MS;
 
@@ -289,7 +322,7 @@ export default function MapScreen() {
   };
 
   const handleRegionDidChange = useCallback(async () => {
-    if (!showUtilities || nearMeActive || !mapRef.current) return;
+    if (nearMeActive || !mapRef.current) return;
     try {
       const [northEast, southWest] = await mapRef.current.getVisibleBounds();
       const visibleBounds: UtilityBounds = {
@@ -300,11 +333,11 @@ export default function MapScreen() {
       const nextBounds = expandAndSnapBounds(visibleBounds);
       if (boundsKey(nextBounds) === boundsKey(requestedBoundsRef.current)) return;
       requestedBoundsRef.current = nextBounds;
-      setUtilityBounds(nextBounds);
+      setMapBounds(nextBounds);
     } catch {
       // A camera can disappear while an async native bounds request is resolving.
     }
-  }, [nearMeActive, showUtilities]);
+  }, [nearMeActive]);
 
   const toggleLayer = useCallback(async () => {
     if (showUtilities) {
@@ -319,7 +352,7 @@ export default function MapScreen() {
           min_lng: southWest[0], max_lng: northEast[0],
         });
         requestedBoundsRef.current = nextBounds;
-        setUtilityBounds(nextBounds);
+        setMapBounds(nextBounds);
       } catch {
         // Fall back to the last useful viewport while the native map settles.
       }

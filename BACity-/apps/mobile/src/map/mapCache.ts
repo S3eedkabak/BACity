@@ -1,9 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Utility, UtilityBounds } from "../api/utilities";
 import type { EventOut } from "../types/event";
+import { MAX_CACHED_MAP_EVENTS } from "./viewportData";
 
 const STORAGE_KEY = "@bacity/map-snapshot-v1";
-const MAX_EVENTS = 200;
 const MAX_UTILITIES = 1_000;
 const WRITE_DELAY_MS = 750;
 
@@ -66,7 +66,7 @@ export function updateMapSnapshot(update: Partial<Pick<MapSnapshot, "events" | "
   if (update.utilities !== undefined) utilitiesUpdated = true;
   memorySnapshot = {
     savedAt: Date.now(),
-    events: (update.events ?? current.events).slice(0, MAX_EVENTS),
+    events: (update.events ?? current.events).slice(0, MAX_CACHED_MAP_EVENTS),
     utilities: (update.utilities ?? current.utilities).slice(0, MAX_UTILITIES),
   };
   scheduleWrite();

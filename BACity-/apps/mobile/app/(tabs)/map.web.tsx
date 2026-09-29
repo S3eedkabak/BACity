@@ -2,10 +2,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { useEvents } from "../../src/hooks/useEvents";
+import { useQuery } from "@tanstack/react-query";
 import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
 import type { EventOut } from "../../src/types/event";
+import { eventsInViewport } from "../../src/api/events";
 import { loadMapSnapshot, updateMapSnapshot } from "../../src/map/mapCache";
 
 const BRATISLAVA = {
@@ -18,6 +19,12 @@ const MAP_BOUNDS = {
   maxLat: 48.205,
   minLng: 17.035,
   maxLng: 17.185,
+};
+const API_BOUNDS = {
+  min_lat: MAP_BOUNDS.minLat,
+  max_lat: MAP_BOUNDS.maxLat,
+  min_lng: MAP_BOUNDS.minLng,
+  max_lng: MAP_BOUNDS.maxLng,
 };
 
 function project(latitude: number, longitude: number) {
@@ -38,7 +45,12 @@ function project(latitude: number, longitude: number) {
 }
 
 export default function MapScreen() {
-  const { data, isFetching, isError } = useEvents({ limit: 100 });
+  const { data, isFetching, isError } = useQuery({
+    queryKey: ["map-events-viewport", "web-bratislava"],
+    queryFn: () => eventsInViewport(API_BOUNDS),
+    staleTime: 5 * 60_000,
+    placeholderData: (previous) => previous,
+  });
   const [cachedEvents, setCachedEvents] = useState<EventOut[]>([]);
 
   useEffect(() => {
@@ -51,11 +63,11 @@ export default function MapScreen() {
 
   useEffect(() => {
     if (!data) return;
-    setCachedEvents(data.items);
-    updateMapSnapshot({ events: data.items });
+    setCachedEvents(data);
+    updateMapSnapshot({ events: data });
   }, [data]);
 
-  const pins = (data?.items ?? cachedEvents).filter(
+  const pins = (data ?? cachedEvents).filter(
     (event) => event.latitude != null && event.longitude != null
   );
 

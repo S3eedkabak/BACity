@@ -29,7 +29,8 @@ function GroupRow({ item }: { item: GroupSummary }) {
 export default function GroupsScreen() {
   const token = useAuthStore(state => state.token);
   const query = useGroups(!!token);
-  const mutation = useGroupMutation();
+  const createMutation = useGroupMutation();
+  const joinMutation = useGroupMutation();
   const [name, setName] = useState("Weekend crew");
   const [date, setDate] = useState(() => defaultWeekendStart());
   const [startTime, setStartTime] = useState("18:00");
@@ -51,7 +52,7 @@ export default function GroupsScreen() {
   async function create() {
     setNotice(null);
     try {
-      const result = await mutation.mutateAsync(() => groupsApi.create({ name, target_date: date, start_time: startTime, end_time: endTime, categories, max_participants: 8 }));
+      const result = await createMutation.mutateAsync(() => groupsApi.create({ name, target_date: date, start_time: startTime, end_time: endTime, categories, max_participants: 8 }));
       const created = result as Awaited<ReturnType<typeof groupsApi.create>>;
       setCreatedCode(created.join_code); setCreatedGroup(created.group.id);
     } catch (error) { setNotice((error as Error).message); }
@@ -60,7 +61,7 @@ export default function GroupsScreen() {
   async function join() {
     setNotice(null);
     try {
-      const group = await mutation.mutateAsync(() => groupsApi.join(joinCode)) as Awaited<ReturnType<typeof groupsApi.join>>;
+      const group = await joinMutation.mutateAsync(() => groupsApi.join(joinCode)) as Awaited<ReturnType<typeof groupsApi.join>>;
       setJoinCode(""); router.push(groupRoute(group.id));
     } catch (error) { setNotice((error as Error).message); }
   }
@@ -71,10 +72,10 @@ export default function GroupsScreen() {
   return <SafeAreaView style={styles.safe} edges={["top", "bottom"]}><ScreenHeader title="Groups" /><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
     <Text style={styles.heading}>Decide together</Text><Text style={styles.subtitle}>Create with BACity+, or join and vote for free when a host invites you.</Text>
     <View style={styles.card}><Text style={styles.cardTitle}>Create a group</Text><Field label="Group name" value={name} onChange={setName} /><Field label="Date (YYYY-MM-DD)" value={date} onChange={setDate} /><View style={styles.split}><View style={styles.flex}><Field label="Start" value={startTime} onChange={setStartTime} /></View><View style={styles.flex}><Field label="End" value={endTime} onChange={setEndTime} /></View></View><View style={styles.chips}>{CATEGORIES.map(category => <Chip key={category} title={category} active={categories.includes(category)} onPress={() => toggle(category)} />)}</View>
-      <PlusGateAction feature="group_match" onAllowed={create}>{({ onPress, loading }) => <Button title="Create with BACity+" busy={loading || mutation.isPending} onPress={onPress} />}</PlusGateAction>
+      <PlusGateAction feature="group_match" onAllowed={create}>{({ onPress, loading }) => <Button title="Create with BACity+" busy={loading || createMutation.isPending} onPress={onPress} />}</PlusGateAction>
       {createdCode ? <View style={styles.codeBox}><Text style={styles.codeLabel}>PRIVATE JOIN CODE · SHARE DIRECTLY</Text><Text selectable style={styles.code}>{createdCode}</Text>{createdGroup ? <Text style={styles.link} onPress={() => router.push(groupRoute(createdGroup))}>Open group</Text> : null}</View> : null}
     </View>
-    <View style={styles.card}><Text style={styles.cardTitle}>Join an invited group</Text><Text style={styles.helper}>Joining, preferences, voting and results do not require BACity+.</Text><Field label="Join code" value={joinCode} onChange={setJoinCode} /><Button title="Join group" busy={mutation.isPending} onPress={join} /></View>
+    <View style={styles.card}><Text style={styles.cardTitle}>Join an invited group</Text><Text style={styles.helper}>Joining, preferences, voting and results do not require BACity+.</Text><Field label="Join code" value={joinCode} onChange={setJoinCode} /><Button title="Join group" busy={joinMutation.isPending} onPress={join} /></View>
     {notice ? <Text accessibilityRole="alert" style={styles.error}>{notice}</Text> : null}
     {state === "error" ? <EmptyState title="Groups couldn't load" action="Try again" onAction={() => void query.refetch()} /> : null}
     {hosted.length ? <><Text style={styles.section}>HOSTED BY YOU</Text>{hosted.map(group => <GroupRow key={group.id} item={group} />)}</> : null}

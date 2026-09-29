@@ -46,6 +46,7 @@ export interface WeekendPlanResponse {
 export function generateWeekendPlans(payload: WeekendPlanRequest) {
   return apiRequest<WeekendPlanResponse>("/recommendations/weekend-plan", {
     method: "POST",
-    body: JSON.stringify(payload),
+    auth: true,
+    body: payload,
   });
 }

@@ -24,7 +24,7 @@ def test_production_rejects_placeholder_secrets():
                         oauth_callback_base_url='https://api.bacity.example',
                         google_oauth_client_id='google-client', google_oauth_client_secret='google-secret',
                         google_android_client_id='google-android', google_ios_client_id='google-ios',
-                        apple_oauth_client_id='com.bacity.web', apple_team_id='TEAM',
+                        apple_oauth_client_id='com.bacity.web', apple_ios_client_id='com.bacity.ios', apple_team_id='TEAM',
                         apple_key_id='KEY', apple_private_key='private-key',
                         oauth_token_encryption_key=Fernet.generate_key().decode(), _env_file=None)
     assert settings.environment == 'production'

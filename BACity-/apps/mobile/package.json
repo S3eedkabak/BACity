@@ -9,7 +9,7 @@
     "web": "expo start --web",
     "test:api-url": "node --experimental-strip-types --test src/api/apiUrl.test.mjs",
     "test:recommendations": "node --experimental-strip-types --test src/recommendations/locationPolicy.test.mjs",
-    "test:map-markers": "node --test src/map/eventGeoJson.test.cjs",
+    "test:map-markers": "node --experimental-strip-types --test src/map/eventGeoJson.test.cjs src/map/viewportData.test.mjs",
     "test:plus": "node --experimental-strip-types --test src/plus/policy.test.mjs",
     "test:tonight": "node --experimental-strip-types --test src/tonight/presentation.test.mjs",
     "test:event-chains": "node --experimental-strip-types --test src/eventChains/presentation.test.mjs",
@@ -18,6 +18,7 @@
     "test:groups": "node --experimental-strip-types --test src/groups/presentation.test.mjs",
     "test:area-watch": "node --experimental-strip-types --test src/areaWatch/presentation.test.mjs",
     "test:billing": "node --experimental-strip-types --test src/billing/presentation.test.mjs",
+    "test:premium-contracts": "node --experimental-strip-types --test src/api/premiumContracts.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
