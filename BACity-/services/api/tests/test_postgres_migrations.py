@@ -17,6 +17,7 @@ from app.api.routes.groups import _group
 from app.models.area_watch import AreaWatch
 from app.models.group import GroupSession
 from app.models.user import User
+from app.models.entitlement import ConsumerSubscription
 
 
 @pytest.mark.skipif(not os.getenv('TEST_POSTGRES_URL'), reason='TEST_POSTGRES_URL not configured')
@@ -40,7 +41,8 @@ def test_upgrade_backfills_existing_source_references():
             row = connection.execute(text('SELECT title_key,source_url FROM event_sources')).one()
             assert row.title_key == 'test jazz'
             assert row.source_url == 'https://venue.example/event'
-            assert connection.execute(text('SELECT version_num FROM alembic_version')).scalar() == '0011'
+            assert connection.execute(text('SELECT version_num FROM alembic_version')).scalar() == '0012'
+            assert connection.execute(text("SELECT data_type FROM information_schema.columns WHERE table_name='consumer_subscriptions' AND column_name='provider_purchase_token'")).scalar() == 'text'
             assert connection.execute(text('SELECT trust_level FROM events')).scalar() == 'Unverified'
             assert connection.execute(text('SELECT count(*) FROM submissions')).scalar() == 0
             assert connection.execute(text('SELECT count(*) FROM oauth_identities')).scalar() == 0
@@ -137,6 +139,23 @@ def test_upgrade_backfills_existing_source_references():
         assert_row_lock(lambda session: _group(session, group_id, for_update=True))
         assert_row_lock(lambda session: _owned(session, watch_id, owner_id, for_update=True))
         assert_row_lock(lambda session: _lock_owner(session, owner_id))
+        with sessions.begin() as seed:
+            seed.add(ConsumerSubscription(
+                user_id=owner_id, provider='stripe', entitlement='bacity_plus',
+                external_subscription_id='stripe-preserved', product_id='price_plus', status='active',
+            ))
+            seed.add(ConsumerSubscription(
+                user_id=owner_id, provider='google_play', entitlement='bacity_plus',
+                external_subscription_id='a' * 64, provider_purchase_token='test-only-' + 'x' * 4096,
+                product_id='test_product', status='expired',
+            ))
+        with db.connect() as connection:
+            assert connection.execute(text("SELECT length(provider_purchase_token) FROM consumer_subscriptions WHERE provider='google_play'")).scalar() == 4106
+        subprocess.run([sys.executable, '-m', 'alembic', 'downgrade', '0011'], cwd=api_dir, env=env, check=True, capture_output=True)
+        subprocess.run([sys.executable, '-m', 'alembic', 'upgrade', 'head'], cwd=api_dir, env=env, check=True, capture_output=True)
+        with db.connect() as connection:
+            assert connection.execute(text("SELECT status FROM consumer_subscriptions WHERE external_subscription_id='stripe-preserved'")).scalar() == 'active'
+            assert connection.execute(text("SELECT provider_purchase_token FROM consumer_subscriptions WHERE provider='google_play'")).scalar() is None
         subprocess.run([sys.executable, '-m', 'alembic', 'downgrade', '0003'], cwd=api_dir, env=env, check=True, capture_output=True)
         subprocess.run([sys.executable, '-m', 'alembic', 'upgrade', 'head'], cwd=api_dir, env=env, check=True, capture_output=True)
     finally:

@@ -2,7 +2,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, CheckConstraint, Column, DateTime, ForeignKey, Index, JSON, String, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, Column, DateTime, ForeignKey, Index, JSON, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app.database import Base
@@ -26,6 +26,8 @@ class ConsumerSubscription(Base):
     provider = Column(String(32), nullable=False)
     external_customer_id = Column(String(255))
     external_subscription_id = Column(String(255))
+    # Restricted provider credential; never serialize or include in account exports.
+    provider_purchase_token = Column(Text)
     product_id = Column(String(255), nullable=False)
     status = Column(String(32), nullable=False, index=True)
     current_period_start = Column(DateTime)

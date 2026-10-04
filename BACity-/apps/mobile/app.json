@@ -29,6 +29,7 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      "react-native-iap",
       "expo-apple-authentication",
       "expo-font",
       [

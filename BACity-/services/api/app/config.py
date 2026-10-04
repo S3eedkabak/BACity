@@ -62,6 +62,13 @@ class Settings(BaseSettings):
     stripe_consumer_portal_return_url: str = "http://localhost:8081/plus"
     stripe_consumer_livemode: bool = False
     stripe_consumer_api_version: str = "2024-06-20"
+    google_play_billing_enabled: bool = False
+    google_play_package_name: str = ""
+    google_play_subscription_product_id: str = ""
+    google_play_base_plan_id: str = ""
+    google_play_service_account_json: str = ""
+    google_play_rtdn_audience: str = ""
+    google_play_rtdn_service_account_email: str = ""
     enable_development_plus_grants: bool = False
     message_retention_days: int = Field(90, ge=1, le=3650)
     utility_sync_enabled: bool = False
@@ -106,6 +113,23 @@ class Settings(BaseSettings):
                     raise ValueError("Production consumer billing return URLs require HTTPS")
         if self.environment != "development" and self.enable_development_plus_grants:
             raise ValueError("Development BACity+ grants must be disabled outside development")
+        if self.google_play_billing_enabled:
+            required = (
+                self.google_play_package_name,
+                self.google_play_subscription_product_id,
+                self.google_play_service_account_json,
+            )
+            if not all(required):
+                raise ValueError("Google Play billing requires package, subscription product and service account")
+            import json
+            try:
+                credentials = json.loads(self.google_play_service_account_json)
+            except (TypeError, ValueError):
+                raise ValueError("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON must be valid JSON")
+            if not all(credentials.get(key) for key in ("client_email", "private_key", "token_uri")):
+                raise ValueError("Google Play service account JSON is incomplete")
+            if bool(self.google_play_rtdn_audience) != bool(self.google_play_rtdn_service_account_email):
+                raise ValueError("Google Play RTDN audience and service-account email must be configured together")
         if self.environment != "development":
             if len(self.jwt_secret) < 32 or self.jwt_secret == "change-me-in-production":
                 raise ValueError("Set a random JWT_SECRET of at least 32 characters")

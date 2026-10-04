@@ -11,6 +11,7 @@ const premiumClients = [
   "areaWatches.ts",
   "eveningPlans.ts",
   "weekendPlans.ts",
+  "googlePlayBilling.ts",
 ];
 
 test("central request serialization sends premium payloads as JSON objects", () => {

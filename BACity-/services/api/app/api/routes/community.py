@@ -804,6 +804,18 @@ def export_account(user=Depends(get_current_user), db: Session = Depends(get_db)
 def delete_account(payload: Reason, user=Depends(get_current_user), db: Session = Depends(get_db)):
     """Erase private/activity data and anonymize retained public or compliance records."""
     user_id, old_email = user.id, user.email
+    google_subscriptions = db.query(ConsumerSubscription).filter_by(
+        provider='google_play', user_id=user_id,
+    ).all()
+    if google_subscriptions:
+        from app.core.google_play_billing import verify_and_reconcile
+        if not settings.google_play_billing_enabled:
+            raise HTTPException(409, 'Google Play billing must be reconciled before account deletion')
+        for item in google_subscriptions:
+            if item.status != 'replaced':
+                verify_and_reconcile(db, user_id, item.provider_purchase_token, settings)
+    if any(item.status not in {'expired', 'replaced'} for item in google_subscriptions):
+        raise HTTPException(409, 'Cancel BACity+ in Google Play and wait until the paid period ends before deleting this account')
     billing_customer = db.query(ConsumerBillingCustomer).filter_by(provider='stripe', user_id=user_id).first()
     if billing_customer:
         if not settings.stripe_consumer_secret_key:
@@ -812,6 +824,13 @@ def delete_account(payload: Reason, user=Depends(get_current_user), db: Session 
         cancel_consumer_billing_for_deletion(db, user, StripeConsumerClient(settings), settings)
     _avatar_path(user_id).unlink(missing_ok=True)
     provider_revocation = {'stripe': 'cancelled'} if billing_customer else {}
+    if google_subscriptions:
+        # Google Play subscriptions are user-managed. At this point none are
+        # active; erase sensitive purchase tokens before anonymizing the account.
+        db.query(ConsumerSubscription).filter_by(provider='google_play', user_id=user_id).delete(
+            synchronize_session=False,
+        )
+        provider_revocation['google_play'] = 'inactive_purchase_links_erased'
     for identity in db.query(OAuthIdentity).filter_by(user_id=user_id).all():
         if identity.provider == 'apple' and identity.refresh_token_encrypted:
             from app.api.routes.auth import revoke_apple_token

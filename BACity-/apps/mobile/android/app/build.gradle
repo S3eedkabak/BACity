@@ -112,6 +112,7 @@ android {
     namespace 'com.bratislavaevents.app'
     defaultConfig {
         applicationId 'com.bratislavaevents.app'
+        missingDimensionStrategy 'store', 'play'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

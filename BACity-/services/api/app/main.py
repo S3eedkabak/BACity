@@ -12,7 +12,7 @@ from pathlib import Path
 
 from app.config import get_settings
 from app.database import Base, engine, get_db
-from app.api.routes import events, venues, auth, users, community, discovery, billing, consumer_billing, crawler, groups, area_watches
+from app.api.routes import events, venues, auth, users, community, discovery, billing, consumer_billing, google_play_billing, crawler, groups, area_watches
 
 # Import models so they're registered on Base.metadata before create_all
 # (used only for the SQLite dev/test path; Postgres uses Alembic migrations).
@@ -53,6 +53,7 @@ app.include_router(community.router)
 app.include_router(discovery.router)
 app.include_router(billing.router)
 app.include_router(consumer_billing.router)
+app.include_router(google_play_billing.router)
 app.include_router(users.router)
 app.include_router(events.router)
 app.include_router(venues.router)
