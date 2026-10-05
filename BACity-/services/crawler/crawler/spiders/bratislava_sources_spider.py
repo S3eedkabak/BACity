@@ -26,7 +26,7 @@ class BratislavaSourcesSpider(scrapy.Spider):
         self.sources = ACTIVE_SOURCES
         self.source_counts = {source.name: 0 for source in ACTIVE_SOURCES}
 
-    def start_requests(self):
+    def _source_requests(self):
         now = datetime.now()
         next_month = 1 if now.month == 12 else now.month + 1
         next_year = now.year + 1 if now.month == 12 else now.year
@@ -69,6 +69,14 @@ class BratislavaSourcesSpider(scrapy.Spider):
                     errback=self.errback_source,
                     meta={"source": source, "crawl_depth": 0},
                 )
+
+    async def start(self):
+        for request in self._source_requests():
+            yield request
+
+    def start_requests(self):
+        # Compatibility for existing integrations; Scrapy uses async start().
+        yield from self._source_requests()
 
     def parse(self, response):
         source: SourceSeed = response.meta["source"]
@@ -114,7 +122,10 @@ class BratislavaSourcesSpider(scrapy.Spider):
                 break
 
     def _extract(self, response, source: SourceSeed):
-        if source.parser == "karlova_ves_api":
+        if source.parser == 'structured':
+            from crawler.extraction.feeds import extract_feed
+            events = extract_feed(response.text, response.url)
+        elif source.parser == "karlova_ves_api":
             try:
                 events = extract_karlova_ves_events(response.json(), response.url)
             except ValueError:

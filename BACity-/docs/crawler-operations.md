@@ -1,5 +1,9 @@
 # Scheduled event ingestion
 
+For the current candidate lifecycle, temporal evidence, security limits and
+operator runbook, see [Crawler V2](crawler-v2.md). Its rules supersede the
+original discovery/scheduling defaults below.
+
 The worker is a long-running service. It crawls due sources on startup, checks
 the schedule every 30 seconds, and keeps its schedule, discovered sources,
 crawl history, geocoding cache and delivery queue in the `crawlerdata` volume.

@@ -21,8 +21,10 @@ def extract_visit_events(html, source_url):
     end = None
     if end_date:
         end_day = (end_date.get('content') or '')[:10]
-        if re.fullmatch(r'\d{4}-\d{2}-\d{2}', end_day) and (end_clock or end_day > start_day):
-            end = end_day + 'T' + (end_clock.get_text(strip=True) if end_clock else '23:59')
+        if re.fullmatch(r'\d{4}-\d{2}-\d{2}', end_day) and end_clock:
+            end = end_day + 'T' + end_clock.get_text(strip=True)
+        elif re.match(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}', end_date.get('content') or ''):
+            end = end_date.get('content')
     place = soup.select_one('li.address .value')
     desc = soup.select_one('[itemprop="description"] .content, [itemprop="description"]')
     price = soup.select_one('.price .value, li.price')

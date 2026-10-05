@@ -104,7 +104,9 @@ def extract_jsonld_events(html: str, source_url: str) -> list[RawEvent]:
             results.append(RawEvent(
                 title=_text(node.get("name")) or "",
                 start_raw=_text(node.get("startDate")) or "",
-                end_raw=_text(node.get("endDate")),
+                end_raw=_text(node.get("endDate")), duration_raw=_text(node.get("duration")),
+                organizer_name=_text(node.get("organizer")),
+                previous_start_raw=_text(node.get('previousStartDate')),
                 description=_text(node.get("description")),
                 venue_name=venue_name,
                 address=address,

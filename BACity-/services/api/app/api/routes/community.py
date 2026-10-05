@@ -375,7 +375,7 @@ def publish(db, item, trust):
         raise HTTPException(409, 'Contributor account is no longer active')
     if item.kind == 'event':
         payload = EventSubmission.model_validate(item.payload)
-        data = payload.model_dump(exclude={'organizer_name', 'venue_name', 'source_name', 'original_source_url', 'source_id', 'venue_id', 'status', 'extraction_confidence', 'source_reliability'})
+        data = payload.model_dump(exclude={'organizer_name', 'venue_name', 'source_name', 'original_source_url', 'source_id', 'venue_id', 'status', 'extraction_confidence', 'source_reliability', 'temporal_evidence', 'extraction_method', 'previous_start_time'})
         for key in ('start_time', 'end_time'):
             if data[key]:
                 data[key] = data[key].astimezone(timezone.utc).replace(tzinfo=None)

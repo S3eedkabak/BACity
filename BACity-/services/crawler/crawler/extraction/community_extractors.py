@@ -19,7 +19,7 @@ def extract_cvernovka_events(html: str, source_url: str) -> list[RawEvent]:
             continue
         time_parts = card.select(".FilterItem__date-container > div")
         clock = time_parts[-1].get_text(" ", strip=True) if time_parts else "00:00"
-        if not re.fullmatch(r"\d{1,2}:\d{2}", clock):
+        if not re.fullmatch(r"\d{1,2}[:.]\d{2}(?:\s*(?:–|—|-|až)\s*\d{1,2}[:.]\d{2})?", clock):
             clock = "00:00"
         start_raw = f"{raw_day[:4]}-{raw_day[4:6]}-{raw_day[6:]} {clock}"
         image = card.select_one("img[src]")
@@ -32,6 +32,7 @@ def extract_cvernovka_events(html: str, source_url: str) -> list[RawEvent]:
             image_url=urljoin(source_url, image.get("src")) if image else None,
             source_url=urljoin(source_url, link.get("href")), original_source_url=source_url,
             tags=tags, extraction_method="cvernovka_cards", extraction_confidence=0.90,
+            organizer_name="Nová Cvernovka",
         ))
     return events
 
@@ -61,5 +62,6 @@ def extract_karlova_ves_events(data: object, source_url: str) -> list[RawEvent]:
             image_url=urljoin(source_url, poster) if poster else None,
             source_url=urljoin("https://kultura.karlovaves.sk", f"/podujatie/{row.get('slug', row.get('id'))}"),
             original_source_url=source_url, extraction_method="karlova_ves_api", extraction_confidence=0.96,
+            organizer_name="Karloveské centrum kultúry",
         ))
     return events

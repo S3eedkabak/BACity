@@ -33,18 +33,26 @@ class DiscoverySpider(BratislavaSourcesSpider):
     def __init__(self, source=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.sources = [source] if source else self.sources
-        self.max_crawl_depth = int(os.getenv('CRAWLER_MAX_DEPTH', '3'))
-        self.max_links_per_page = int(os.getenv('CRAWLER_MAX_LINKS', '50'))
+        self.max_crawl_depth = min(3,max(0,int(os.getenv('CRAWLER_MAX_DEPTH', '3'))))
+        self.max_links_per_page = min(50,max(1,int(os.getenv('CRAWLER_MAX_LINKS', '50'))))
         self.source_counts = {s.name: 0 for s in self.sources}
         self.discovered = 0
         self.state = None
 
-    def start_requests(self):
-        for request in super().start_requests():
+    def _initial_requests(self):
+        for request in self._source_requests():
             source = request.meta['source']
             if request.url.rstrip('/') == source.base_url.rstrip('/') and source.event_url.rstrip('/') != source.base_url.rstrip('/'):
                 continue
             yield request
+
+    async def start(self):
+        for request in self._initial_requests():
+            yield request
+
+    def start_requests(self):
+        # Scrapy <2.13 compatibility; modern Scrapy uses async start above.
+        yield from self._initial_requests()
 
     def parse(self, response):
         if not hasattr(response, 'text'):
@@ -52,11 +60,13 @@ class DiscoverySpider(BratislavaSourcesSpider):
         source = response.meta['source']
         depth = response.meta.get('crawl_depth', 0)
         yield from self._extract(response, source)
+        if source.parser == 'karlova_ves_api' or response.selector.type == 'json':
+            return  # Structured endpoints are data, not HTML link graphs.
         if depth >= self.max_crawl_depth:
             return
         followed = 0
         seen = {response.url}
-        for anchor in response.css('a[href], link[rel="next"], [data-next-url], [data-load-more-url]'):
+        for anchor in response.css('a[href], link[rel="next"], link[rel="alternate"], [data-next-url], [data-load-more-url]'):
             href = anchor.attrib.get('href') or anchor.attrib.get('data-next-url') or anchor.attrib.get('data-load-more-url')
             label = anchor.xpath('string(.)').get('')
             url = response.urljoin(href).split('#', 1)[0]
@@ -70,13 +80,14 @@ class DiscoverySpider(BratislavaSourcesSpider):
                 continue
             hint = (url + ' ' + label).lower()
             pagination = anchor.attrib.get('rel') == 'next' or any(x in hint for x in ('page=', '/page/', 'load more', 'ďalšie', 'next')) or 'data-next-url' in anchor.attrib or 'data-load-more-url' in anchor.attrib
-            if not pagination and not any(word in hint for word in EVENT_LINK_HINTS):
+            structured_feed = anchor.attrib.get('type') in ('application/rss+xml', 'application/atom+xml', 'text/calendar') or any(x in hint for x in ('.ics', '/rss', '/feed', '/ical'))
+            if not pagination and not structured_feed and not any(word in hint for word in EVENT_LINK_HINTS):
                 continue
             host = urlsplit(url).hostname.lower()
             if domain_matches(host, source.domain) and source.domain == 'visitbratislava.com' and not urlsplit(url).path.startswith('/events/'):
                 continue
             if not domain_matches(host, source.domain):
-                if self.discovered >= int(os.getenv('CRAWLER_MAX_NEW_SOURCES', '20')):
+                if self.discovered >= min(20,max(0,int(os.getenv('CRAWLER_MAX_NEW_SOURCES', '20')))):
                     continue
                 # Only expand one trust hop. Newly found sources must first prove useful;
                 # they can be promoted to trusted seeds explicitly after inspection.
@@ -87,8 +98,11 @@ class DiscoverySpider(BratislavaSourcesSpider):
                     self.state = State()
                 if self.state.db.execute('SELECT count(*) FROM sources').fetchone()[0] >= int(os.getenv('CRAWLER_MAX_SOURCES', '250')):
                     continue
-                self.state.seed(SourceSeed(host, host, f'{urlsplit(url).scheme}://{host}', url,
-                                           'event_platform', 0.6, crawl_frequency_minutes=1440), response.url)
+                try:
+                    if not self.state.discover(url, response.url):
+                        continue
+                except ValueError:
+                    continue
                 self.discovered += 1
                 self.crawler.stats.inc_value('discovery/sources')
                 continue

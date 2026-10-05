@@ -1,4 +1,5 @@
 from app.models.source import Source, CrawlerRun
+from app.models.candidate_source import CandidateSource
 from app.models.venue import Venue
 from app.models.event import Event
 from app.models.user import User

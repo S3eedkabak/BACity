@@ -61,6 +61,8 @@ def _safe_stats(stats):
 def report_run(api_url, token, seed, started, finished, success, stats, error):
     pages, items, accepted, rejected, extraction_errors, reasons = _safe_stats(stats)
     status = 'healthy' if success and accepted else 'empty' if success else 'timed_out' if error and 'timeout' in error else 'failed'
+    if success and (stats.get('finish_reason','finished') != 'finished' or stats.get('resource/item_limit')):
+        status = 'partial'  # A quota-limited scan cannot establish upstream absence.
     body = {'name': seed.name, 'domain': seed.domain, 'base_url': seed.base_url, 'event_url': seed.event_url,
             'source_type': seed.source_type, 'language': seed.language, 'parser': seed.parser,
             'reliability_score': seed.reliability_score, 'requires_js': seed.requires_js,
@@ -69,7 +71,9 @@ def report_run(api_url, token, seed, started, finished, success, stats, error):
             'finished_at': datetime.fromtimestamp(finished, timezone.utc).isoformat(), 'success': success,
             'status': status, 'pages_processed': pages, 'items_processed': items,
             'accepted_events': accepted, 'rejected_events': rejected, 'extraction_errors': extraction_errors,
-            'skip_reasons': reasons, 'error': (error or '')[:2000] or None}
+            'skip_reasons': reasons, 'error': (error or '')[:2000] or None,
+            'quality_metrics': {**{k.removeprefix('quality/'):float(v) for k,v in stats.items() if k.startswith('quality/') and isinstance(v,(int,float))},
+                                'crawl_duration_seconds':max(0,finished-started)}}
     response = requests.post(f"{api_url.rstrip('/')}/crawler/runs", json=body,
                              headers={'X-Ingestion-Key': token} if token else {}, timeout=20)
     response.raise_for_status()
@@ -85,15 +89,17 @@ def sync_runtime_config(state, api_url, token):
         log.warning("Crawler runtime configuration unavailable; retaining local schedule: %s", exc)
 
 
-def run_source(state, seed, api_url=None, token=""):
+def run_source(state, seed, api_url=None, token="", inspection=False):
     run_id = state.begin(seed.domain)
     started = state.db.execute("SELECT started FROM runs WHERE id=?", (run_id,)).fetchone()[0]
     stats_path = Path(os.getenv("CRAWLER_STATE_PATH", "crawler-state/state.db")).parent / f"run-{run_id}.json"
     command = [sys.executable, "-m", "crawler.run", "--source", json.dumps(seed.__dict__), "--stats", str(stats_path)]
+    if inspection:
+        command.append('--inspection')
     error = None
     stats = {}
     process = subprocess.Popen(command)
-    deadline = time.monotonic() + int(os.getenv("CRAWLER_JOB_TIMEOUT", "900"))
+    deadline = time.monotonic() + (120 if inspection else int(os.getenv("CRAWLER_JOB_TIMEOUT", "900")))
     while process.poll() is None:
         if stop.wait(1) or time.monotonic() > deadline:
             process.terminate()
@@ -109,6 +115,8 @@ def run_source(state, seed, api_url=None, token=""):
         stats_path.unlink()
     success = process.returncode == 0 and stats.get("success", False)
     failures = state.finish(run_id, seed, success, stats, error or stats.get("error"))
+    if inspection:
+        state.candidate_result(seed.domain, stats, success)
     log.info("CRAWL_RESULT source=%s success=%s stats=%s", seed.domain, success, stats)
     if failures >= 3:
         log.error("CRAWLER_ALERT repeated_failure source=%s failures=%s", seed.domain, failures)
@@ -118,6 +126,46 @@ def run_source(state, seed, api_url=None, token=""):
         except requests.RequestException as exc:
             log.warning("Could not publish source health for %s: %s", seed.domain, exc)
     return success
+
+
+def discovery_cycle(state, api_url, token):
+    if not token:
+        log.warning('Source-learning synchronization requires an ingestion key')
+        return
+    headers = {'X-Ingestion-Key': token}
+    try:
+        response = requests.get(api_url.rstrip('/') + '/crawler/candidates/runtime', headers=headers, timeout=20)
+        response.raise_for_status()
+        for row in response.json()[:250]:
+            try:
+                state.discover(row['url'], row['origin'])
+            except (KeyError, ValueError):
+                continue
+            with state.db:
+                if not row['enabled']:
+                    state.db.execute("UPDATE candidates SET status='disabled' WHERE domain=?", (row['domain'],))
+                else:
+                    state.db.execute("UPDATE candidates SET status='discovered',next_inspection=0 WHERE domain=? AND status='disabled'", (row['domain'],))
+                    if row['status'] == 'discovered' and row['attempts'] == 0:
+                        state.db.execute("UPDATE candidates SET status='discovered',next_inspection=0,attempts=0,good_runs=0,failures=0 WHERE domain=? AND status IN ('blocked','rejected')",(row['domain'],))
+    except (requests.RequestException, ValueError, TypeError):
+        # Retain local, already validated queue on API failure.
+        log.warning('Candidate controls unavailable; retaining local state')
+    for row in state.inspect_due():
+        if stop.is_set():
+            break
+        seed = SourceSeed(row['domain'], row['domain'], row['url'], row['url'], 'event_platform',
+                          .6 if row['status'] != 'trusted' else .75, parser='structured', crawl_frequency_minutes=360)
+        state.seed(seed, row['origin'])
+        run_source(state, seed, api_url, token, inspection=True)
+    rows = []
+    for row in state.db.execute('SELECT * FROM candidates ORDER BY domain LIMIT 250'):
+        rows.append({key: row[key] for key in ('domain','url','origin','status','discovered','inspected','attempts','good_runs','failures','reason')})
+        rows[-1]['metrics'] = json.loads(row['metrics'])
+    try:
+        requests.post(api_url.rstrip('/') + '/crawler/candidates/report', json={'items': rows}, headers=headers, timeout=20).raise_for_status()
+    except requests.RequestException:
+        log.warning('Candidate snapshot unavailable; durable local queue retained')
 
 
 def main():
@@ -161,6 +209,7 @@ def main():
                         state.db.execute("INSERT OR REPLACE INTO metadata VALUES('heartbeat',?)", (str(time.time()),))
                     deliver(state, api_url, ingestion_token)
                     sync_runtime_config(state, api_url, ingestion_token)
+                    discovery_cycle(state, api_url, ingestion_token)
                     for row in state.due():
                         if stop.is_set():
                             break

@@ -87,9 +87,10 @@ def test_discovery_scans_beyond_navigation_and_finds_external_sources(tmp_path, 
     found = [x for x in spider.parse(response) if isinstance(x, Request)]
     assert len(found) == 2
     assert any('page=2' in x.url for x in found)
-    rows = spider.state.db.execute('SELECT domain,discovered_from FROM sources').fetchall()
+    rows = spider.state.db.execute('SELECT domain,origin AS discovered_from FROM candidates').fetchall()
     assert [r['domain'] for r in rows] == ['new-venue.example']
     assert rows[0]['discovered_from'] == request.url
+    assert spider.state.due() == []
     spider.closed('finished')
 
 
@@ -124,7 +125,7 @@ def test_geocoding_is_persistent_and_bounded(tmp_path, monkeypatch):
     monkeypatch.setenv('CRAWLER_STATE_PATH', str(tmp_path / 'geo.db'))
     settings = {'GEOCODER_URL': 'https://geo.example/search', 'GEOCODER_USER_AGENT': 'test'}
     spider = SimpleNamespace(settings=settings)
-    get = Mock(return_value=Mock(raise_for_status=lambda: None, json=lambda: [{'lat': '48.15', 'lon': '17.12'}]))
+    get = Mock(return_value=Mock(status_code=200, raise_for_status=lambda: None, json=lambda: [{'lat': '48.15', 'lon': '17.12'}]))
     monkeypatch.setattr(requests, 'get', get)
     def item():
         return SimpleNamespace(venue_name='Test Hall', address='Street 9, Bratislava', latitude=None, longitude=None)
@@ -154,12 +155,13 @@ def test_rejected_payload_does_not_block_valid_queue_items(tmp_path, monkeypatch
 
 
 def test_network_policy_rejects_private_addresses(monkeypatch):
+    import asyncio
     from crawler import middleware
     from scrapy.exceptions import IgnoreRequest
     monkeypatch.setattr(middleware, 'deferToThread', lambda f: f())
     monkeypatch.setattr(middleware.socket, 'getaddrinfo', lambda *a, **kw: [(2, 1, 6, '', ('127.0.0.1', 80))])
     with pytest.raises(IgnoreRequest):
-        middleware.PublicNetworkMiddleware().process_request(Request('https://venue.example/events'), SimpleNamespace())
+        asyncio.run(middleware.PublicNetworkMiddleware().process_request(Request('https://venue.example/events'), SimpleNamespace()))
 
 
 def test_robots_crawl_delay_survives_later_responses():

@@ -56,12 +56,13 @@ def guess_category(title: str, description: Optional[str], hint: Optional[str]) 
 def normalize_event(
     raw: RawEvent, *, default_timezone: str = "Europe/Bratislava"
 ) -> Optional[NormalizedEvent]:
-    start_dt = parse_event_datetime(raw.start_raw)
+    from crawler.extraction.temporal import interval
+    start_dt, end_dt, temporal_evidence = interval(raw.start_raw, raw.end_raw, raw.duration_raw)
     if start_dt is None:
         return None
 
-    end_dt = parse_event_datetime(raw.end_raw) if raw.end_raw else None
     price, currency = parse_price(raw.price_raw)
+    previous = parse_event_datetime(raw.previous_start_raw) if raw.previous_start_raw else None
 
     return NormalizedEvent(
         title=clean_text(raw.title) or '',
@@ -85,4 +86,7 @@ def normalize_event(
         extraction_confidence=raw.extraction_confidence,
         event_status=raw.event_status,
         original_source_url=raw.original_source_url or raw.source_url,
+        temporal_evidence=temporal_evidence, extraction_method=raw.extraction_method,
+        organizer_name=clean_text(raw.organizer_name),
+        previous_start_time=previous.isoformat() if previous else None,
     )

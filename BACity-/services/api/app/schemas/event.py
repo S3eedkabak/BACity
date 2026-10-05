@@ -45,6 +45,10 @@ class EventCreate(EventBase):
     source_name: Optional[str] = None
     extraction_confidence: float = Field(default=0.5, ge=0.5, le=1)
     source_reliability: float = Field(default=0.5, ge=0, le=1)
+    temporal_evidence: str = Field(default='unknown', pattern='^(unknown|explicit_end|explicit_duration|text_range|invalid_end|invalid_local_time)$')
+    extraction_method: str = Field(default='unknown', max_length=80)
+    organizer_name: str | None = Field(default=None, max_length=200)
+    previous_start_time: datetime | None = None
 
     @model_validator(mode='after')
     def validate_ingestion(self):

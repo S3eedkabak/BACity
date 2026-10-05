@@ -2,6 +2,7 @@ import logging
 import time
 import os
 import re
+from datetime import datetime, timezone
 
 import requests
 
@@ -102,8 +103,11 @@ class GeocodePipeline:
                 },
                 headers={"User-Agent": self.user_agent},
                 timeout=8,
+                allow_redirects=False,
             )
             response.raise_for_status()
+            if 300 <= response.status_code < 400:
+                raise requests.HTTPError('Geocoder redirects are not permitted')
             results = response.json()
             if results:
                 coords = (float(results[0]["lat"]), float(results[0]["lon"]))
@@ -141,6 +145,8 @@ class ValidatePipeline:
         result = validate_event(item)
         if not result.accepted:
             logger.info("Rejected event %r: %s", item.title, result.reason)
+            spider.crawler.stats.inc_value('validation/rejected')
+            spider.crawler.stats.inc_value('validation/rejected/' + re.sub(r'[^a-z0-9]+','_',result.reason.lower()).strip('_')[:60])
             raise DropItem(f"Rejected: {result.reason}")
         if result.needs_advanced_extraction:
             logger.info(
@@ -148,10 +154,15 @@ class ValidatePipeline:
                 item.title,
             )
             spider.crawler.stats.inc_value("validation/low_confidence")
+            spider.crawler.stats.inc_value('validation/rejected')
+            spider.crawler.stats.inc_value('validation/rejected/low_confidence')
             raise DropItem("Insufficient confidence for publication")
-        if item.source_reliability <= 0.6 and not (
+        candidate_source = any(s.parser == 'structured' for s in getattr(spider,'sources',[]))
+        if (item.source_reliability <= 0.6 or candidate_source) and not (
             item.latitude is not None or 'bratislava' in (item.address or '').lower()
         ):
+            spider.crawler.stats.inc_value('validation/rejected')
+            spider.crawler.stats.inc_value('validation/rejected/no_local_evidence')
             raise DropItem("Discovered source lacks Bratislava location evidence")
         return item
 
@@ -185,14 +196,37 @@ class ApiSubmitPipeline:
         logger.info("Submitted %d events, %d failed", self.submitted, self.failed)
 
 
-class DurableSubmitPipeline:
+class QualityAuditPipeline:
+    """Non-writing live audit: same validation/completeness, no API or geocoder."""
+    def process_item(self, item, spider):
+        from crawler.quality import quality
+        limit = 100 if any(s.parser == 'structured' for s in getattr(spider, 'sources', [])) else 1000
+        if spider.crawler.stats.get_value('ingestion/queued', 0) >= limit:
+            spider.crawler.stats.inc_value('resource/item_limit')
+            raise DropItem('run_item_limit')
+        spider.crawler.stats.inc_value('quality/events')
+        spider.crawler.stats.inc_value('quality/score_total', quality(item)['score'])
+        if item.end_time:
+            spider.crawler.stats.inc_value('quality/with_end')
+        if item.latitude is not None and item.longitude is not None:
+            spider.crawler.stats.inc_value('quality/with_coordinates')
+        for key,present in {'with_venue':bool(item.venue_name),'with_category':item.category not in ('','Other'),
+                            'with_organizer':bool(item.organizer_name),
+                            'future_events':datetime.fromisoformat(item.start_time)>datetime.now(timezone.utc)}.items():
+            if present:
+                spider.crawler.stats.inc_value('quality/'+key)
+        spider.crawler.stats.inc_value("ingestion/queued")
+        return item
+
+
+class DurableSubmitPipeline(QualityAuditPipeline):
     def open_spider(self, spider):
         from crawler.state import State
         self.state = State()
 
     def process_item(self, item, spider):
+        super().process_item(item, spider)
         self.state.enqueue(_to_event_create_payload(item))
-        spider.crawler.stats.inc_value("ingestion/queued")
         return item
 
     def close_spider(self, spider):
@@ -226,6 +260,10 @@ def _to_event_create_payload(item) -> dict:
         "source_reliability": item.source_reliability,
         "status": item.event_status,
         "original_source_url": item.original_source_url,
+        "temporal_evidence": item.temporal_evidence,
+        "extraction_method": item.extraction_method,
+        "organizer_name": item.organizer_name,
+        "previous_start_time": item.previous_start_time,
     }
 
 

@@ -1,7 +1,8 @@
 """All evidence remains attached when multiple publishers describe one event."""
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, DateTime, Float, ForeignKey, String, UniqueConstraint
+from sqlalchemy import Column, DateTime, Float, ForeignKey, String, UniqueConstraint, JSON
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from app.database import Base
 from app.models.source import GUID
@@ -21,4 +22,5 @@ class EventSource(Base):
     reliability = Column(Float, nullable=False)
     dedup_confidence = Column(Float, nullable=False, default=1)
     last_seen_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    facts = Column(JSON().with_variant(JSONB(), 'postgresql'), nullable=False, default=dict)
     event = relationship('Event', back_populates='sources')

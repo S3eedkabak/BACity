@@ -24,6 +24,9 @@ class RawEvent:
     extraction_confidence: float = 0.5
     event_status: str = "fresh"
     original_source_url: Optional[str] = None
+    duration_raw: Optional[str] = None
+    previous_start_raw: Optional[str] = None
+    organizer_name: Optional[str] = None
 
 
 @dataclass
@@ -49,3 +52,7 @@ class NormalizedEvent:
     extraction_confidence: float
     event_status: str = "fresh"
     original_source_url: Optional[str] = None
+    temporal_evidence: str = 'unknown'
+    previous_start_time: Optional[str] = None
+    extraction_method: str = 'unknown'
+    organizer_name: Optional[str] = None

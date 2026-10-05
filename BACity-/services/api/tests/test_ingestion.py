@@ -65,5 +65,11 @@ def test_freshness_and_expiration(client, db_session):
     event.last_verified_at = datetime.utcnow() - timedelta(days=15)
     db_session.commit()
     assert client.post('/events/maintenance').status_code == 200
+    assert client.get('/events/' + item['id']).json()['status'] == 'stale'
+    from app.models.source import Source
+    source=db_session.query(Source).first()
+    source.last_success_at=datetime.utcnow(); source.crawl_status='healthy'
+    db_session.commit()
+    client.post('/events/maintenance')
     assert client.get('/events').json()['total'] == 0
     assert client.get('/events/' + item['id']).json()['status'] == 'removed'

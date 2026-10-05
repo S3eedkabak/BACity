@@ -41,7 +41,10 @@ def test_upgrade_backfills_existing_source_references():
             row = connection.execute(text('SELECT title_key,source_url FROM event_sources')).one()
             assert row.title_key == 'test jazz'
             assert row.source_url == 'https://venue.example/event'
-            assert connection.execute(text('SELECT version_num FROM alembic_version')).scalar() == '0012'
+            assert connection.execute(text('SELECT version_num FROM alembic_version')).scalar() == '0013'
+            assert connection.execute(text("SELECT data_type FROM information_schema.columns WHERE table_name='event_sources' AND column_name='facts'")).scalar() == 'jsonb'
+            assert connection.execute(text("SELECT count(*) FROM pg_constraint WHERE conname='ck_candidate_status'")).scalar() == 1
+            assert connection.execute(text("SELECT count(*) FROM pg_indexes WHERE indexname='ix_candidate_status_inspected'")).scalar() == 1
             assert connection.execute(text("SELECT data_type FROM information_schema.columns WHERE table_name='consumer_subscriptions' AND column_name='provider_purchase_token'")).scalar() == 'text'
             assert connection.execute(text('SELECT trust_level FROM events')).scalar() == 'Unverified'
             assert connection.execute(text('SELECT count(*) FROM submissions')).scalar() == 0
@@ -105,6 +108,21 @@ def test_upgrade_backfills_existing_source_references():
             assert area_watch_cascade == 1
 
         sessions = sessionmaker(bind=db)
+        # Exercise the new ORM JSONB evidence and correlated lifecycle SQL on
+        # PostgreSQL, not only SQLite's metadata-created test schema.
+        from app.crud.ingestion import ingest, expire_events
+        from app.schemas.event import EventCreate
+        from app.models.event_source import EventSource
+        from datetime import timezone
+        with sessions() as verification:
+            starts=datetime.now(timezone.utc)+timedelta(days=2)
+            event=ingest(verification,EventCreate(title='Postgres evidence audit',
+                start_time=starts,end_time=starts+timedelta(hours=2),
+                venue_name='Audit Hall',address='Bratislava',
+                source_url='https://audit.example/events/1',temporal_evidence='explicit_end'))
+            evidence=verification.query(EventSource).filter_by(event_id=event.id).one()
+            assert evidence.facts['best_end']['rank'] == 3
+            expire_events(verification)
         with sessions.begin() as seed:
             owner = User(email='locking@example.com', hashed_password='not-used')
             seed.add(owner)

@@ -56,7 +56,7 @@ def _strip_noise(text: str) -> str:
 
 
 def _localize(dt: datetime, tz):
-    return dt if dt.tzinfo else tz.localize(dt)
+    return dt if dt.tzinfo else tz.localize(dt, is_dst=None)
 
 
 def parse_event_datetime(
@@ -72,7 +72,7 @@ def parse_event_datetime(
         try:
             parsed = dateutil_parser.isoparse(cleaned)
             return _localize(parsed, tz)
-        except ValueError:
+        except (ValueError, pytz.InvalidTimeError):
             pass
 
     match = _SK_NAMED_DATE_RE.search(cleaned)
@@ -83,8 +83,8 @@ def parse_event_datetime(
             year = int(match.group("year") or reference_year)
             hour = int(match.group("hour") or 0)
             minute = int(match.group("minute") or 0)
-            return tz.localize(datetime(year, month, day, hour, minute))
-        except (KeyError, ValueError):
+            return tz.localize(datetime(year, month, day, hour, minute), is_dst=None)
+        except (KeyError, ValueError, pytz.InvalidTimeError):
             return None
 
     match = _SK_DOT_DATE_RE.search(cleaned)
@@ -97,9 +97,9 @@ def parse_event_datetime(
                     int(match.group("day")),
                     int(match.group("hour") or 0),
                     int(match.group("minute") or 0),
-                )
+                ), is_dst=None
             )
-        except ValueError:
+        except (ValueError, pytz.InvalidTimeError):
             return None
 
     try:
@@ -114,7 +114,10 @@ def parse_event_datetime(
     except (ValueError, OverflowError, TypeError):
         return None
 
-    return _localize(parsed, tz)
+    try:
+        return _localize(parsed, tz)
+    except pytz.InvalidTimeError:
+        return None
 
 
 def parse_price(raw: Optional[str]) -> tuple[Optional[float], Optional[str]]:

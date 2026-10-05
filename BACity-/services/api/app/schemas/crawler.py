@@ -19,7 +19,7 @@ class CrawlRunReport(BaseModel):
     started_at: datetime
     finished_at: datetime
     success: bool
-    status: Literal["healthy", "empty", "failed", "timed_out", "blocked"]
+    status: Literal["healthy", "empty", "failed", "timed_out", "blocked", "partial"]
     pages_processed: int = Field(ge=0)
     items_processed: int = Field(ge=0)
     accepted_events: int = Field(ge=0)
@@ -27,6 +27,7 @@ class CrawlRunReport(BaseModel):
     extraction_errors: int = Field(ge=0)
     skip_reasons: dict[str, int] = Field(default_factory=dict)
     error: str | None = Field(default=None, max_length=2000)
+    quality_metrics: dict[str, float] = Field(default_factory=dict, max_length=10)
 
 
 class SourceAdminUpdate(BaseModel):

@@ -100,6 +100,7 @@ class Source(Base):
     consecutive_failures = Column(Integer, nullable=False, default=0)
     last_error = Column(String, nullable=True)
     last_skip_reasons = Column(JSON, nullable=False, default=dict)
+    quality_metrics = Column(JSON, nullable=False, default=dict)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -124,5 +125,6 @@ class CrawlerRun(Base):
     extraction_errors = Column(Integer, nullable=False, default=0)
     skip_reasons = Column(JSON, nullable=False, default=dict)
     error = Column(String, nullable=True)
+    quality_metrics = Column(JSON, nullable=False, default=dict)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     source = relationship("Source", back_populates="crawl_runs")

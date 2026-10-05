@@ -5,7 +5,8 @@ from datetime import datetime, timedelta, timezone
 from difflib import SequenceMatcher
 from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 
-from sqlalchemy import func, text
+from sqlalchemy import func, text, or_
+from sqlalchemy.orm import selectinload
 from app.models.event import Event, EventStatus
 from app.models.event_source import EventSource
 from app.models.source import Source, SourceStatus
@@ -50,11 +51,15 @@ def ingest(db, payload):
     title_key = normalize(payload.title)
     evidence = db.query(EventSource).filter_by(source_url=payload.source_url, start_time=payload.start_time, title_key=title_key).first()
     existing = evidence.event if evidence else db.query(Event).filter_by(source_url=payload.source_url, start_time=payload.start_time, title=payload.title).first()
+    if existing is None and payload.previous_start_time:
+        previous = db.query(EventSource).filter_by(source_url=payload.source_url,
+            start_time=utc(payload.previous_start_time),title_key=title_key).first()
+        existing = previous.event if previous else None
     score = 1.0
     if existing is None:
         # Conservative match: near-identical title + same place and nearby time.
         # A shared venue alone never merges two different performances.
-        candidates = db.query(Event).filter(Event.start_time.between(payload.start_time - timedelta(hours=3), payload.start_time + timedelta(hours=3))).all()
+        candidates = db.query(Event).options(selectinload(Event.venue)).filter(Event.start_time.between(payload.start_time - timedelta(minutes=15), payload.start_time + timedelta(minutes=15))).order_by(Event.start_time, Event.id).limit(500).all()
         for candidate in candidates:
             title_score = SequenceMatcher(None, normalize(payload.title), normalize(candidate.title)).ratio()
             same_place = bool(payload.address and normalize(payload.address) == normalize(candidate.address)) or bool(
@@ -64,10 +69,11 @@ def ingest(db, payload):
                 # ~150 m in Bratislava; enough for formatting/address variation,
                 # too small to collapse different venues across a neighborhood.
                 same_place = abs(payload.latitude - candidate.latitude) <= .00135 and abs(payload.longitude - candidate.longitude) <= .002
+            if payload.venue_name and candidate.venue and SequenceMatcher(None,normalize(payload.venue_name),normalize(candidate.venue.name)).ratio() < .8:
+                same_place = False
             same_time = abs((candidate.start_time - payload.start_time).total_seconds()) <= 900
-            description_score = SequenceMatcher(None, normalize(payload.description), normalize(candidate.description)).ratio() if payload.description and candidate.description else 0
-            if same_place and title_score >= .90 and (same_time or description_score > .8):
-                existing, score = candidate, .8 * title_score + .2 * (1 if same_time else description_score)
+            if same_place and title_score >= .90 and same_time:
+                existing, score = candidate, .8 * title_score + .2
                 break
     venue = None
     if payload.venue_id:
@@ -81,7 +87,13 @@ def ingest(db, payload):
             db.flush()
         elif payload.latitude is not None and payload.longitude is not None:
             venue.latitude, venue.longitude = payload.latitude, payload.longitude
-    values = payload.model_dump(exclude={'venue_name', 'source_name', 'venue_id', 'source_id', 'original_source_url'})
+    values = payload.model_dump(exclude={'venue_name', 'source_name', 'venue_id', 'source_id', 'original_source_url', 'temporal_evidence', 'extraction_method', 'organizer_name','previous_start_time'})
+    temporal_rank = {'explicit_end': 3, 'explicit_duration': 2, 'text_range': 1}.get(payload.temporal_evidence, 0)
+    old_facts = [item.facts for item in db.query(EventSource).filter_by(event_id=existing.id).limit(50)] if existing else []
+    old_end_key = max(((fact.get('best_end', {}).get('rank', 0), fact.get('best_end', {}).get('quality', 0))
+                       for fact in old_facts if fact.get('best_end', {}).get('value') == (existing.end_time.isoformat() if existing and existing.end_time else None)), default=(3,existing.source_reliability*existing.extraction_confidence) if existing and existing.end_time else (0, 0))
+    incoming_end_key = (temporal_rank, payload.source_reliability * payload.extraction_confidence)
+    outcome = 'created' if existing is None else 'updated' if evidence is not None else 'merged'
     if existing is None:
         existing = Event(**values, venue_id=venue.id if venue else None, source_id=source.id)
         db.add(existing)
@@ -90,8 +102,15 @@ def ingest(db, payload):
         quality = payload.source_reliability * payload.extraction_confidence
         preferred = quality >= existing.source_reliability * existing.extraction_confidence
         same_source = payload.source_url == existing.source_url
+        if (preferred or same_source) and payload.previous_start_time and payload.start_time != existing.start_time and payload.end_time is None:
+            existing.end_time = None
         for field, value in values.items():
-            if value is not None and (preferred or same_source or getattr(existing, field) is None):
+            if field == 'end_time':
+                if value is not None and (existing.end_time is None or incoming_end_key >= old_end_key):
+                    existing.end_time = value
+                continue
+            source_lifecycle_update = same_source and field in ('status','start_time')
+            if value is not None and (preferred or source_lifecycle_update or getattr(existing, field) is None):
                 setattr(existing, field, value)
         existing.tags = sorted(set(existing.tags or []) | set(payload.tags))
         if venue and (preferred or not existing.venue_id):
@@ -108,6 +127,18 @@ def ingest(db, payload):
     evidence.reliability = payload.source_reliability
     evidence.dedup_confidence = score
     evidence.last_seen_at = now
+    best_end = (evidence.facts or {}).get('best_end', {})
+    if payload.end_time and incoming_end_key >= (best_end.get('rank',0),best_end.get('quality',0)):
+        best_end = {'value': payload.end_time.isoformat(), 'rank': temporal_rank,
+                    'quality': incoming_end_key[1], 'method': payload.extraction_method, 'observed_at': now.isoformat()}
+    evidence.facts = {'start_time': payload.start_time.isoformat(),
+                      'end_time': payload.end_time.isoformat() if payload.end_time else None,
+                      'end_rank': temporal_rank, 'temporal_evidence': payload.temporal_evidence,
+                      'method': payload.extraction_method, 'confidence': payload.extraction_confidence,
+                      'organizer': payload.organizer_name, 'observed_at': now.isoformat(), 'best_end': best_end}
+    metrics = dict(source.quality_metrics or {})
+    metrics['ingestion_'+outcome] = metrics.get('ingestion_'+outcome,0) + 1
+    source.quality_metrics = metrics
     db.commit()
     db.refresh(existing)
     return existing
@@ -122,16 +153,13 @@ def expire_events(db):
         {Event.status: EventStatus.stale}, synchronize_session=False)
     # Removal requires positive evidence from a non-failing source. Merely aging
     # while every publisher is unavailable must never look like upstream removal.
-    removal_candidates = db.query(Event).filter(
-        Event.status == EventStatus.stale,
-        Event.last_verified_at < now - timedelta(days=14),
-    ).all()
-    for event in removal_candidates:
-        evidence = db.query(EventSource, Source).join(Source, EventSource.source_id == Source.id).filter(
-            EventSource.event_id == event.id,
-            Source.status == SourceStatus.active,
-        ).all()
-        if any(source.last_success_at is None or source.last_success_at > item.last_seen_at
-               for item, source in evidence):
-            event.status = EventStatus.removed
+    evidence = db.query(EventSource.id).filter(EventSource.event_id == Event.id).exists()
+    uncertain = db.query(EventSource.id).join(Source,EventSource.source_id == Source.id).filter(
+        EventSource.event_id == Event.id,
+        or_(Source.status != SourceStatus.active, Source.crawl_status != 'healthy',
+            Source.last_success_at.is_(None), Source.last_success_at <= EventSource.last_seen_at),
+    ).exists()
+    db.query(Event).filter(Event.status == EventStatus.stale,
+        Event.last_verified_at < now - timedelta(days=14), evidence, ~uncertain).update(
+            {Event.status: EventStatus.removed}, synchronize_session=False)
     db.commit()
