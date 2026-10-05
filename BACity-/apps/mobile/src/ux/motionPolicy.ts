@@ -9,3 +9,9 @@ export function visibleWait(busy: boolean, revealed: boolean, entryActive: boole
 export function substantialWait(allowed: boolean, pending: boolean, hasContent: boolean) {
   return allowed && pending && !hasContent;
 }
+
+/** Release entry only after the current account's Home route is acknowledged. */
+export function entryDestination(owner: string | null, currentOwner: string | null, pathname: string) {
+  if (!owner || owner !== currentOwner) return 'ignore';
+  return pathname === '/discover' || pathname === '/(tabs)/discover' ? 'complete' : 'home';
+}

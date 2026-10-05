@@ -1,8 +1,40 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
-import { entryPlayback, visibleWait, substantialWait } from './motionPolicy.ts';
+import { entryDestination, entryPlayback, visibleWait, substantialWait } from './motionPolicy.ts';
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
+
+test('completed sign-in entry goes to Home from auth, detail, map and restored routes', () => {
+  for (const pathname of ['/auth', '/oauth', '/event/abc', '/map', '/profile']) {
+    assert.equal(entryDestination('account-a', 'account-a', pathname), 'home');
+  }
+  assert.equal(entryDestination('account-a', 'account-a', '/discover'), 'complete');
+  assert.equal(entryDestination('account-a', 'account-a', '/(tabs)/discover'), 'complete');
+});
+
+test('stale entry completion after logout or account switch cannot navigate', () => {
+  for (const currentOwner of [null, 'account-b']) assert.equal(entryDestination('account-a', currentOwner, '/auth'), 'ignore');
+  assert.equal(entryDestination(null, 'account-a', '/discover'), 'ignore');
+});
+
+test('entry route is acknowledged before releasing overlay; callback remains stable', () => {
+  const source = read('../../app/_layout.tsx');
+  assert.match(source, /const finishEntry = useCallback/);
+  assert.match(source, /if \(!navigation\?\.key \|\| completedOwner === userId\) return/);
+  assert.match(source, /destination === 'home'\) router.replace\('\/\(tabs\)\/discover'\)/);
+  assert.match(source, /destination === 'complete'\) setCompletedOwner\(finishedOwner\)/);
+  assert.match(source, /useAuthStore.getState\(\).user\?\.id === userId/);
+});
+
+test('entry clip is locally prepared and does not play invisibly or show a separate logo page', () => {
+  const source = read('../components/BACityMotion.tsx');
+  assert.match(source, /asset.localUri \|\| asset.uri/);
+  assert.match(source, /shouldPlay=\{foreground && ready\}/);
+  assert.match(source, /mode === 'wait' \|\| playback === 'static'/);
+  assert.match(source, /onReadyForDisplay=\{\(\) => setReady\(true\)\}/);
+  assert.match(source, /entryPreparation = null; throw error/);
+  assert.match(source, /mode === 'entry' \? ResizeMode.CONTAIN : ResizeMode.COVER/);
+});
 
 test('inbox and library retain loaded content on refresh failure and expose recovery', () => {
   const inbox = read('../../app/messages/index.tsx');

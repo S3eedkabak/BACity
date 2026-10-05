@@ -1,12 +1,18 @@
 import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, AppState, Modal, StyleSheet, Text, View } from 'react-native';
 import { AVPlaybackStatus, ResizeMode, Video } from 'expo-av';
+import { Asset } from 'expo-asset';
 import { BrandMark } from './BrandMark';
 import { colors } from '../theme/colors';
 import { tokens } from '../theme/tokens';
 import { entryPlayback, visibleWait } from '../ux/motionPolicy';
 
 const assets = { entry: require('../../assets/motion/squiggle-flow.mp4'), wait: require('../../assets/motion/car-racing.mp4') };
+let entryPreparation: Promise<Asset> | null = null;
+export function prepareEntryFilm() {
+  if (!entryPreparation) entryPreparation = Asset.fromModule(assets.entry).downloadAsync().catch(error => { entryPreparation = null; throw error; });
+  return entryPreparation;
+}
 
 export function useReducedMotion() {
   const [reduced, setReduced] = useState<boolean | null>(null);
@@ -26,9 +32,17 @@ function BrandFilm({ mode, onComplete }: { mode: 'entry' | 'wait'; onComplete?: 
   const mounted = useRef(true);
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
+  const [source, setSource] = useState<{ uri: string } | null>(null);
   const [foreground, setForeground] = useState(AppState.currentState === 'active');
   const reduced = useReducedMotion();
   const playback = entryPlayback(reduced, failed, foreground);
+  useEffect(() => {
+    if (reduced !== false) return;
+    let live = true;
+    const preparation = mode === 'entry' ? prepareEntryFilm() : Asset.fromModule(assets.wait).downloadAsync();
+    void preparation.then(asset => { if (live) setSource({ uri: asset.localUri || asset.uri }); }).catch(() => { if (live) setFailed(true); });
+    return () => { live = false; };
+  }, [mode, reduced]);
   const finish = useCallback(() => { if (mounted.current && !completed.current) { completed.current = true; onComplete?.(); } }, [onComplete]);
   useEffect(() => {
     mounted.current = true;
@@ -47,10 +61,10 @@ function BrandFilm({ mode, onComplete }: { mode: 'entry' | 'wait'; onComplete?: 
   const status = useCallback((value: AVPlaybackStatus) => {
     if (value.isLoaded && value.didJustFinish && mode === 'entry') finish();
   }, [finish, mode]);
-  return <View style={styles.film} accessibilityLiveRegion="polite">
-    <View style={styles.staticBrand}><BrandMark /><Text style={styles.caption}>{mode === 'entry' ? 'Your city is opening.' : 'Putting your plans in motion.'}</Text></View>
-    {reduced === false && !failed && <Video ref={player} source={assets[mode]} style={[StyleSheet.absoluteFill, { opacity: ready ? 1 : 0 }]} resizeMode={ResizeMode.COVER}
-      shouldPlay={foreground} isMuted volume={0} isLooping={false} useNativeControls={false}
+  return <View style={[styles.film, mode === 'entry' && !ready && playback !== 'static' && styles.preparingEntry]} accessibilityLiveRegion="polite">
+    {(mode === 'wait' || playback === 'static') && <View style={styles.staticBrand}><BrandMark /><Text style={styles.caption}>{mode === 'entry' ? 'Your city is opening.' : 'Putting your plans in motion.'}</Text></View>}
+    {reduced === false && !failed && source && <Video ref={player} source={source} style={[StyleSheet.absoluteFill, { opacity: ready ? 1 : 0 }]} resizeMode={mode === 'entry' ? ResizeMode.CONTAIN : ResizeMode.COVER}
+      shouldPlay={foreground && ready} isMuted volume={0} isLooping={false} useNativeControls={false} progressUpdateIntervalMillis={250}
       onReadyForDisplay={() => setReady(true)} onPlaybackStatusUpdate={status} onError={() => setFailed(true)} />}
   </View>;
 }
@@ -88,7 +102,8 @@ export function useBACityWaiting(active: boolean, label: string) {
 
 const styles = StyleSheet.create({
   film: { flex: 1, backgroundColor: colors.background }, staticBrand: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
-  caption: { ...tokens.type.metadata, color: colors.textMuted }, entry: { ...StyleSheet.absoluteFillObject, zIndex: 1000, backgroundColor: colors.background },
+  preparingEntry: { backgroundColor: 'transparent' },
+  caption: { ...tokens.type.metadata, color: colors.textMuted }, entry: { ...StyleSheet.absoluteFillObject, zIndex: 1000 },
   wait: { flex: 1, backgroundColor: colors.background }, waitLabel: { position: 'absolute', bottom: 48, left: 24, right: 24, padding: 20, borderRadius: 24, backgroundColor: colors.surface },
   waitText: { ...tokens.type.section, color: colors.text }, waitHint: { ...tokens.type.action, paddingVertical: 16, color: colors.primaryDark },
 });
