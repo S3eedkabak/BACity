@@ -36,6 +36,8 @@ class AreaWatchUpdate(StrictModel):
 
     @model_validator(mode="after")
     def validate_update(self):
+        if any(getattr(self, field) is None for field in self.model_fields_set):
+            raise ValueError('Provided fields must not be null')
         if (self.center_latitude is None) != (self.center_longitude is None):
             raise ValueError("Provide both coordinates")
         if self.categories is not None and len(self.categories) != len(set(self.categories)):

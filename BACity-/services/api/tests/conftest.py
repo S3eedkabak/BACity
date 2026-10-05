@@ -1,6 +1,8 @@
 import os
 import sys
 import uuid
+import base64
+import json
 from datetime import datetime, timedelta
 
 import pytest
@@ -18,6 +20,15 @@ from fastapi.testclient import TestClient
 TEST_DB_URL = "sqlite:///./test.db"
 engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+@pytest.fixture(autouse=True)
+def private_storage_keys(monkeypatch):
+    # Exercise all API paths with encrypted storage; ephemeral keys never persist.
+    from app.config import get_settings
+    config = get_settings()
+    monkeypatch.setattr(config, 'private_data_keys', json.dumps({'test': base64.b64encode(os.urandom(32)).decode()}))
+    monkeypatch.setattr(config, 'private_data_active_key', 'test')
 
 
 @pytest.fixture(scope="function", autouse=True)

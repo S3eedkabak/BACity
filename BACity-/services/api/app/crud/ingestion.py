@@ -90,7 +90,9 @@ def ingest(db, payload):
             venue = Venue(name=name, address=payload.address, city='Bratislava', latitude=payload.latitude, longitude=payload.longitude)
             db.add(venue)
             db.flush()
-        elif payload.latitude is not None and payload.longitude is not None:
+        elif (venue.latitude is None or venue.longitude is None) and payload.latitude is not None and payload.longitude is not None:
+            # Event-source trust does not confer ownership of a shared venue.
+            # Established coordinates may only be corrected through moderation.
             venue.latitude, venue.longitude = payload.latitude, payload.longitude
     values = payload.model_dump(exclude={'venue_name', 'source_name', 'venue_id', 'source_id', 'original_source_url', 'temporal_evidence', 'extraction_method', 'organizer_name','previous_start_time'})
     temporal_rank = {'explicit_end': 3, 'explicit_duration': 2, 'text_range': 1}.get(payload.temporal_evidence, 0)

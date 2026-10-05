@@ -289,7 +289,10 @@ def follow_targets(target_type: str = Query(max_length=20), q: str = Query('', m
     elif target_type == 'neighborhood':
         values = {value for (value,) in db.query(Event.neighborhood).filter(Event.neighborhood.isnot(None)).distinct()}
         values.update(value for (value,) in db.query(Place.neighborhood).filter(Place.neighborhood.isnot(None)).distinct())
-        values.update(value for (value,) in db.query(User.neighborhood).filter(User.neighborhood.isnot(None)).distinct())
+        values.update(value for (value,) in db.query(User.neighborhood).filter(
+            User.neighborhood.isnot(None), User.active.is_(True), User.public_profile.is_(True),
+            ~User.id.in_(blocked_ids(db, user.id)),
+        ).distinct())
         values = sorted(value for value in values if q.casefold() in value.casefold())
     else:
         raise HTTPException(422, 'Unsupported follow target type')
@@ -309,6 +312,9 @@ def unfollow(identifier: UUID, user=Depends(get_current_user), db: Session = Dep
 
 @router.post('/blocks/{identifier}')
 def block(identifier: UUID, user=Depends(get_current_user), db: Session = Depends(get_db)):
+    _lock_message_users(db, user.id, identifier)
+    if not user.active:
+        raise HTTPException(401, 'Account unavailable')
     target = row(db, User, identifier)
     if target.id == user.id:
         raise HTTPException(422, 'Cannot block yourself')
@@ -689,9 +695,20 @@ def can_message(db, user, target):
     return bool(follows(user.id, target.id) and follows(target.id, user.id))
 
 
+def _lock_message_users(db, *identifiers):
+    """Shared locks for send/block/deletion; stable order prevents pair deadlocks."""
+    # PostgreSQL NO KEY UPDATE serializes these mutations without conflicting
+    # with unrelated FK key-share checks (IDs are never changed by deletion).
+    return db.query(User).filter(User.id.in_(identifiers)).order_by(User.id).populate_existing().with_for_update(key_share=True).all()
+
+
 @router.post('/messages/{identifier}')
 def send_message(identifier: UUID, payload: BodyInput, user=Depends(require_verified), db: Session = Depends(get_db)):
+    version = user.token_version
     rate_limit(db, 'message:' + str(user.id), 30)
+    _lock_message_users(db, user.id, identifier)
+    if not user.active or not user.email_verified or user.token_version != version:
+        raise HTTPException(401, 'Session changed; sign in again')
     target = row(db, User, identifier)
     if not can_message(db, user, target):
         raise HTTPException(403, 'Messaging requires mutual follows or recipient opt-in')
@@ -833,7 +850,7 @@ def export_account(user=Depends(get_current_user), db: Session = Depends(get_db)
 @router.delete('/account')
 def delete_account(payload: Reason, user=Depends(get_current_user), db: Session = Depends(get_db)):
     """Erase private/activity data and anonymize retained public or compliance records."""
-    user_id, old_email = user.id, user.email
+    user_id, old_email, version = user.id, user.email, user.token_version
     google_subscriptions = db.query(ConsumerSubscription).filter_by(
         provider='google_play', user_id=user_id,
     ).all()
@@ -852,6 +869,11 @@ def delete_account(payload: Reason, user=Depends(get_current_user), db: Session 
             raise HTTPException(409, 'Cancel consumer billing before deleting this account')
         from app.core.consumer_billing import StripeConsumerClient, cancel_consumer_billing_for_deletion
         cancel_consumer_billing_for_deletion(db, user, StripeConsumerClient(settings), settings)
+    # Provider reconciliation can commit; acquire this lock afterwards and hold
+    # it through erasure. Message send/block share it and recheck live state.
+    _lock_message_users(db, user_id)
+    if not user.active or user.token_version != version:
+        raise HTTPException(401, 'Account unavailable')
     _avatar_path(user_id).unlink(missing_ok=True)
     provider_revocation = {'stripe': 'cancelled'} if billing_customer else {}
     if google_subscriptions:

@@ -7,6 +7,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 from app.database import Base
 from app.models.source import GUID
+from app.core.encryption import EncryptedText
 
 
 class ConsumerSubscription(Base):
@@ -27,7 +28,7 @@ class ConsumerSubscription(Base):
     external_customer_id = Column(String(255))
     external_subscription_id = Column(String(255))
     # Restricted provider credential; never serialize or include in account exports.
-    provider_purchase_token = Column(Text)
+    provider_purchase_token = Column(EncryptedText('consumer_subscriptions.provider_purchase_token'))
     product_id = Column(String(255), nullable=False)
     status = Column(String(32), nullable=False, index=True)
     current_period_start = Column(DateTime)

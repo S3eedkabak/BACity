@@ -17,6 +17,8 @@ def allowed_url(url):
     host = (parsed.hostname or '').lower().rstrip('.')
     if parsed.scheme not in ('http', 'https') or not host or parsed.username or parsed.password:
         return False
+    if '.' not in host or host.endswith(('.local', '.internal', '.localhost')):
+        return False
     if parsed.port not in (None, 80, 443):
         return False
     blocked = ['facebook.com', 'fb.com', 'instagram.com', 'tiktok.com', 'twitter.com', 'x.com', 'youtube.com', 'youtu.be']

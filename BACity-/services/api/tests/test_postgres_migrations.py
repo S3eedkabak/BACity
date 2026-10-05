@@ -21,7 +21,7 @@ from app.models.entitlement import ConsumerSubscription
 
 
 @pytest.mark.skipif(not os.getenv('TEST_POSTGRES_URL'), reason='TEST_POSTGRES_URL not configured')
-def test_upgrade_backfills_existing_source_references():
+def test_upgrade_backfills_existing_source_references(monkeypatch):
     url = make_url(os.environ['TEST_POSTGRES_URL'])
     name = 'bacity_test_' + uuid.uuid4().hex
     admin = create_engine(url, isolation_level='AUTOCOMMIT')
@@ -203,8 +203,75 @@ def test_upgrade_backfills_existing_source_references():
                 external_subscription_id='a' * 64, provider_purchase_token='test-only-' + 'x' * 4096,
                 product_id='test_product', status='expired',
             ))
+        from app.config import get_settings
+        from app.core.encryption import PREFIX, decrypt
+        from app.models.community import Message
         with db.connect() as connection:
-            assert connection.execute(text("SELECT length(provider_purchase_token) FROM consumer_subscriptions WHERE provider='google_play'")).scalar() == 4106
+            stored = connection.execute(text("SELECT provider_purchase_token FROM consumer_subscriptions WHERE provider='google_play'")).scalar()
+            assert stored.startswith(PREFIX)
+            assert len(decrypt(stored, 'consumer_subscriptions.provider_purchase_token', get_settings())) == 4106
+        # Actual HTTP send versus delete on isolated PostgreSQL, not just helper
+        # authorization. Deletion must wait for send, then erase its new row.
+        import threading
+        from concurrent.futures import ThreadPoolExecutor
+        from fastapi.testclient import TestClient
+        from app.main import app
+        from app.database import get_db
+        from app.core.security import create_access_token
+        from app.api.routes import community
+        assert_row_lock(lambda session: community._lock_message_users(session, owner_id))
+        with sessions.begin() as seed:
+            sender = User(email='race-sender@example.com', hashed_password='unused', email_verified=True)
+            recipient = User(email='race-recipient@example.com', hashed_password='unused', email_verified=True,
+                             allow_general_messages=True)
+            seed.add_all([sender, recipient])
+            seed.flush()
+            sender_id, recipient_id = sender.id, recipient.id
+        sender_headers = {'Authorization': 'Bearer ' + create_access_token('race-sender@example.com')}
+        recipient_headers = {'Authorization': 'Bearer ' + create_access_token('race-recipient@example.com')}
+        entered, deleting_entered, release = threading.Event(), threading.Event(), threading.Event()
+        original = community.can_message
+        original_lock = community._lock_message_users
+        def paused_check(*args):
+            entered.set()
+            assert release.wait(10)
+            return original(*args)
+        def observed_lock(session, *identifiers):
+            if identifiers == (recipient_id,):
+                deleting_entered.set()
+            return original_lock(session, *identifiers)
+        def isolated_db():
+            with sessions() as session:
+                yield session
+        previous = app.dependency_overrides.get(get_db)
+        app.dependency_overrides[get_db] = isolated_db
+        monkeypatch.setattr(community, 'can_message', paused_check)
+        monkeypatch.setattr(community, '_lock_message_users', observed_lock)
+        try:
+            with TestClient(app) as http, ThreadPoolExecutor(max_workers=2) as pool:
+                sending = pool.submit(http.post, f'/community/messages/{recipient_id}', headers=sender_headers,
+                                      json={'body': 'Concurrent private fixture'})
+                assert entered.wait(10)
+                deleting = pool.submit(http.request, 'DELETE', '/community/account', headers=recipient_headers,
+                                       json={'reason': 'Isolated concurrency verification'})
+                assert deleting_entered.wait(10)
+                assert not deleting.done()
+                release.set()
+                assert sending.result(15).status_code == 200
+                assert deleting.result(15).status_code == 200
+                assert http.post(f'/community/messages/{recipient_id}', headers=sender_headers,
+                                 json={'body': 'Must not resurrect deleted chat'}).status_code == 403
+                assert http.get(f'/community/messages/{sender_id}', headers=recipient_headers).status_code == 401
+            with sessions() as check:
+                assert check.query(Message).filter(Message.recipient_id == recipient_id).count() == 0
+        finally:
+            release.set()
+            if previous is None:
+                app.dependency_overrides.pop(get_db, None)
+            else:
+                app.dependency_overrides[get_db] = previous
+            monkeypatch.setattr(community, 'can_message', original)
+            monkeypatch.setattr(community, '_lock_message_users', original_lock)
         subprocess.run([sys.executable, '-m', 'alembic', 'downgrade', '0011'], cwd=api_dir, env=env, check=True, capture_output=True)
         subprocess.run([sys.executable, '-m', 'alembic', 'upgrade', 'head'], cwd=api_dir, env=env, check=True, capture_output=True)
         with db.connect() as connection:

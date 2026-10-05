@@ -58,5 +58,9 @@
     "@types/react": "~18.2.45",
     "typescript": "~5.3.3"
   },
+  "overrides": {
+    "postcss@>=8 <9": "8.5.28",
+    "ajv@>=8 <9": "8.20.0"
+  },
   "private": true
 }

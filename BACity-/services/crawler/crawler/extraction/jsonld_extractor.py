@@ -17,18 +17,33 @@ EVENT_TYPES = {"Event", "MusicEvent", "TheaterEvent", "Festival",
                "SportsEvent", "ExhibitionEvent", "ScreeningEvent",
                "SocialEvent", "EducationEvent", "ComedyEvent"}
 
+MAX_EVENTS = 100
+MAX_JSON_BYTES = 2 * 1024 * 1024
+MAX_DEPTH = 64
+MAX_NODES = 10000
+
 
 def _flatten_jsonld(node):
-    """JSON-LD can nest an @graph, or be a list of top-level nodes; flatten both."""
-    if isinstance(node, list):
-        for item in node:
-            yield from _flatten_jsonld(item)
-    elif isinstance(node, dict):
-        if _is_event_type(node):
-            yield node
-        for value in node.values():
-            if isinstance(value, (dict, list)):
-                yield from _flatten_jsonld(value)
+    """Bounded iterative traversal: hostile nesting must not exhaust recursion."""
+    stack = [(node, 0)]
+    visited = 0
+    while stack and visited < MAX_NODES:
+        node, depth = stack.pop()
+        visited += 1
+        if depth > MAX_DEPTH:
+            continue
+        if isinstance(node, dict):
+            if _is_event_type(node):
+                yield node
+            children = list(node.values())
+        elif isinstance(node, list):
+            children = node
+        else:
+            continue
+        # Preserve source order while bounding queued work as well as visits.
+        remaining = MAX_NODES - visited - len(stack)
+        stack.extend((child, depth + 1) for child in reversed(children[:max(0, remaining)])
+                     if isinstance(child, (dict, list)))
 
 
 def _is_event_type(node: dict) -> bool:
@@ -39,12 +54,16 @@ def _is_event_type(node: dict) -> bool:
 
 
 def _text(value) -> Optional[str]:
+    for _ in range(MAX_DEPTH):
+        if not isinstance(value, list):
+            break
+        value = value[0] if value else None
+    else:
+        return None
     if value is None:
         return None
     if isinstance(value, dict):
         return value.get("name") or value.get("url") or value.get("contentUrl") or value.get("@id")
-    if isinstance(value, list) and value:
-        return _text(value[0])
     return str(value)
 
 
@@ -63,16 +82,22 @@ def _price_from_offers(offers) -> tuple[Optional[str], Optional[str]]:
 def extract_jsonld_events(html: str, source_url: str) -> list[RawEvent]:
     """Parse every <script type="application/ld+json"> block on a page and
     return one RawEvent per schema.org Event node found."""
+    if len(html.encode('utf-8')) > 5 * 1024 * 1024:
+        return []
     soup = BeautifulSoup(html, "html.parser")
     results: list[RawEvent] = []
 
-    for tag in soup.find_all("script", attrs={"type": "application/ld+json"}):
+    total_bytes = 0
+    for tag in soup.find_all("script", attrs={"type": "application/ld+json"}, limit=32):
         raw = tag.string or tag.get_text()
         if not raw or not raw.strip():
             continue
+        total_bytes += len(raw.encode('utf-8'))
+        if total_bytes > MAX_JSON_BYTES:
+            break
         try:
             data = json.loads(raw)
-        except (json.JSONDecodeError, TypeError):
+        except (json.JSONDecodeError, TypeError, RecursionError):
             continue
 
         for node in _flatten_jsonld(data):
@@ -122,5 +147,7 @@ def extract_jsonld_events(html: str, source_url: str) -> list[RawEvent]:
                 extraction_method="jsonld",
                 extraction_confidence=0.95,
             ))
+            if len(results) >= MAX_EVENTS:
+                return results
 
     return results

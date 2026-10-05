@@ -16,6 +16,8 @@ services:
       retries: 10
   api:
     build: ./services/api
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
     env_file: .env.production
     environment:
       ENVIRONMENT: production
@@ -33,6 +35,8 @@ services:
       retries: 10
   crawler:
     build: ./services/crawler
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
     env_file: .env.production
     environment:
       API_BASE_URL: http://api:8000
@@ -50,6 +54,8 @@ services:
       retries: 3
   maintenance:
     build: ./services/api
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
     env_file: .env.production
     environment:
       ENVIRONMENT: production

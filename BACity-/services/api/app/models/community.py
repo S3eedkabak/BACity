@@ -4,6 +4,7 @@ from datetime import datetime
 from sqlalchemy import Column, String, Text, Integer, Float, Boolean, DateTime, JSON, ForeignKey, UniqueConstraint
 from app.database import Base
 from app.models.source import GUID
+from app.core.encryption import EncryptedText
 
 
 class Record:
@@ -171,7 +172,7 @@ class Message(Record, Base):
     __tablename__ = 'messages'
     sender_id = Column(GUID(), ForeignKey('users.id'), nullable=False, index=True)
     recipient_id = Column(GUID(), ForeignKey('users.id'), nullable=False, index=True)
-    body = Column(Text, nullable=False)
+    body = Column(EncryptedText('messages.body'), nullable=False)
     read_at = Column(DateTime)
 
 
@@ -206,7 +207,7 @@ class MailOutbox(Record, Base):
     __tablename__ = 'mail_outbox'
     recipient = Column(String, nullable=False)
     subject = Column(String, nullable=False)
-    body = Column(Text, nullable=False)
+    body = Column(EncryptedText('mail_outbox.body'), nullable=False)
     attempts = Column(Integer, nullable=False, default=0)
     next_attempt_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     sent_at = Column(DateTime)

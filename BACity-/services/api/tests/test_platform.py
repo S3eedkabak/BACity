@@ -15,6 +15,8 @@ from tests.test_community import account
 
 def test_production_rejects_placeholder_secrets():
     from cryptography.fernet import Fernet
+    import base64
+    import os
     with pytest.raises(ValidationError):
         Settings(environment='production', _env_file=None)
     settings = Settings(environment='production', jwt_secret='a'*40, ingestion_api_key='b'*40,
@@ -26,6 +28,8 @@ def test_production_rejects_placeholder_secrets():
                         google_android_client_id='google-android', google_ios_client_id='google-ios',
                         apple_oauth_client_id='com.bacity.web', apple_ios_client_id='com.bacity.ios', apple_team_id='TEAM',
                         apple_key_id='KEY', apple_private_key='private-key',
+                        private_data_keys=json.dumps({'test': base64.b64encode(os.urandom(32)).decode()}),
+                        private_data_active_key='test',
                         oauth_token_encryption_key=Fernet.generate_key().decode(), _env_file=None)
     assert settings.environment == 'production'
 

@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     apple_key_id: str = ""
     apple_private_key: str = ""
     oauth_token_encryption_key: str = ""
+    # JSON key-ID -> base64 AES-256 key; deployment secrets, never DB/mobile.
+    private_data_keys: str = Field("", repr=False)
+    private_data_active_key: str = ""
 
     smtp_host: str = ""
     smtp_port: int = 587
@@ -122,6 +125,14 @@ class Settings(BaseSettings):
                     raise ValueError("Production consumer billing return URLs require HTTPS")
         if self.environment != "development" and self.enable_development_plus_grants:
             raise ValueError("Development BACity+ grants must be disabled outside development")
+        if self.private_data_keys:
+            from app.core.encryption import keyring, EncryptionError
+            try:
+                keyring(self)
+            except EncryptionError:
+                raise ValueError('Invalid private-data encryption configuration') from None
+        elif self.private_data_active_key or self.environment != 'development':
+            raise ValueError('Configure PRIVATE_DATA_KEYS and PRIVATE_DATA_ACTIVE_KEY outside development')
         if self.google_play_billing_enabled:
             required = (
                 self.google_play_package_name,
@@ -142,6 +153,8 @@ class Settings(BaseSettings):
             if bool(self.google_play_rtdn_audience) != bool(self.google_play_rtdn_service_account_email):
                 raise ValueError("Google Play RTDN audience and service-account email must be configured together")
         if self.environment != "development":
+            if not self.oauth_callback_base_url.startswith('https://'):
+                raise ValueError('Staging and production API callback URLs require HTTPS')
             if self.smtp_host and not (self.smtp_starttls or self.smtp_ssl):
                 raise ValueError("Staging and production SMTP require TLS")
             if len(self.jwt_secret) < 32 or self.jwt_secret == "change-me-in-production":

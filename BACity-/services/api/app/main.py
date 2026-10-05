@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 from app.core.http import RequestMiddleware
+from app.core.encryption import EncryptionError
 import json
 from pathlib import Path
 
@@ -41,6 +42,12 @@ app.add_middleware(RequestMiddleware)
 if settings.environment != "development":
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_host_list)
 app.mount("/media", StaticFiles(directory=settings.media_root), name="media")
+
+
+@app.exception_handler(EncryptionError)
+async def private_data_error(request, exc):
+    # Do not return corrupted storage, key IDs, ciphertext or cryptographic errors.
+    return JSONResponse(status_code=503, content={'detail': 'Private data temporarily unavailable'})
 
 
 @app.exception_handler(ValidationError)
