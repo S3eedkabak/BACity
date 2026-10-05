@@ -482,7 +482,11 @@ def recurring_events(identifier: UUID, payload: RecurringEvents, user=Depends(re
         db.flush()
         item.published_id = publish(db, item, 'Official')
         published = row(db, Event, item.published_id)
-        published.organization_id = org.id
+        # Matching an already-owned event must not transfer organizer ownership.
+        if published.organization_id is None:
+            published.organization_id = org.id
+        from app.core.source_learning import queue_public_evidence
+        queue_public_evidence(item, [org.website])
         ids.append(item.published_id)
         audit(db, user, 'organizer_published', 'event', published.id)
     # One notification per batch; follower addresses are never exposed to the organizer.

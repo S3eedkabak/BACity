@@ -39,7 +39,10 @@ MODELS = {'event': Event, 'place': Place, 'utility': CityUtility, 'user': User,
 
 
 def record(item):
-    return {column.name: getattr(item, column.name) for column in item.__table__.columns}
+    result = {column.name: getattr(item, column.name) for column in item.__table__.columns}
+    if isinstance(item, Submission):
+        result['payload'] = {k: v for k, v in item.payload.items() if k != '_source_learning'}
+    return result
 
 
 def records(query):
@@ -347,7 +350,7 @@ def submit_correction(payload: CorrectionInput, user=Depends(require_verified), 
 
 @router.get('/submissions')
 def my_submissions(user=Depends(get_current_user), db: Session = Depends(get_db), offset: int = Query(0, ge=0)):
-    return db.query(Submission).filter_by(user_id=user.id).order_by(Submission.created_at.desc()).offset(offset).limit(100).all()
+    return records(db.query(Submission).filter_by(user_id=user.id).order_by(Submission.created_at.desc()).offset(offset).limit(100))
 
 
 @router.post('/submissions/{identifier}/appeal')
@@ -374,13 +377,28 @@ def publish(db, item, trust):
     if not owner.active:
         raise HTTPException(409, 'Contributor account is no longer active')
     if item.kind == 'event':
+        from app.crud.ingestion import find_canonical_event, utc, canonical_url, normalize
+        from app.models.event_source import EventSource
+        from app.core.source_learning import queue_public_evidence
         payload = EventSubmission.model_validate(item.payload)
-        data = payload.model_dump(exclude={'organizer_name', 'venue_name', 'source_name', 'original_source_url', 'source_id', 'venue_id', 'status', 'extraction_confidence', 'source_reliability', 'temporal_evidence', 'extraction_method', 'previous_start_time'})
-        for key in ('start_time', 'end_time'):
-            if data[key]:
-                data[key] = data[key].astimezone(timezone.utc).replace(tzinfo=None)
-        obj = Event(**data, contributor_id=item.user_id, trust_level=trust, is_manual_override=True,
-                    extraction_confidence=1, source_reliability=0.7, status=EventStatus.fresh)
+        payload = payload.model_copy(update={'start_time': utc(payload.start_time), 'end_time': utc(payload.end_time),
+            'source_url': canonical_url(payload.source_url) if payload.source_url else '', 'previous_start_time': None})
+        obj, evidence, _ = find_canonical_event(db, payload)
+        data = payload.model_dump(exclude={'public_source_url', 'organizer_name', 'venue_name', 'source_name', 'original_source_url', 'source_id', 'venue_id', 'status', 'extraction_confidence', 'source_reliability', 'temporal_evidence', 'extraction_method', 'previous_start_time'})
+        if obj is None:
+            obj = Event(**data, contributor_id=item.user_id, trust_level=trust, is_manual_override=True,
+                        extraction_confidence=1, source_reliability=0.7, status=EventStatus.fresh)
+            db.add(obj)
+            db.flush()
+        if payload.source_url:
+            if evidence is None:
+                evidence = EventSource(event_id=obj.id, source_url=payload.source_url,
+                    original_source_url=payload.source_url, start_time=payload.start_time,
+                    title_key=normalize(payload.title), reliability=.7, dedup_confidence=1)
+                db.add(evidence)
+            evidence.facts = {**(evidence.facts or {}), 'human_contribution': True}
+        # Snapshot only explicit public fields; no contributor identity or raw text.
+        queue_public_evidence(item, [payload.public_source_url, payload.source_url, obj.venue.website if obj.venue else None])
     elif item.kind in ('place', 'utility'):
         schema, model = (PlaceInput, Place) if item.kind == 'place' else (UtilityInput, CityUtility)
         obj = model(**schema.model_validate(item.payload).model_dump(), contributor_id=item.user_id)

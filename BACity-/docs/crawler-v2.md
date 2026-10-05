@@ -300,3 +300,114 @@ were removed. Normal development data was untouched. No mobile/native validation
 was claimed: mobile, billing and planner code were not changed. Existing framework
 warnings remain; the two targeted Scrapy lifecycle deprecations were migrated
 without a dependency upgrade, retaining Scrapy 2.11 compatibility.
+
+## Level 3: published human contributions
+
+Level 1 crawls known trusted public sources. Level 2 safely inspects unknown
+public sources through CandidateSource, qualification, probation and trust.
+Level 3 reuses community moderation and verified-organizer publication for
+events humans discover. **A crawlable source is never a publication requirement.**
+
+After publication, explicit public event/organizer/calendar evidence may enter
+the existing Level 2 pipeline. Event approval does not approve or trust a source;
+blocked/rejected sources never invalidate a contributed event. There is no
+automatic Instagram, Facebook, TikTok or private-content scraping.
+
+### Evidence and publication
+
+- Community `EventSubmission.source_url` is optional; absence is represented by
+  an empty string, preserving the non-null existing event/API column contract.
+- Optional `public_source_url` supplies a separate public organizer/calendar URL.
+  This is explicit evidence, not a URL extracted from descriptions or uploads.
+- Verified organizer publication additionally uses the organization's existing
+  public website. Existing canonical venue websites may also supply evidence.
+- A maximum of three normalized domains is recorded per published contribution.
+  Tracking parameters/fragments are removed; equivalent domains are deduplicated.
+- Unsupported, private, credential-bearing and social-platform evidence is
+  skipped. No-source, poster, word-of-mouth and social-only events still publish.
+  Invalid ordinary event fields still follow existing validation/moderation.
+
+### Durable lifecycle
+
+The existing `Submission.payload._source_learning` metadata is the durable
+publication outbox. It is committed with publication, not in a separate queue.
+No migrations or new infrastructure are needed. Pending/rejected/draft/withdrawn
+submissions are never processed. Ordinary submission responses and user exports
+exclude this operational metadata.
+
+The existing worker calls authenticated `POST /crawler/learning/process` before
+candidate synchronization. This endpoint performs **database work only**:
+
+1. Select up to 25 due, approved event submissions using DB-level JSON filters.
+2. Confirm the canonical event remains published (`fresh`/`stale`).
+3. Create or reuse CandidateSource by normalized domain; do not reset source trust
+   or administrator decisions. Global candidate capacity remains 250.
+4. Commit results, or record a safe reason and bounded retry after a savepoint
+   rollback. There are at most five attempts, with exponential delay capped at
+   one hour. Process/response loss is replay-safe; an uncommitted batch stays due.
+5. Existing Crawler V2 inspection, network guards, robots handling, probation and
+   trust run later in the worker, never in the publication HTTP request.
+
+Duplicate moderation retains the existing 409 behavior. Equivalent domains and
+multiple accepted contributions reuse candidates. PostgreSQL advisory locks
+serialize candidate capacity/creation and canonical occurrence matching across
+replicas. Individual learning failure cannot roll back an already-public event.
+Corrections preserve their existing allowed fields; they do not reprocess private
+correction text. Event removal before processing skips the work; it does not delete
+an independently useful learned public source.
+
+### Canonical provenance and privacy
+
+Publication and crawler ingestion now share the existing conservative occurrence
+matcher (near-identical title, same place, bounded nearby time). Recurring or
+ambiguous events are not indiscriminately merged; contributor-supplied reschedule
+metadata cannot redirect matching to another occurrence. Existing event data and
+organizer ownership are preserved on matches.
+
+Public URLs are attached to EventSource with `human_contribution: true`, without
+contributor identity. This flag survives later crawls. Events are not falsely
+labelled crawler-created. Human-only evidence with no crawled Source cannot prove
+upstream removal merely by aging. A later crawl strengthens public provenance
+without creating an obvious second canonical event.
+
+Candidate records receive only public normalized URL/domain evidence: no account
+ID/email, private media/messages, group data, GPS or behavioral history. Account
+deletion retains the existing published-submission/canonical-event policy; learning
+does not add private identity links to CandidateSource. Legal retention periods
+and public-contribution attribution policy remain deferred to the legal/GDPR phase.
+
+### Security and operations
+
+Static normalization rejects localhost/private addresses, internal service names,
+credential-bearing URLs and unsupported ports. The existing Crawler V2 network
+middleware remains authoritative for DNS, redirects, rebinding and private-network
+egress. Publication and source registration do not resolve or fetch supplied URLs.
+Existing contribution/organizer rate limits remain; domain/evidence/batch/candidate
+and retry limits bound amplification. Social exclusions cannot be removed merely
+by overriding the worker's optional block-domain environment list.
+
+`GET /crawler/admin/learning` (moderator/admin only, maximum 100 rows) shows public
+event ID, pending/completed/no-evidence/skipped/retry/failed state, candidate
+created/existing outcomes and current candidate inspection/trust state. The
+existing Moderator Tools screen adds a Learning view; no new dashboard is built.
+Normal users see no crawler/security diagnostics.
+
+If work stays pending, check worker health and its configured ingestion key. If
+capacity blocks work, inspect existing candidate administration; approval never
+waits on capacity. Retry exhaustion remains visible as failed and requires
+operator review rather than infinite automated retries. Historical contributions
+published before this bridge are not automatically backfilled. JSON work selection
+uses the existing submission indexes but has no dedicated work-state index; assess
+query plans before adding one if contribution history becomes very large.
+
+Level 3 regression coverage lives in API `test_level3_discovery.py`, crawler
+`test_level3_learning.py`, mobile `src/contributions/level3.test.mjs`, and the
+isolated PostgreSQL migration/ORM test (including JSON work processing/replay).
+
+Level 3 validation: full API **203 passed, 1 skipped** (PostgreSQL opt-in test
+separately **1 passed**); full crawler **95 passed**; focused new API cases
+**33 passed** within that full suite; mobile contribution/API URL/Home/map
+safeguards **18 passed**; mobile TypeScript and `git diff --check` passed.
+The isolated PostgreSQL/PostGIS run verified the unchanged migration chain and
+new durable JSON work processing; temporary databases were removed and normal
+development data was untouched. No native-device validation is claimed.

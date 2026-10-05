@@ -14,12 +14,13 @@ def domain_matches(host, domain):
 
 def allowed_url(url):
     parsed = urlsplit(url)
-    host = (parsed.hostname or '').lower()
+    host = (parsed.hostname or '').lower().rstrip('.')
     if parsed.scheme not in ('http', 'https') or not host or parsed.username or parsed.password:
         return False
     if parsed.port not in (None, 80, 443):
         return False
-    blocked = os.getenv('CRAWLER_BLOCK_DOMAINS', 'facebook.com,instagram.com,twitter.com,x.com,youtube.com').split(',')
+    blocked = ['facebook.com', 'fb.com', 'instagram.com', 'tiktok.com', 'twitter.com', 'x.com', 'youtube.com', 'youtu.be']
+    blocked += os.getenv('CRAWLER_BLOCK_DOMAINS', '').split(',')
     allowed = [d.strip() for d in os.getenv('CRAWLER_ALLOW_DOMAINS', '').split(',') if d.strip()]
     return not any(domain_matches(host, d.strip()) for d in blocked if d.strip()) and (
         not allowed or any(domain_matches(host, d) for d in allowed))

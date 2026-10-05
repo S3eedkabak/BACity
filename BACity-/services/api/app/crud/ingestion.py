@@ -30,27 +30,13 @@ def utc(value):
     return value.astimezone(timezone.utc).replace(tzinfo=None) if value and value.tzinfo else value
 
 
-def ingest(db, payload):
-    payload = payload.model_copy(update={'start_time': utc(payload.start_time), 'end_time': utc(payload.end_time),
-                                        'source_url': canonical_url(payload.source_url)})
-    # Serializes crawler writes across API replicas; evidence unique constraint also
-    # protects exact occurrences. Transactions are short and contain no network IO.
+def find_canonical_event(db, payload):
+    """Shared conservative occurrence matching; caller owns the transaction."""
     if db.bind.dialect.name == 'postgresql':
         db.execute(text('SELECT pg_advisory_xact_lock(82619422)'))
-    now = datetime.utcnow()
-    domain = urlsplit(payload.source_url).hostname
-    source = db.query(Source).filter(Source.domain == domain).first()
-    if source is None:
-        source = Source(name=payload.source_name or domain, domain=domain,
-                        base_url=f'{urlsplit(payload.source_url).scheme}://{domain}',
-                        event_url=payload.original_source_url or payload.source_url,
-                        reliability_score=payload.source_reliability)
-        db.add(source)
-        db.flush()
-    source.last_crawled = now
     title_key = normalize(payload.title)
-    evidence = db.query(EventSource).filter_by(source_url=payload.source_url, start_time=payload.start_time, title_key=title_key).first()
-    existing = evidence.event if evidence else db.query(Event).filter_by(source_url=payload.source_url, start_time=payload.start_time, title=payload.title).first()
+    evidence = db.query(EventSource).filter_by(source_url=payload.source_url, start_time=payload.start_time, title_key=title_key).first() if payload.source_url else None
+    existing = evidence.event if evidence else (db.query(Event).filter_by(source_url=payload.source_url, start_time=payload.start_time, title=payload.title).first() if payload.source_url else None)
     if existing is None and payload.previous_start_time:
         previous = db.query(EventSource).filter_by(source_url=payload.source_url,
             start_time=utc(payload.previous_start_time),title_key=title_key).first()
@@ -75,6 +61,25 @@ def ingest(db, payload):
             if same_place and title_score >= .90 and same_time:
                 existing, score = candidate, .8 * title_score + .2
                 break
+    return existing, evidence, score
+
+
+def ingest(db, payload):
+    payload = payload.model_copy(update={'start_time': utc(payload.start_time), 'end_time': utc(payload.end_time),
+                                        'source_url': canonical_url(payload.source_url)})
+    existing, evidence, score = find_canonical_event(db, payload)
+    now = datetime.utcnow()
+    domain = urlsplit(payload.source_url).hostname
+    source = db.query(Source).filter(Source.domain == domain).first()
+    if source is None:
+        source = Source(name=payload.source_name or domain, domain=domain,
+                        base_url=f'{urlsplit(payload.source_url).scheme}://{domain}',
+                        event_url=payload.original_source_url or payload.source_url,
+                        reliability_score=payload.source_reliability)
+        db.add(source)
+        db.flush()
+    source.last_crawled = now
+    title_key = normalize(payload.title)
     venue = None
     if payload.venue_id:
         venue = db.get(Venue, payload.venue_id)
@@ -122,6 +127,9 @@ def ingest(db, payload):
         evidence = EventSource(event_id=existing.id, source_id=source.id, source_url=payload.source_url,
                                start_time=payload.start_time, reliability=payload.source_reliability, title_key=title_key)
         db.add(evidence)
+    # A real crawl can strengthen previously human-only provenance; submitting
+    # public evidence alone never creates a crawled Source association.
+    evidence.source_id = source.id
     evidence.original_source_url = payload.original_source_url or payload.source_url
     evidence.source_name = payload.source_name or domain
     evidence.reliability = payload.source_reliability
@@ -131,7 +139,8 @@ def ingest(db, payload):
     if payload.end_time and incoming_end_key >= (best_end.get('rank',0),best_end.get('quality',0)):
         best_end = {'value': payload.end_time.isoformat(), 'rank': temporal_rank,
                     'quality': incoming_end_key[1], 'method': payload.extraction_method, 'observed_at': now.isoformat()}
-    evidence.facts = {'start_time': payload.start_time.isoformat(),
+    human_contribution = bool((evidence.facts or {}).get('human_contribution'))
+    evidence.facts = {'human_contribution': human_contribution, 'start_time': payload.start_time.isoformat(),
                       'end_time': payload.end_time.isoformat() if payload.end_time else None,
                       'end_rank': temporal_rank, 'temporal_evidence': payload.temporal_evidence,
                       'method': payload.extraction_method, 'confidence': payload.extraction_confidence,
@@ -154,9 +163,9 @@ def expire_events(db):
     # Removal requires positive evidence from a non-failing source. Merely aging
     # while every publisher is unavailable must never look like upstream removal.
     evidence = db.query(EventSource.id).filter(EventSource.event_id == Event.id).exists()
-    uncertain = db.query(EventSource.id).join(Source,EventSource.source_id == Source.id).filter(
+    uncertain = db.query(EventSource.id).outerjoin(Source,EventSource.source_id == Source.id).filter(
         EventSource.event_id == Event.id,
-        or_(Source.status != SourceStatus.active, Source.crawl_status != 'healthy',
+        or_(EventSource.source_id.is_(None), Source.status != SourceStatus.active, Source.crawl_status != 'healthy',
             Source.last_success_at.is_(None), Source.last_success_at <= EventSource.last_seen_at),
     ).exists()
     db.query(Event).filter(Event.status == EventStatus.stale,

@@ -161,7 +161,7 @@ export default function Organizer() {
             {field("title", "Title")}
             {field("description", "Description", true)}
             {field("address", "Address in Bratislava")}
-            {field("source", "Official event URL (HTTPS)")}
+            {field("source", "Official event URL (optional, HTTPS)")}
             {field(
               "dates",
               "One start date per line, with timezone (e.g. 2026-12-10T19:00+01:00)",

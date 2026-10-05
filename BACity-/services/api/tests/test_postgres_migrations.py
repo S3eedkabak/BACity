@@ -123,6 +123,27 @@ def test_upgrade_backfills_existing_source_references():
             evidence=verification.query(EventSource).filter_by(event_id=event.id).one()
             assert evidence.facts['best_end']['rank'] == 3
             expire_events(verification)
+            # Existing submission JSON is the Level 3 outbox: exercise JSON
+            # selection, transaction locks and replay on real PostgreSQL.
+            from app.models.community import Submission
+            from app.api.routes.community import publish
+            from app.core.source_learning import process_public_evidence, LEARNING_KEY
+            from app.models.candidate_source import CandidateSource
+            contributor = User(email='public-learning@example.com', hashed_password='not-used')
+            verification.add(contributor)
+            verification.flush()
+            submission = Submission(user_id=contributor.id, kind='event', state='approved', payload={
+                'title': event.title, 'description': 'An independently verified public community event.',
+                'start_time': starts.isoformat(), 'address': 'Bratislava',
+                'source_url': 'https://contribution.example/events/1'})
+            verification.add(submission)
+            submission.published_id = publish(verification, submission, 'Community')
+            assert submission.published_id == str(event.id)
+            verification.commit()
+            assert process_public_evidence(verification)['processed'] == 1
+            assert process_public_evidence(verification)['processed'] == 0
+            assert submission.payload[LEARNING_KEY]['state'] == 'completed'
+            assert verification.get(CandidateSource, 'contribution.example').status == 'discovered'
         with sessions.begin() as seed:
             owner = User(email='locking@example.com', hashed_password='not-used')
             seed.add(owner)

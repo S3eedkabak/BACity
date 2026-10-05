@@ -9,12 +9,13 @@ import { useAuthStore } from "../src/store/authStore";
 import { colors } from "../src/theme/colors";
 import { fonts } from "../src/theme/fonts";
 
-type Mode = "submissions" | "reports" | "audit" | "sources";
+type Mode = "submissions" | "reports" | "audit" | "sources" | "learning";
 const PATHS: Record<Mode, string> = {
   submissions: "/community/moderation/submissions",
   reports: "/community/moderation/reports",
   audit: "/community/moderation/audit",
   sources: "/crawler/admin/sources",
+  learning: "/crawler/admin/learning",
 };
 
 export default function ModeratorScreen() {
@@ -58,15 +59,15 @@ export default function ModeratorScreen() {
   }
 
   if (!user || !["ADMIN", "MODERATOR"].includes(user.role)) return <SafeAreaView style={styles.safe}><ScreenHeader title="Moderator tools" /><EmptyState title="Restricted area" subtitle="Moderator permission is required." /></SafeAreaView>;
-  const modes: Mode[] = user.role === "ADMIN" ? ["submissions", "reports", "audit", "sources"] : ["submissions", "reports", "audit"];
+  const modes: Mode[] = user.role === "ADMIN" ? ["submissions", "reports", "audit", "sources", "learning"] : ["submissions", "reports", "audit", "learning"];
   return <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
     <ScreenHeader title="Moderator tools" />
     <View style={styles.chips}>{modes.map(value => <Chip key={value} title={value === "submissions" ? "Queue & appeals" : value === "sources" ? "Crawler sources" : value[0].toUpperCase() + value.slice(1)} active={mode === value} onPress={() => setMode(value)} />)}</View>
     {error ? <Text style={styles.error}>{error}</Text> : null}
     {loading ? <View style={styles.content}><SkeletonList /></View> : <FlatList data={items} keyExtractor={item => item.id} contentContainerStyle={styles.content}
-      ListHeaderComponent={!['audit', 'sources'].includes(mode) && items.length ? <TextInput accessibilityLabel="Decision reason" placeholder="Reason for this moderation decision" placeholderTextColor={colors.textMuted} value={reason} onChangeText={setReason} multiline style={styles.input} /> : null}
+      ListHeaderComponent={!['audit', 'sources', 'learning'].includes(mode) && items.length ? <TextInput accessibilityLabel="Decision reason" placeholder="Reason for this moderation decision" placeholderTextColor={colors.textMuted} value={reason} onChangeText={setReason} multiline style={styles.input} /> : null}
       ListEmptyComponent={<EmptyState title="Nothing needs attention" subtitle={mode === "sources" ? "No crawler has reported health yet." : "This moderation view is clear."} />}
-      renderItem={({ item }) => mode === "audit" ? <ListItem icon="shield-checkmark-outline" title={item.action.replaceAll("_", " ")} subtitle={`${item.target_type} · ${new Date(item.created_at).toLocaleString()}`} /> : mode === "sources" ? <View style={styles.item}>
+      renderItem={({ item }) => mode === "learning" ? <ListItem icon="git-network-outline" title={item.state.replaceAll("_", " ")} subtitle={`Event ${item.event_id} · ${item.attempts} attempts${item.reason ? ` · ${item.reason}` : ""}\n${item.sources.map((source: any) => `${source.domain}: ${source.status}`).join(" · ")}`} /> : mode === "audit" ? <ListItem icon="shield-checkmark-outline" title={item.action.replaceAll("_", " ")} subtitle={`${item.target_type} · ${new Date(item.created_at).toLocaleString()}`} /> : mode === "sources" ? <View style={styles.item}>
         <ListItem icon={item.health === "healthy" ? "checkmark-circle-outline" : "warning-outline"} title={item.name} subtitle={`${item.health} · ${item.accepted_events} accepted · ${item.rejected_events} rejected · ${item.consecutive_failures} failures`} />
         <Text style={styles.detail}>Last success: {item.last_success_at ? new Date(item.last_success_at).toLocaleString() : "Never"}{item.last_error ? `\n${item.last_error}` : ""}{Object.keys(item.skip_reasons || {}).length ? `\nSkipped: ${Object.entries(item.skip_reasons).map(([key, count]) => `${key} (${count})`).join(", ")}` : ""}</Text>
         {history[item.id]?.map(run => <Text key={run.id} style={styles.history}>{new Date(run.finished_at).toLocaleString()} · {run.status} · {run.accepted_events} accepted · {run.rejected_events} rejected{run.error ? ` · ${run.error}` : ""}</Text>)}

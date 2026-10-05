@@ -139,10 +139,10 @@ export default function EventDetailScreen() {
         </Pressable>}
       </PlusGateAction>
 
-      <Pressable style={styles.sourceButton} onPress={() => Linking.openURL(event.source_url)}>
+      {!!event.source_url && <Pressable style={styles.sourceButton} onPress={() => Linking.openURL(event.source_url)}>
         <Text style={styles.sourceText}>View original event</Text>
         <Ionicons name="arrow-up-outline" size={16} color={colors.primaryDark} />
-      </Pressable>
+      </Pressable>}
       {event.venue && <Button title={"More at " + event.venue.name} onPress={() => router.push(`/venue/${event.venue!.id}`)} />}
       <Discussion id={id} kind="event" />
     </ScrollView>

@@ -134,6 +134,10 @@ def discovery_cycle(state, api_url, token):
         return
     headers = {'X-Ingestion-Key': token}
     try:
+        requests.post(api_url.rstrip('/') + '/crawler/learning/process', headers=headers, timeout=20).raise_for_status()
+    except requests.RequestException:
+        log.warning('Published-source learning unavailable; durable API work retained')
+    try:
         response = requests.get(api_url.rstrip('/') + '/crawler/candidates/runtime', headers=headers, timeout=20)
         response.raise_for_status()
         for row in response.json()[:250]:

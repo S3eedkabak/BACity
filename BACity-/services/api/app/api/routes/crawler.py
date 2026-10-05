@@ -12,7 +12,9 @@ from app.schemas.crawler import CrawlRunReport, SourceAdminUpdate
 from app.models.candidate_source import CandidateSource
 from app.models.event import Event, EventStatus
 from app.models.event_source import EventSource
-from app.core.source_learning import learn_public_event, public_source_url
+from app.core.source_learning import learn_public_event, public_source_url, process_public_evidence, candidate_lock, LEARNING_KEY
+from app.models.community import Submission
+from app.core.community import require_moderator
 from app.config import get_settings
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import Literal
@@ -179,6 +181,32 @@ def candidate_dict(row):
     return {key:getattr(row,key) for key in ('domain','url','origin','status','enabled','discovered','inspected','attempts','good_runs','failures','reason','metrics')}
 
 
+@router.post('/learning/process', dependencies=[Depends(require_learning_key)])
+def process_learning(db: Session = Depends(get_db)):
+    return process_public_evidence(db)
+
+
+@router.get('/admin/learning')
+def learning_history(limit: int = Query(50, ge=1, le=100), db: Session = Depends(get_db), _=Depends(require_moderator)):
+    rows = db.query(Submission).filter(Submission.kind == 'event', Submission.state == 'approved',
+        Submission.payload[LEARNING_KEY]['state'].as_string().isnot(None)).order_by(Submission.updated_at.desc(), Submission.id).limit(limit).all()
+    candidates = {c.domain: c for c in db.query(CandidateSource).limit(250)}
+    result = []
+    for row in rows:
+        work = row.payload[LEARNING_KEY]
+        evidence = []
+        for url in work['urls']:
+            domain, _ = public_source_url(url)
+            candidate = candidates.get(domain)
+            evidence.append({'domain': domain, 'status': candidate.status if candidate else 'queued',
+                             'reason': candidate.reason if candidate else None})
+        result.append({'id': str(row.id), 'event_id': row.published_id, 'origin': 'published_contribution',
+                       'state': work['state'], 'attempts': work['attempts'],
+                       'ineligible': work.get('ineligible', 0), 'reason': work.get('reason'),
+                       'results': work['results'], 'sources': evidence})
+    return result
+
+
 @router.get('/candidates/runtime', dependencies=[Depends(require_learning_key)])
 def candidate_runtime(db: Session=Depends(get_db)):
     return [candidate_dict(r) for r in db.query(CandidateSource).order_by(CandidateSource.domain).limit(250)]
@@ -186,6 +214,7 @@ def candidate_runtime(db: Session=Depends(get_db)):
 
 @router.post('/candidates/report', dependencies=[Depends(require_learning_key)])
 def candidate_report(payload:CandidateBatch, db:Session=Depends(get_db)):
+    candidate_lock(db)
     existing = {r.domain:r for r in db.query(CandidateSource).limit(250)}
     for item in payload.items:
         domain,url = public_source_url(item.url)

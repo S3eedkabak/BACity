@@ -52,9 +52,15 @@ class EventCreate(EventBase):
 
     @model_validator(mode='after')
     def validate_ingestion(self):
+        self.validate_source()
+        return self.validate_event_fields()
+
+    def validate_source(self):
         url = urlsplit(self.source_url)
         if url.scheme not in ('http', 'https') or not url.hostname or url.username:
             raise ValueError('source_url must be a public HTTP(S) URL')
+
+    def validate_event_fields(self):
         if self.end_time:
             start = self.start_time.replace(tzinfo=timezone.utc) if self.start_time.tzinfo is None else self.start_time
             end = self.end_time.replace(tzinfo=timezone.utc) if self.end_time.tzinfo is None else self.end_time

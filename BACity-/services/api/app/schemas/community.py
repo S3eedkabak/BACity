@@ -46,12 +46,22 @@ class ProfileUpdate(StrictModel):
 
 
 class EventSubmission(EventCreate):
-    source_url: str = Field(max_length=2048)
+    source_url: str = Field(default='', max_length=2048)
+    public_source_url: Optional[str] = Field(default=None, max_length=2048)
     description: str = Field(min_length=20, max_length=15000)
     organizer_name: Optional[str] = Field(None, max_length=200)
     ticket_url: Optional[str] = Field(None, max_length=2048)
     neighborhood: Optional[str] = Field(None, max_length=80)
-    _links = field_validator('source_url', 'ticket_url', 'image_url')(public_url)
+    _links = field_validator('ticket_url', 'image_url')(public_url)
+
+    @field_validator('source_url', mode='before')
+    @classmethod
+    def optional_source(cls, value):
+        return public_url(value.strip() if isinstance(value, str) else value) or ''
+
+    def validate_source(self):
+        if self.source_url:
+            super().validate_source()
 
     @model_validator(mode='after')
     def user_event(self):
