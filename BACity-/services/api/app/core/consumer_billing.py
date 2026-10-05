@@ -22,7 +22,7 @@ BLOCKING_STATUSES = frozenset({"active", "trialing", "past_due", "unpaid", "inco
 def _timestamp(value) -> datetime | None:
     try:
         return datetime.utcfromtimestamp(int(value)) if value is not None else None
-    except (TypeError, ValueError, OSError):
+    except (TypeError, ValueError, OSError, OverflowError):
         return None
 
 
@@ -180,6 +180,12 @@ def reconcile_subscription(db: Session, user_id: UUID, mapping: ConsumerBillingC
     matches, product_id = _subscription_product(provider, settings)
     if not matches and not existing:
         return None
+    period_start = _timestamp(provider.get("current_period_start"))
+    period_end = _timestamp(provider.get("current_period_end"))
+    if matches and provider.get('status') in ('active', 'trialing') and (
+        period_end is None or (period_start is not None and period_end <= period_start)
+    ):
+        raise HTTPException(502, "Billing provider returned invalid subscription period")
     now = datetime.utcnow()
     record = existing or ConsumerSubscription(
         user_id=user_id, entitlement=BACITY_PLUS, provider=STRIPE_PROVIDER,
@@ -190,8 +196,8 @@ def reconcile_subscription(db: Session, user_id: UUID, mapping: ConsumerBillingC
     record.external_customer_id = mapping.external_customer_id
     record.product_id = product_id or record.product_id
     record.status = str(provider.get("status")) if matches else "invalid_product"
-    record.current_period_start = _timestamp(provider.get("current_period_start"))
-    record.current_period_end = _timestamp(provider.get("current_period_end"))
+    record.current_period_start = period_start
+    record.current_period_end = period_end
     record.cancel_at_period_end = bool(provider.get("cancel_at_period_end"))
     record.cancelled_at = _timestamp(provider.get("canceled_at"))
     record.expires_at = record.current_period_end

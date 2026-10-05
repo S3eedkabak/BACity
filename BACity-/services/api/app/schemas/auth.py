@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Annotated
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, ConfigDict, Field, field_validator
@@ -26,7 +26,7 @@ def validate_password_bound(value: str) -> str:
 class UserRegister(BaseModel):
     email: EmailStr
     password: str = Field(min_length=MIN_PASSWORD_LENGTH)
-    display_name: Optional[str] = None
+    display_name: Optional[str] = Field(None, max_length=80)
 
     @field_validator('password')
     @classmethod
@@ -68,4 +68,4 @@ class Token(BaseModel):
 
 
 class InterestsUpdate(BaseModel):
-    interests: list[str]
+    interests: list[Annotated[str, Field(min_length=1, max_length=80)]] = Field(max_length=30)

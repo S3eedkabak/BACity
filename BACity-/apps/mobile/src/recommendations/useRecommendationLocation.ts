@@ -1,7 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import { Linking } from "react-native";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { getSessionRevision } from "../store/tokenSession";
 import { coarsenCoordinates, deniedPermissionState, isWithinRecommendationArea, locationFailureState, shouldRequestPermission } from "./locationPolicy";
 
 const PREFERENCE_KEY = "bacity.recommendations.use-location.v1";
@@ -74,11 +75,18 @@ export function useRecommendationLocation(active = true) {
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [status, setStatus] = useState<RecommendationLocationStatus>("loading");
   const [coordinates, setCoordinates] = useState<RecommendationCoordinates | null>(null);
+  const acquisition = useRef(0);
+  const activeRef = useRef(active);
+  activeRef.current = active;
 
   const locateWithPermission = useCallback(async () => {
+    const attempt = ++acquisition.current;
+    const session = getSessionRevision();
+    const current = () => activeRef.current && acquisition.current === attempt && session === getSessionRevision();
     setStatus("locating");
     try {
       const provider = await Location.getProviderStatusAsync();
+      if (!current()) return;
       if (!provider.locationServicesEnabled) {
         setCoordinates(null);
         setStatus("unavailable");
@@ -89,15 +97,17 @@ export function useRecommendationLocation(active = true) {
         });
         return;
       }
-      const current = await currentCoarseLocation();
-      if (!isWithinRecommendationArea(current.latitude, current.longitude)) {
+      const position = await currentCoarseLocation();
+      if (!current()) return;
+      if (!isWithinRecommendationArea(position.latitude, position.longitude)) {
         setCoordinates(null);
         setStatus("outside-area");
         return;
       }
-      setCoordinates(current);
+      setCoordinates(position);
       setStatus("granted");
     } catch (error) {
+      if (!current()) return;
       setCoordinates(null);
       const failure = locationFailureState(error);
       setStatus(failure);
@@ -107,6 +117,7 @@ export function useRecommendationLocation(active = true) {
 
   useEffect(() => {
     if (!active) {
+      acquisition.current += 1;
       setCoordinates(null);
       setEnabled(null);
       setStatus("loading");
@@ -142,17 +153,23 @@ export function useRecommendationLocation(active = true) {
         }
       }
     })();
-    return () => { mounted = false; };
+    return () => { mounted = false; acquisition.current += 1; };
   }, [active, locateWithPermission]);
 
   const enable = useCallback(async () => {
+    if (!activeRef.current) return;
+    const attempt = ++acquisition.current;
+    const session = getSessionRevision();
+    const current = () => activeRef.current && acquisition.current === attempt && session === getSessionRevision();
     setEnabled(true);
     await AsyncStorage.setItem(PREFERENCE_KEY, "true");
     try {
       let permission = await Location.getForegroundPermissionsAsync();
+      if (!current()) return;
       if (shouldRequestPermission(true, true, permission)) {
         permission = await Location.requestForegroundPermissionsAsync();
       }
+      if (!current()) return;
       if (!permission.granted) {
         setCoordinates(null);
         setStatus(deniedPermissionState(permission));
@@ -160,6 +177,7 @@ export function useRecommendationLocation(active = true) {
       }
       await locateWithPermission();
     } catch (error) {
+      if (!current()) return;
       setCoordinates(null);
       setStatus(locationFailureState(error));
       developmentLocationLog("permission-or-acquisition-failed", error);
@@ -167,6 +185,7 @@ export function useRecommendationLocation(active = true) {
   }, [locateWithPermission]);
 
   const disable = useCallback(async () => {
+    acquisition.current += 1;
     setEnabled(false);
     setCoordinates(null);
     setStatus("disabled");
@@ -176,7 +195,7 @@ export function useRecommendationLocation(active = true) {
   return {
     enabled,
     status,
-    coordinates: enabled ? coordinates : null,
+    coordinates: active && enabled ? coordinates : null,
     enable,
     disable,
     retry: enable,

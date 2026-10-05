@@ -1,6 +1,7 @@
 import { Button } from "../../src/components/CommunityUI";
 import { Discussion } from "../../src/components/Discussion";
-import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { externalLinking as Linking } from "../../src/api/externalLinking";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useEvent, useSavedEvents, useToggleSaveEvent } from "../../src/hooks/useEvents";

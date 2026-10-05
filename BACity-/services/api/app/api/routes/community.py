@@ -180,7 +180,7 @@ def profile_reviews(identifier: UUID, offset: int = Query(0, ge=0), limit: int =
     return result
 
 
-def _follow_record(db, item):
+def _follow_record(db, item, viewer):
     label, subtitle = item.target_id, item.target_type.title()
     model = {'user': User, 'guide': User, 'venue': Venue, 'organizer': Organization}.get(item.target_type)
     if model:
@@ -188,6 +188,13 @@ def _follow_record(db, item):
             target = db.get(model, UUID(item.target_id))
         except ValueError:
             target = None
+        if model is User and (not target or not target.active or
+            (target.id != viewer.id and (not target.public_profile or blocked(db, viewer.id, target.id)))):
+            if item.user_id == viewer.id:
+                # Keep the owner's existing edge removable without exposing
+                # now-private profile metadata to them or to public visitors.
+                return {**record(item), 'target_label': 'Unavailable profile', 'target_subtitle': 'Profile unavailable'}
+            return None
         if target:
             label = getattr(target, 'display_name', None) or getattr(target, 'name', None) or label
             subtitle = getattr(target, 'neighborhood', None) or getattr(target, 'address', None) or subtitle
@@ -211,7 +218,7 @@ def profile_following(identifier: UUID, offset: int = Query(0, ge=0), limit: int
                       user=Depends(get_current_user), db: Session = Depends(get_db)):
     target = _profile_access(db, user, identifier)
     items = db.query(Follow).filter_by(user_id=target.id).order_by(Follow.created_at.desc()).offset(offset).limit(limit).all()
-    return [_follow_record(db, item) for item in items]
+    return [value for item in items if (value := _follow_record(db, item, user)) is not None]
 
 
 @router.post('/follows')
@@ -254,7 +261,8 @@ def follows(target_type: str | None = Query(None, max_length=20), offset: int = 
     query = db.query(Follow).filter_by(user_id=user.id)
     if target_type:
         query = query.filter_by(target_type=target_type)
-    return [_follow_record(db, item) for item in query.order_by(Follow.created_at.desc()).offset(offset).limit(limit).all()]
+    return [value for item in query.order_by(Follow.created_at.desc()).offset(offset).limit(limit).all()
+            if (value := _follow_record(db, item, user)) is not None]
 
 
 @router.get('/follow-targets')
@@ -406,6 +414,9 @@ def publish(db, item, trust):
             obj.trust_level = trust
     elif item.kind == 'claim':
         obj = row(db, Organization, item.payload['organization_id'])
+        # Different submissions may approve concurrently: lock the shared target,
+        # not just each submission, before checking whether ownership is available.
+        obj = db.query(Organization).filter_by(id=obj.id).with_for_update().one()
         if db.query(OrganizationMember).filter_by(organization_id=obj.id).first():
             raise HTTPException(409, 'Organization already has an owner; ownership transfers require administrator review')
         db.add(OrganizationMember(organization_id=obj.id, user_id=item.user_id))
@@ -751,6 +762,7 @@ def update_org(identifier: UUID, payload: OrganizationInput, user=Depends(requir
 @router.get('/account/export')
 def export_account(user=Depends(get_current_user), db: Session = Depends(get_db)):
     """Return a portable snapshot of all records associated with the account."""
+    rate_limit(db, 'account-export:' + str(user.id), 10, 3600)
     user_id, user_id_text = user.id, str(user.id)
     review_ids = [item.id for item in db.query(Review.id).filter_by(user_id=user_id)]
     profile = record(user)

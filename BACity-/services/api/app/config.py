@@ -9,7 +9,7 @@ from typing import Literal
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", hide_input_in_errors=True)
 
     # Database - defaults to a local SQLite file so pytest/local dev work
     # without Postgres. Docker Compose overrides this in the full stack.
@@ -17,8 +17,8 @@ class Settings(BaseSettings):
 
     # Auth
     jwt_secret: str = "change-me-in-production"
-    jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 60
+    jwt_algorithm: Literal["HS256", "HS384", "HS512"] = "HS256"
+    access_token_expire_minutes: int = Field(60, ge=1, le=1440)
     environment: Literal["development", "staging", "production"] = "development"
     ingestion_api_key: str = ""
     public_app_url: str = "http://localhost:8081"
@@ -77,6 +77,7 @@ class Settings(BaseSettings):
 
     # CORS
     cors_origins: str = "http://localhost:8081,http://localhost:19006"
+    trusted_hosts: str = ""
 
     # Misc
     default_city: str = "Bratislava"
@@ -84,6 +85,14 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def deployment_secrets(self):
+        from urllib.parse import urlsplit
+        for origin in self.cors_origin_list:
+            part = urlsplit(origin)
+            if (part.scheme not in ('http', 'https') or not part.hostname or '*' in part.netloc
+                    or part.username or part.password or part.path not in ('', '/') or part.query or part.fragment):
+                raise ValueError("CORS origins must be explicit HTTP(S) origins without credentials or wildcards")
+        if any('*' in host or '/' in host or ':' in host for host in self.trusted_host_list):
+            raise ValueError("Trusted hosts must be explicit host names")
         if self.consumer_billing_enabled:
             required = (
                 self.stripe_consumer_secret_key,
@@ -126,11 +135,15 @@ class Settings(BaseSettings):
                 credentials = json.loads(self.google_play_service_account_json)
             except (TypeError, ValueError):
                 raise ValueError("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON must be valid JSON")
-            if not all(credentials.get(key) for key in ("client_email", "private_key", "token_uri")):
+            if not isinstance(credentials, dict) or not all(credentials.get(key) for key in ("client_email", "private_key", "token_uri")):
                 raise ValueError("Google Play service account JSON is incomplete")
+            if credentials['token_uri'] not in ('https://oauth2.googleapis.com/token', 'https://accounts.google.com/o/oauth2/token'):
+                raise ValueError("Google Play credentials require a Google HTTPS token endpoint")
             if bool(self.google_play_rtdn_audience) != bool(self.google_play_rtdn_service_account_email):
                 raise ValueError("Google Play RTDN audience and service-account email must be configured together")
         if self.environment != "development":
+            if self.smtp_host and not (self.smtp_starttls or self.smtp_ssl):
+                raise ValueError("Staging and production SMTP require TLS")
             if len(self.jwt_secret) < 32 or self.jwt_secret == "change-me-in-production":
                 raise ValueError("Set a random JWT_SECRET of at least 32 characters")
             if len(self.ingestion_api_key) < 32 or "replace-with" in self.ingestion_api_key:
@@ -182,6 +195,17 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def trusted_host_list(self) -> list[str]:
+        from urllib.parse import urlsplit
+        if self.trusted_hosts:
+            return [host.strip().lower() for host in self.trusted_hosts.split(',') if host.strip()]
+        # Public URLs are configuration, never derived from the request Host.
+        return list(dict.fromkeys(host for host in (
+            urlsplit(self.oauth_callback_base_url).hostname,
+            urlsplit(self.public_app_url).hostname, 'localhost', '127.0.0.1',
+        ) if host))
 
     @property
     def google_oauth_configured(self) -> bool:

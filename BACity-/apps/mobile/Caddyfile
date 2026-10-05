@@ -5,6 +5,9 @@
   file_server
   header X-Content-Type-Options nosniff
   header Referrer-Policy no-referrer
+  header Strict-Transport-Security "max-age=31536000"
+  header X-Frame-Options DENY
+  header Content-Security-Policy "frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
 }
 {$API_DOMAIN} {
   reverse_proxy api:8000

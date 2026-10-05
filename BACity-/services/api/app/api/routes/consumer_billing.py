@@ -41,8 +41,14 @@ def _settings():
 
 
 def _safe_url(value, expected_host):
-    parsed = urlsplit(value) if isinstance(value, str) else None
-    if not parsed or parsed.scheme != "https" or parsed.hostname != expected_host:
+    try:
+        parsed = urlsplit(value) if isinstance(value, str) else None
+        safe = (parsed and parsed.scheme == 'https' and parsed.hostname == expected_host
+                and not parsed.username and not parsed.password and parsed.port in (None, 443)
+                and not any(char.isspace() or ord(char) < 32 for char in value))
+    except ValueError:
+        safe = False
+    if not safe:
         raise HTTPException(502, "Billing provider returned an invalid redirect")
     return value
 

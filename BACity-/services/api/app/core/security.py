@@ -32,14 +32,19 @@ def create_access_token(subject: str, expires_minutes: Optional[int] = None, ver
 
 def decode_access_token(token: str) -> Optional[str]:
     try:
-        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
-        return payload.get("sub")
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm],
+                             options={"require_exp": True, "require_sub": True})
+        subject = payload.get("sub")
+        return subject if isinstance(subject, str) and subject else None
     except JWTError:
         return None
 
 
 def token_version(token: str):
     try:
-        return jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm]).get('ver', 0)
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm],
+                             options={"require_exp": True, "require_sub": True})
+        version = payload.get('ver', 0)
+        return version if type(version) is int and version >= 0 else None
     except JWTError:
         return None

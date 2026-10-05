@@ -2,10 +2,19 @@ import { create } from "zustand";
 import { tokenStorage as SecureStore } from "./tokenStorage";
 import { apiRequest } from "../api/client";
 import * as authApi from "../api/auth";
-import { setSessionToken } from "./tokenSession";
+import { setSessionToken, getSessionRevision } from "./tokenSession";
 import { NativeModules, Platform } from "react-native";
 
 const TOKEN_KEY = "bratislava_events_token";
+let storageMutation: Promise<void> = Promise.resolve();
+
+function persistStoredToken(token: string | null): Promise<void> {
+  const write = storageMutation.catch(() => {}).then(() => token
+    ? SecureStore.setItemAsync(TOKEN_KEY, token)
+    : SecureStore.deleteItemAsync(TOKEN_KEY));
+  storageMutation = write;
+  return write;
+}
 
 interface AuthState {
   token: string | null;
@@ -22,10 +31,12 @@ interface AuthState {
 
 async function persistSession(accessToken: string, set: (state: Partial<AuthState>) => void) {
   setSessionToken(accessToken);
-  await SecureStore.setItemAsync(TOKEN_KEY, accessToken);
-  set({ token: accessToken });
+  const revision = getSessionRevision();
+  set({ token: accessToken, user: null });
+  await persistStoredToken(accessToken);
+  if (revision !== getSessionRevision()) return;
   const user = await authApi.getMe();
-  set({ user });
+  if (revision === getSessionRevision()) set({ user });
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -34,22 +45,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: true,
 
   hydrate: async () => {
+    const startingRevision = getSessionRevision();
+    let hydratedRevision = startingRevision;
     try {
+      await storageMutation.catch(() => {});
       const token = await SecureStore.getItemAsync(TOKEN_KEY);
-      if (!token) return;
+      if (!token || startingRevision !== getSessionRevision()) return;
       setSessionToken(token);
+      hydratedRevision = getSessionRevision();
       set({ token });
       try {
         const user = await authApi.getMe();
-        set({ user });
+        if (hydratedRevision === getSessionRevision()) set({ user });
       } catch {
-        await SecureStore.deleteItemAsync(TOKEN_KEY);
+        if (hydratedRevision !== getSessionRevision()) return;
+        await persistStoredToken(null);
+        if (hydratedRevision !== getSessionRevision()) return;
         setSessionToken(null);
         set({ token: null, user: null });
       }
     } catch {
-      setSessionToken(null);
-      set({ token: null, user: null });
+      if (hydratedRevision === getSessionRevision()) {
+        setSessionToken(null);
+        set({ token: null, user: null });
+      }
     } finally {
       set({ isLoading: false });
     }
@@ -76,17 +95,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
-    try {
-      await apiRequest("/auth/logout", { method: "POST", auth: true });
-    } catch {
-      // Local logout still succeeds if the API is temporarily unavailable.
-    }
-    await SecureStore.deleteItemAsync(TOKEN_KEY);
-    if (Platform.OS !== "web" && NativeModules.RNGoogleSignin) {
+    // Capture the old bearer, then clear local identity immediately.
+    const logoutRequest = apiRequest("/auth/logout", { method: "POST", auth: true }).catch(() => {});
+    setSessionToken(null);
+    const logoutRevision = getSessionRevision();
+    set({ token: null, user: null });
+    try { await persistStoredToken(null); } finally { await logoutRequest; }
+    if (logoutRevision === getSessionRevision() && Platform.OS !== "web" && NativeModules.RNGoogleSignin) {
       try { await require("@react-native-google-signin/google-signin").GoogleSignin.signOut(); } catch { /* BACity logout remains authoritative. */ }
     }
-    setSessionToken(null);
-    set({ token: null, user: null });
   },
 
   refreshUser: async () => {

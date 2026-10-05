@@ -3,6 +3,9 @@ import hashlib
 import logging
 import secrets
 import smtplib
+import ssl
+import base64
+import re
 from datetime import datetime, timedelta
 from email.message import EmailMessage
 from email.utils import formataddr
@@ -14,6 +17,23 @@ from app.config import get_settings
 
 log = logging.getLogger("bacity.mail")
 MAX_MAIL_ATTEMPTS = 10
+
+
+def _safe_smtp_response(response, settings, item):
+    if isinstance(response, bytes):
+        response = response.decode('utf-8', errors='replace')
+    response = str(response)
+    sensitive = [settings.smtp_username, settings.smtp_password, item.recipient,
+                 *re.findall(r'[?&]token=([^&\s]+)', item.body)]
+    auth_plain = '\0' + settings.smtp_username + '\0' + settings.smtp_password
+    sensitive.append(auth_plain)
+    variants = {value for secret in sensitive if secret for value in (
+        secret, base64.b64encode(secret.encode()).decode(),
+    )}
+    for value in sorted(variants, key=len, reverse=True):
+        response = response.replace(value, '[redacted]')
+    response = re.sub(r'https?://\S+|[\w.+-]+@[\w.-]+', '[redacted]', response)
+    return ''.join(char if char.isprintable() else ' ' for char in response)[:500]
 
 
 def _recipient_ref(recipient: str) -> str:
@@ -89,10 +109,14 @@ def deliver_pending_mail(db, *, now: datetime | None = None, limit: int = 50) ->
             message.set_content(item.body)
 
             smtp_class = smtplib.SMTP_SSL if settings.smtp_ssl else smtplib.SMTP
-            smtp = smtp_class(settings.smtp_host, settings.smtp_port, timeout=15)
+            tls_context = ssl.create_default_context()
+            options = {'timeout': 15}
+            if settings.smtp_ssl:
+                options['context'] = tls_context
+            smtp = smtp_class(settings.smtp_host, settings.smtp_port, **options)
             if settings.smtp_starttls:
                 phase = "connection"
-                smtp.starttls()
+                smtp.starttls(context=tls_context)
             if settings.smtp_username:
                 phase = "authentication"
                 smtp.login(settings.smtp_username, settings.smtp_password)
@@ -110,10 +134,7 @@ def deliver_pending_mail(db, *, now: datetime | None = None, limit: int = 50) ->
             item.next_attempt_at = now + timedelta(seconds=min(3600, 30 * 2 ** item.attempts))
             if isinstance(exc, smtplib.SMTPAuthenticationError):
                 failure = "authentication"
-                smtp_response = exc.smtp_error
-                if isinstance(smtp_response, bytes):
-                    smtp_response = smtp_response.decode("utf-8", errors="replace")
-                smtp_response = str(smtp_response).replace("\r", " ").replace("\n", " ")
+                smtp_response = _safe_smtp_response(exc.smtp_error, settings, item)
                 transport_mode = "ssl" if settings.smtp_ssl else (
                     "starttls" if settings.smtp_starttls else "plain"
                 )

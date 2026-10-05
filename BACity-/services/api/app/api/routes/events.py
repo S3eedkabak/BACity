@@ -3,7 +3,7 @@ from uuid import UUID
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi import Header
+from fastapi import Header, Request
 import os
 import secrets
 from sqlalchemy.orm import Session
@@ -18,9 +18,17 @@ from app.models.user import User
 router = APIRouter(prefix="/events", tags=["events"])
 
 
+def public_read_budget(request: Request, db: Session = Depends(get_db)):
+    from app.core.community import rate_limit
+    rate_limit(db, 'public-events:' + request.client.host, 600, 60)
+
+
 def require_ingestion_key(x_ingestion_key: str = Header(default="")):
     from app.config import get_settings
-    expected = os.getenv("INGESTION_API_KEY", get_settings().ingestion_api_key)
+    settings = get_settings()
+    expected = os.getenv("INGESTION_API_KEY", settings.ingestion_api_key)
+    if not expected and settings.environment != "development":
+        raise HTTPException(status_code=503, detail="Ingestion authentication is unavailable")
     if expected and not secrets.compare_digest(expected, x_ingestion_key):
         raise HTTPException(status_code=401, detail="Invalid ingestion key")
 
@@ -41,7 +49,7 @@ def maintenance(db: Session = Depends(get_db)):
     return {"status": "ok"}
 
 
-@router.get("", response_model=EventListResponse)
+@router.get("", response_model=EventListResponse, dependencies=[Depends(public_read_budget)])
 def list_events(
     category: Optional[str] = None,
     tag: Optional[str] = None,
@@ -65,7 +73,7 @@ def list_events(
     return EventListResponse(total=total, items=items)
 
 
-@router.get("/search", response_model=list[EventOut])
+@router.get("/search", response_model=list[EventOut], dependencies=[Depends(public_read_budget)])
 def search_events(
     q: str = Query(..., min_length=1, max_length=200),
     limit: int = Query(20, ge=1, le=100),
@@ -74,15 +82,17 @@ def search_events(
     return event_crud.search_events(db, query=q, limit=limit)
 
 
-@router.get("/viewport", response_model=list[EventOut])
+@router.get("/viewport", response_model=list[EventOut], dependencies=[Depends(public_read_budget)])
 def viewport_events(
-    min_lat: float,
-    max_lat: float,
-    min_lng: float,
-    max_lng: float,
-    limit: int = Query(200, le=500),
+    min_lat: float = Query(ge=-90, le=90),
+    max_lat: float = Query(ge=-90, le=90),
+    min_lng: float = Query(ge=-180, le=180),
+    max_lng: float = Query(ge=-180, le=180),
+    limit: int = Query(200, ge=1, le=500),
     db: Session = Depends(get_db),
 ):
+    if min_lat > max_lat or min_lng > max_lng:
+        raise HTTPException(422, "Viewport bounds must be ordered")
     return event_crud.viewport_events(
         db,
         min_lat=min_lat,
@@ -93,12 +103,12 @@ def viewport_events(
     )
 
 
-@router.get("/nearby", response_model=list[EventOut])
+@router.get("/nearby", response_model=list[EventOut], dependencies=[Depends(public_read_budget)])
 def nearby_events(
-    lat: float,
-    lng: float,
+    lat: float = Query(ge=-90, le=90),
+    lng: float = Query(ge=-180, le=180),
     radius_km: float = Query(5.0, gt=0, le=50),
-    limit: int = Query(50, le=200),
+    limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
 ):
     return event_crud.nearby_events(

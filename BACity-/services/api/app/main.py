@@ -3,6 +3,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
@@ -36,12 +38,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(RequestMiddleware)
+if settings.environment != "development":
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_host_list)
 app.mount("/media", StaticFiles(directory=settings.media_root), name="media")
 
 
 @app.exception_handler(ValidationError)
 async def validation_error(request, exc):
     return JSONResponse(status_code=422, content={'detail': json.loads(exc.json(include_input=False, include_context=False))})
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_error(request, exc):
+    # FastAPI's default includes rejected passwords, tokens and request bodies.
+    return JSONResponse(status_code=422, content={'detail': [
+        {key: value for key, value in error.items() if key in ('type', 'loc', 'msg')}
+        for error in exc.errors()
+    ]})
 
 
 @app.exception_handler(IntegrityError)

@@ -190,7 +190,7 @@ def _signed(payload: dict, ttl_seconds: int) -> str:
 
 def _decoded(token: str, purpose: str) -> dict:
     try:
-        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm], options={'require_exp': True})
     except JWTError as exc:
         raise HTTPException(400, "OAuth session expired or invalid") from exc
     if payload.get("typ") != purpose:
@@ -345,7 +345,9 @@ def oauth_start(provider: str, request: Request, db: Session = Depends(get_db)):
         raise HTTPException(503, f"{provider.title()} sign in is not configured")
 
     rate_limit(db, f"oauth-start:{request.client.host}", 40, 900)
-    state = _signed({"typ": "oauth_state", "provider": provider}, 600)
+    nonce = secrets.token_urlsafe(32)
+    state = _signed({"typ": "oauth_state", "provider": provider,
+                     "browser": hashlib.sha256(nonce.encode()).hexdigest()}, 600)
 
     if provider == "google":
         query = urlencode(
@@ -358,7 +360,8 @@ def oauth_start(provider: str, request: Request, db: Session = Depends(get_db)):
                 "prompt": "select_account",
             }
         )
-        return RedirectResponse("https://accounts.google.com/o/oauth2/v2/auth?" + query)
+        response = RedirectResponse("https://accounts.google.com/o/oauth2/v2/auth?" + query)
+        return _bind_oauth_browser(response, provider, nonce)
 
     query = urlencode(
         {
@@ -370,7 +373,29 @@ def oauth_start(provider: str, request: Request, db: Session = Depends(get_db)):
             "state": state,
         }
     )
-    return RedirectResponse("https://appleid.apple.com/auth/authorize?" + query)
+    return _bind_oauth_browser(RedirectResponse("https://appleid.apple.com/auth/authorize?" + query), provider, nonce)
+
+
+def _bind_oauth_browser(response, provider, nonce):
+    secure = settings.oauth_callback_base_url.startswith('https://')
+    response.set_cookie('bacity_oauth_' + provider, nonce, max_age=600, httponly=True,
+                        secure=secure, samesite='none' if provider == 'apple' and secure else 'lax',
+                        path='/auth/oauth/')
+    return response
+
+
+def _browser_oauth_state(request, provider, state):
+    claims = _decoded(state, 'oauth_state')
+    nonce = request.cookies.get('bacity_oauth_' + provider, '')
+    expected = claims.get('browser')
+    if (claims.get('provider') != provider or not nonce or not isinstance(expected, str)
+            or not secrets.compare_digest(expected, hashlib.sha256(nonce.encode()).hexdigest())):
+        raise HTTPException(400, 'OAuth browser session invalid; start sign in again')
+
+
+def _finish_browser_oauth(response, provider):
+    response.delete_cookie('bacity_oauth_' + provider, path='/auth/oauth/')
+    return response
 
 
 @router.post("/oauth/exchange", response_model=Token)
@@ -498,10 +523,13 @@ def _apple_token_claims(id_token: str, client_id: str) -> dict:
             algorithms=["RS256"],
             audience=client_id,
             issuer="https://appleid.apple.com",
+            options={"require_exp": True, "require_sub": True},
         )
     except JWTError as exc:
         raise HTTPException(400, "Apple identity token could not be verified") from exc
 
+    if claims.get('email') and str(claims.get('email_verified', '')).lower() != 'true':
+        raise HTTPException(400, 'Apple email is not verified')
     return claims
 
 
@@ -515,31 +543,29 @@ def _apple_identity(code: str) -> tuple[str, str | None, str | None]:
 
 
 @router.get("/oauth/google/callback")
-def google_callback(code: str, state: str, db: Session = Depends(get_db)):
+def google_callback(request: Request, code: str, state: str, db: Session = Depends(get_db)):
     try:
-        claims = _decoded(state, "oauth_state")
-        if claims.get("provider") != "google":
-            raise HTTPException(400, "OAuth provider mismatch")
+        _browser_oauth_state(request, 'google', state)
         subject, email, name, picture = _google_identity(code)
         user = _find_or_create_social_user(db, "google", subject, email, name, picture)
-        return _app_redirect(code=_exchange_code_for_user(db, user))
+        response = _app_redirect(code=_exchange_code_for_user(db, user))
     except HTTPException as exc:
-        return _app_redirect(error=str(exc.detail))
+        response = _app_redirect(error=str(exc.detail))
     except Exception:
-        return _app_redirect(error="Google sign in could not be completed")
+        response = _app_redirect(error="Google sign in could not be completed")
+    return _finish_browser_oauth(response, 'google')
 
 
 @router.post("/oauth/apple/callback")
 def apple_callback(
+    request: Request,
     code: str = Form(...),
     state: str = Form(...),
     user: str | None = Form(None),
     db: Session = Depends(get_db),
 ):
     try:
-        claims = _decoded(state, "oauth_state")
-        if claims.get("provider") != "apple":
-            raise HTTPException(400, "OAuth provider mismatch")
+        _browser_oauth_state(request, 'apple', state)
 
         subject, email, refresh_token = _apple_identity(code)
         display_name = None
@@ -550,18 +576,20 @@ def apple_callback(
                 display_name = " ".join(
                     part for part in [name.get("firstName"), name.get("lastName")] if part
                 ) or None
-                email = email or supplied.get("email")
+                # Apple's unsigned form may supply a display name, NEVER an
+                # account-linking email. Only the verified identity token may.
             except (ValueError, TypeError):
                 pass
 
         account = _find_or_create_social_user(db, "apple", subject, email, display_name,
                                               provider_refresh_token=refresh_token,
                                               provider_client_id=settings.apple_oauth_client_id)
-        return _app_redirect(code=_exchange_code_for_user(db, account))
+        response = _app_redirect(code=_exchange_code_for_user(db, account))
     except HTTPException as exc:
-        return _app_redirect(error=str(exc.detail))
+        response = _app_redirect(error=str(exc.detail))
     except Exception:
-        return _app_redirect(error="Apple sign in could not be completed")
+        response = _app_redirect(error="Apple sign in could not be completed")
+    return _finish_browser_oauth(response, 'apple')
 
 
 def _mark_native_token_used(db: Session, user: User, identity_token: str):

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { FlatList, Linking, StyleSheet, Text, TextInput, View } from "react-native";
+import { FlatList, StyleSheet, Text, TextInput, View } from "react-native";
+import { externalLinking as Linking } from "../src/api/externalLinking";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { apiRequest } from "../src/api/client";

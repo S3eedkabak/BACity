@@ -5,7 +5,7 @@
  * auth store here. This intentionally removes the client -> store -> auth
  * -> client circular dependency.
  */
-import { getSessionToken } from "../store/tokenSession";
+import { getSessionToken, getSessionRevision } from "../store/tokenSession";
 import { Platform } from "react-native";
 import { resolveApiUrl } from "./apiUrl";
 import { serializeRequestBody } from "./requestBody";
@@ -41,6 +41,7 @@ export async function apiRequest<T>(
   options: RequestOptions = {}
 ): Promise<T> {
   const { method = "GET", body, auth = false, params } = options;
+  const sessionRevision = getSessionRevision();
 
   const headers: Record<string, string> = { "Content-Type": "application/json" };
 
@@ -63,6 +64,10 @@ export async function apiRequest<T>(
     clearTimeout(timeout);
   }
 
+  if (auth && sessionRevision !== getSessionRevision()) {
+    throw new ApiError(401, "Session changed; please retry");
+  }
+
   if (!res.ok) {
     let detail = res.statusText;
     try {
@@ -77,5 +82,9 @@ export async function apiRequest<T>(
   }
 
   if (res.status === 204) return undefined as T;
-  return res.json() as Promise<T>;
+  const result = await res.json() as T;
+  if (auth && sessionRevision !== getSessionRevision()) {
+    throw new ApiError(401, "Session changed; please retry");
+  }
+  return result;
 }

@@ -178,6 +178,21 @@ def test_upgrade_backfills_existing_source_references():
         assert_row_lock(lambda session: _group(session, group_id, for_update=True))
         assert_row_lock(lambda session: _owned(session, watch_id, owner_id, for_update=True))
         assert_row_lock(lambda session: _lock_owner(session, owner_id))
+        # Two independently approved claims must serialize on the organization.
+        from app.models.community import Organization, Submission
+        from app.api.routes.community import publish
+        with sessions.begin() as seed:
+            organization = Organization(name='Security claim lock fixture')
+            seed.add(organization)
+            seed.flush()
+            organization_id = organization.id
+
+        def claim_organization(session):
+            submission = Submission(user_id=owner_id, kind='claim', state='approved',
+                                    payload={'organization_id': str(organization_id)})
+            publish(session, submission, 'Verified')
+
+        assert_row_lock(claim_organization)
         with sessions.begin() as seed:
             seed.add(ConsumerSubscription(
                 user_id=owner_id, provider='stripe', entitlement='bacity_plus',

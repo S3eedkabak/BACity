@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Text, Linking } from 'react-native';
+import { Text } from 'react-native';
+import { externalLinking as Linking } from '../../src/api/externalLinking';
 import { apiRequest } from '../../src/api/client';
 import { EventOut } from '../../src/types/event';
 import { EventCard } from '../../src/components/EventCard';
