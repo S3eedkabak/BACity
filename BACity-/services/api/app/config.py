@@ -23,6 +23,12 @@ class Settings(BaseSettings):
     ingestion_api_key: str = ""
     public_app_url: str = "http://localhost:8081"
     account_action_base_url: str = ""
+    # Owner-approved published documents/contact only; blank means not configured.
+    privacy_contact_email: str = ""
+    privacy_notice_url: str = ""
+    privacy_notice_version: str = ""
+    terms_url: str = ""
+    terms_version: str = ""
 
     # Browser OAuth. The callback URL is registered with Google/Apple; the
     # app redirect is the Expo/React Native deep link receiving a short-lived
@@ -89,6 +95,13 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def deployment_secrets(self):
         from urllib.parse import urlsplit
+        if self.privacy_contact_email and ('@' not in self.privacy_contact_email or any(c in self.privacy_contact_email for c in '\r\n ?&')):
+            raise ValueError('Privacy contact must be a plain email address')
+        for value in (self.privacy_notice_url, self.terms_url):
+            if value:
+                part = urlsplit(value)
+                if part.scheme not in ('http', 'https') or not part.hostname or part.username or part.password or (self.environment != 'development' and part.scheme != 'https'):
+                    raise ValueError('Policy URLs require public HTTPS outside development, without credentials')
         for origin in self.cors_origin_list:
             part = urlsplit(origin)
             if (part.scheme not in ('http', 'https') or not part.hostname or '*' in part.netloc

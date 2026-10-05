@@ -41,7 +41,10 @@ def test_upgrade_backfills_existing_source_references(monkeypatch):
             row = connection.execute(text('SELECT title_key,source_url FROM event_sources')).one()
             assert row.title_key == 'test jazz'
             assert row.source_url == 'https://venue.example/event'
-            assert connection.execute(text('SELECT version_num FROM alembic_version')).scalar() == '0013'
+            assert connection.execute(text('SELECT version_num FROM alembic_version')).scalar() == '0014'
+            assert connection.execute(text("SELECT count(*) FROM pg_constraint WHERE conname='ck_privacy_request_kind'")).scalar() == 1
+            assert connection.execute(text("SELECT count(*) FROM pg_indexes WHERE indexname='ix_privacy_requests_status_due'")).scalar() == 1
+            assert connection.execute(text("SELECT data_type FROM information_schema.columns WHERE table_name='privacy_requests' AND column_name='details'")).scalar() == 'text'
             assert connection.execute(text("SELECT data_type FROM information_schema.columns WHERE table_name='event_sources' AND column_name='facts'")).scalar() == 'jsonb'
             assert connection.execute(text("SELECT count(*) FROM pg_constraint WHERE conname='ck_candidate_status'")).scalar() == 1
             assert connection.execute(text("SELECT count(*) FROM pg_indexes WHERE indexname='ix_candidate_status_inspected'")).scalar() == 1
@@ -161,6 +164,21 @@ def test_upgrade_backfills_existing_source_references(monkeypatch):
             seed.add_all([group, watch])
             seed.flush()
             owner_id, group_id, watch_id = owner.id, group.id, watch.id
+
+        from app.models.privacy import PrivacyRequest
+        from app.core.encryption import PREFIX
+        with sessions.begin() as privacy_seed:
+            case = PrivacyRequest(user_id=owner_id, kind='ACCESS', details='PostgreSQL private request',
+                                  response='', due_at=datetime.utcnow() + timedelta(days=1))
+            privacy_seed.add(case)
+            privacy_seed.flush()
+            case_id = case.id
+            stored = privacy_seed.execute(text('SELECT details FROM privacy_requests WHERE id=:id'), {'id': case_id}).scalar_one()
+            assert stored.startswith(PREFIX) and 'PostgreSQL private' not in stored
+        with sessions() as privacy_verify:
+            assert privacy_verify.get(PrivacyRequest, case_id).details == 'PostgreSQL private request'
+        with db.connect() as connection:
+            assert connection.execute(text("SELECT count(*) FROM pg_constraint WHERE conrelid='privacy_requests'::regclass AND contype='f' AND confdeltype='n'")).scalar_one() == 1
 
         def assert_row_lock(acquire):
             first, second = sessions(), sessions()

@@ -16,6 +16,7 @@ from app.core.community import (require_verified, require_moderator, require_adm
 from app.core.utilities import nearby_query, utility_record, viewport_query
 from app.core.entitlements import BACITY_PLUS, EntitlementService
 from app.models.user import User
+from app.models.privacy import PrivacyRequest
 from app.models.oauth_identity import OAuthIdentity
 from app.models.saved_event import SavedEvent
 from app.models.event import Event, EventStatus, EventCategory
@@ -465,7 +466,7 @@ def decide(identifier: UUID, payload: ModerationDecision, user=Depends(require_m
     item.state = 'approved' if payload.decision == 'approve' else 'rejected'
     item.decision_reason = payload.reason
     item.reviewer_id = user.id
-    audit(db, user, item.state, 'submission', item.id, payload.model_dump())
+    audit(db, user, item.state, 'submission', item.id, {'decision': payload.decision, 'trust_level': payload.trust_level})
     notify(db, item.user_id, 'moderation', f'Your {item.kind} contribution was {item.state}: {payload.reason}', item.id)
     db.commit()
     return record(item)
@@ -513,7 +514,7 @@ def resolve_report(identifier: UUID, payload: ModerationDecision, user=Depends(r
             target.operational_status = 'closed'
     item.state = 'resolved'
     item.decision = payload.reason
-    audit(db, user, 'report_resolved', 'report', item.id, payload.model_dump())
+    audit(db, user, 'report_resolved', 'report', item.id, {'decision': payload.decision})
     db.commit()
     return record(item)
 
@@ -820,7 +821,7 @@ def export_account(user=Depends(get_current_user), db: Session = Depends(get_db)
         'saved_events': records(db.query(SavedEvent).filter_by(user_id=user_id)),
         'submissions': submissions,
         'follows': records(db.query(Follow).filter(or_(Follow.user_id == user_id, and_(Follow.target_type.in_(['user', 'guide']), Follow.target_id == user_id_text)))),
-        'blocks': records(db.query(UserBlock).filter(or_(UserBlock.user_id == user_id, UserBlock.blocked_id == user_id))),
+        'blocks': records(db.query(UserBlock).filter_by(user_id=user_id)),
         'reports': records(db.query(Report).filter_by(user_id=user_id)),
         'organization_memberships': records(db.query(OrganizationMember).filter_by(user_id=user_id)),
         'places_contributed': records(db.query(Place).filter_by(contributor_id=user_id)),
@@ -841,6 +842,10 @@ def export_account(user=Depends(get_current_user), db: Session = Depends(get_db)
         'group_participation': records(db.query(GroupParticipant).filter_by(user_id=user_id)),
         'group_votes': records(db.query(GroupVote).filter_by(user_id=user_id)),
         'area_watches': records(db.query(AreaWatch).filter_by(user_id=user_id)),
+        'privacy_requests': [
+            {key: value for key, value in record(item).items() if key != 'user_id'}
+            for item in db.query(PrivacyRequest).filter_by(user_id=user_id)
+        ],
     }
     audit(db, user, 'account_exported', 'user', user.id)
     db.commit()
@@ -913,6 +918,11 @@ def delete_account(payload: Reason, user=Depends(get_current_user), db: Session 
     db.query(GroupVote).filter_by(user_id=user_id).delete(synchronize_session=False)
     db.query(GroupParticipant).filter_by(user_id=user_id).delete(synchronize_session=False)
     db.query(AreaWatch).filter_by(user_id=user_id).delete(synchronize_session=False)
+    # Remove request content and account linkage; retain only workflow metadata
+    # until the owner approves a retention rule. Do not imply legal fulfilment.
+    db.query(PrivacyRequest).filter_by(user_id=user_id).update({
+        'user_id': None, 'details': '', 'response': '', 'identity_confirmed': False,
+    }, synchronize_session=False)
     db.query(RateBucket).filter(or_(RateBucket.key.contains(str(user_id)), RateBucket.key.contains(old_email))).delete(synchronize_session=False)
 
     # Unpublished submissions are retained only as empty workflow tombstones.

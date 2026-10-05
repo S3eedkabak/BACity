@@ -212,6 +212,9 @@ export default function AuthScreen() {
               {mode === "login" ? "Create one" : "Log in"}
             </Text>
           </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Privacy information and terms" onPress={() => router.push('/privacy')} style={styles.textButton}>
+            <Text style={styles.textButtonLabel}>Privacy information & terms</Text>
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

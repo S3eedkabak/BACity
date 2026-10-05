@@ -55,6 +55,10 @@
     </dict>
     <key>NSFaceIDUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your Face ID biometric data.</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Allow BACity to use your approximate location for nearby event recommendations.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Allow BACity to choose and crop your profile photo.</string>
     <key>NSUserActivityTypes</key>
     <array>
       <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>

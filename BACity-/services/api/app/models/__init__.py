@@ -3,6 +3,7 @@ from app.models.candidate_source import CandidateSource
 from app.models.venue import Venue
 from app.models.event import Event
 from app.models.user import User
+from app.models.privacy import PrivacyRequest
 from app.models.oauth_identity import OAuthIdentity
 from app.models.saved_event import SavedEvent
 from app.models.event_source import EventSource
@@ -15,5 +16,5 @@ __all__ = [
     "Source", "CrawlerRun", "Venue", "Event", "User", "OAuthIdentity", "SavedEvent",
     "ConsumerSubscription", "EntitlementGrant", "ConsumerBillingCustomer", "ProviderEventReceipt", "GroupSession", "GroupParticipant",
     "GroupMatchRound", "GroupCandidate", "GroupVote",
-    "AreaWatch",
+    "AreaWatch", "PrivacyRequest",
 ]

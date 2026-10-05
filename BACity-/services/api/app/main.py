@@ -16,6 +16,7 @@ from pathlib import Path
 from app.config import get_settings
 from app.database import Base, engine, get_db
 from app.api.routes import events, venues, auth, users, community, discovery, billing, consumer_billing, google_play_billing, crawler, groups, area_watches
+from app.api.routes import privacy
 
 # Import models so they're registered on Base.metadata before create_all
 # (used only for the SQLite dev/test path; Postgres uses Alembic migrations).
@@ -69,6 +70,7 @@ async def duplicate_error(request, exc):
     return JSONResponse(status_code=409, content={'detail': 'This record already exists or changed concurrently; refresh and try again'})
 
 app.include_router(auth.router)
+app.include_router(privacy.router)
 app.include_router(community.router)
 app.include_router(discovery.router)
 app.include_router(billing.router)

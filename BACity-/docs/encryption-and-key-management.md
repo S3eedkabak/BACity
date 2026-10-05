@@ -9,7 +9,7 @@ them. Deployment must not market application encryption as E2EE.
 | Model | Decision | Threats/tradeoffs |
 | --- | --- | --- |
 | A: HTTPS + infrastructure storage encryption only | Insufficient alone for these bearer-equivalent/private fields | TLS protects transit; volume encryption protects lost disks but not readable SQL dumps or DB-only credentials |
-| B: server/application AEAD | Implemented for three unindexed TEXT fields | Protects DB-only snapshots without keys; API/export/SMTP/provider operations still decrypt legitimately |
+| B: server/application AEAD | Implemented for five unindexed TEXT fields | Protects DB-only snapshots without keys; API/export/SMTP/provider operations still decrypt legitimately |
 | C: true E2EE | Separate product/architecture project, not implemented | Requires device enrollment, multi-device keys, recovery/lost-device design, backups, user-assisted reports and preview/search changes |
 
 Encrypted via the existing cryptography library (now explicitly pinned 50.0.1):
@@ -17,12 +17,13 @@ Encrypted via the existing cryptography library (now explicitly pinned 50.0.1):
 - `messages.body`: private pairwise content.
 - `consumer_subscriptions.provider_purchase_token`: provider credential needed for reconciliation.
 - `mail_outbox.body`: pending verification/reset/exchange links contain usable action secrets.
+- `privacy_requests.details` and `privacy_requests.response`: bounded rights-request text and assessed replies (migration 0014 adds the workflow).
 
 The SQLAlchemy `EncryptedText` type preserves TEXT columns, API response shapes,
 provider reconciliation and existing owner/member authorization. It encrypts every
 ORM write and decrypts ORM reads. These fields are not indexed/searched by content;
 Play ownership lookup still uses the separate SHA-256 purchase identity. No schema
-migration is needed. Raw SQL writers can bypass ORM encryption: restrict DB access,
+migration was needed for the original three fields; migration 0014 adds encrypted privacy requests without changing that architecture. Raw SQL writers can bypass ORM encryption: restrict DB access,
 use the operational verifier, and do not add raw writers to these fields.
 
 Public events/venues are deliberately not encrypted. User email, message metadata,

@@ -8,6 +8,7 @@ from app.database import engine
 FIELDS = (
     ('messages', 'body'), ('mail_outbox', 'body'),
     ('consumer_subscriptions', 'provider_purchase_token'),
+    ('privacy_requests', 'details'), ('privacy_requests', 'response'),
 )
 
 
