@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { EveningPlanAlternative } from "../src/api/eveningPlans";
-import { Button, Chip, Field } from "../src/components/CommunityUI";
+import { Button, Chip } from "../src/components/CommunityUI";
 import { EmptyState } from "../src/components/EmptyState";
-import { ScreenHeader } from "../src/components/SocialUI";
+import { ScreenHeader, SkeletonList } from "../src/components/SocialUI";
 import { defaultEveningParameters, eveningEventRoute, eveningPlanNotice, isChronologicalPlan, resolveEveningView, validateEveningParameters } from "../src/evening/presentation";
 import { useEveningPlans } from "../src/hooks/useEveningPlans";
 import { plusPaywallRoute } from "../src/plus/policy";
@@ -15,32 +15,16 @@ import { useRecommendationLocation } from "../src/recommendations/useRecommendat
 import { colors } from "../src/theme/colors";
 import { fonts } from "../src/theme/fonts";
 import { EventCategory } from "../src/types/event";
+import { PremiumIntro, PlanStop } from "../src/components/PremiumUI";
+import { TemporalField } from "../src/components/TemporalField";
+import { useBACityWaiting } from "../src/components/BACityMotion";
 
 const CATEGORIES: EventCategory[] = ["Music", "Culture", "Arts", "Nightlife", "Theatre", "Comedy", "Family", "Community"];
 const STRATEGY_LABELS = { best_match: "Best match", relaxed: "Relaxed", something_different: "Something different" } as const;
 
-function formatTime(value: string) {
-  return new Date(value).toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" });
-}
-
 function PlanTimeline({ plan }: { plan: EveningPlanAlternative }) {
   if (!isChronologicalPlan(plan)) return <EmptyState title="This plan couldn't be displayed safely" />;
-  return <View style={styles.timeline}>{plan.items.map((item, index) => <Pressable
-    key={item.event.id}
-    accessibilityRole="button"
-    accessibilityLabel={`Open ${item.event.title}`}
-    onPress={() => router.push(eveningEventRoute(item.event.id))}
-    style={({ pressed }) => [styles.eventRow, pressed && styles.pressed]}
-  >
-    <View style={styles.order}><Text style={styles.orderText}>{index + 1}</Text></View>
-    <View style={styles.eventCopy}>
-      <Text style={styles.eventTime}>{formatTime(item.event.start_time)}</Text>
-      <Text style={styles.eventTitle} numberOfLines={2}>{item.event.title}</Text>
-      <Text style={styles.eventVenue} numberOfLines={1}>{item.event.venue?.name ?? item.event.address ?? "Bratislava"}</Text>
-      {item.reasons[0] ? <Text style={styles.reason}>{item.reasons[0]}</Text> : null}
-    </View>
-    <Ionicons name="chevron-forward" size={17} color={colors.textMuted} />
-  </Pressable>)}</View>;
+  return <View style={styles.timeline}>{plan.items.map((item, index) => <PlanStop key={item.event.id} event={item.event} reason={item.reasons[0]} last={index === plan.items.length - 1} />)}</View>;
 }
 
 export default function EveningPlanScreen() {
@@ -52,8 +36,10 @@ export default function EveningPlanScreen() {
   const [categories, setCategories] = useState<EventCategory[]>([]);
   const [validation, setValidation] = useState<string | null>(null);
   const [alternative, setAlternative] = useState(0);
+  const [editing, setEditing] = useState(true);
   const location = useRecommendationLocation(gate.decision === "allow");
   const generation = useEveningPlans();
+  useBACityWaiting(gate.decision === "allow" && generation.isPending, "Composing your evening");
   const plans = generation.data?.plans ?? [];
   const submitted = generation.data !== undefined || generation.isPending || generation.isError;
   const state = resolveEveningView(gate.decision, submitted, generation.isPending, generation.isError, plans.length);
@@ -81,6 +67,7 @@ export default function EveningPlanScreen() {
     const problem = validateEveningParameters(date, startTime, endTime);
     setValidation(problem);
     if (problem) return;
+    setEditing(false);
     generation.mutate({
       date,
       start_time: startTime,
@@ -97,14 +84,13 @@ export default function EveningPlanScreen() {
   const selected = plans[alternative];
   return <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
     <ScreenHeader title="Build My Evening" />
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <Text style={styles.kicker}>BACity+</Text>
-      <Text style={styles.heading}>Make this evening count</Text>
-      <Text style={styles.subtitle}>Choose a time and a few interests. BACity will combine only real events that safely fit.</Text>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <PremiumIntro icon="moon-outline" title="Make this evening count" subtitle="A few real events, thoughtfully composed around your time and interests." />
 
-      <View style={styles.form}>
-        <Field label="Date (YYYY-MM-DD)" value={date} onChange={setDate} />
-        <View style={styles.split}><View style={styles.flex}><Field label="Start (HH:MM)" value={startTime} onChange={setStartTime} /></View><View style={styles.flex}><Field label="End (HH:MM)" value={endTime} onChange={setEndTime} /></View></View>
+      {submitted && <Button variant="secondary" title={`${editing ? 'Hide' : 'Adjust'} time & interests`} onPress={() => setEditing(value => !value)} />}
+      {(!submitted || editing) && <View style={styles.form}>
+        <TemporalField label="Your evening" value={date} onChange={setDate} />
+        <View style={styles.split}><View style={styles.flex}><TemporalField mode="time" label="From" value={startTime} onChange={setStartTime} /></View><View style={styles.flex}><TemporalField mode="time" label="Until" value={endTime} onChange={setEndTime} /></View></View>
         <Text style={styles.label}>INTERESTS FOR THIS EVENING</Text>
         <View style={styles.chips}>{CATEGORIES.map(category => <Chip key={category} title={category} active={categories.includes(category)} onPress={() => toggleCategory(category)} />)}</View>
         <View style={styles.locationRow}>
@@ -114,11 +100,12 @@ export default function EveningPlanScreen() {
         </View>
         {validation ? <Text accessibilityRole="alert" style={styles.error}>{validation}</Text> : null}
         <Button title={generation.data ? "Regenerate plans" : "Build my evening"} busy={generation.isPending} onPress={generate} />
-      </View>
+      </View>}
 
       {state === "error" ? <EmptyState title="Plans couldn't be generated" subtitle="Your normal BACity discovery remains available." action="Try again" onAction={generate} /> : null}
+      {state === 'loading' ? <SkeletonList rows={3} /> : null}
       {state === "empty" ? <EmptyState title="No realistic plan found" subtitle="BACity won't invent activities or weaken transition constraints." action="Adjust your time or interests" onAction={() => generation.reset()} /> : null}
-      {state === "results" ? <>
+      {state === "results" && !editing ? <>
         <View style={styles.alternatives}>{plans.map((plan, index) => <Pressable key={plan.id} onPress={() => setAlternative(index)} style={[styles.alternative, alternative === index && styles.alternativeActive]}><Text style={[styles.alternativeText, alternative === index && styles.alternativeTextActive]}>{STRATEGY_LABELS[plan.strategy]}</Text></Pressable>)}</View>
         {selected ? <View style={styles.result}>
           <Text style={styles.planTitle}>{STRATEGY_LABELS[selected.strategy]}</Text>
@@ -127,20 +114,20 @@ export default function EveningPlanScreen() {
           <PlanTimeline plan={selected} />
         </View> : null}
       </> : null}
-    </ScrollView>
+    </ScrollView></KeyboardAvoidingView>
   </SafeAreaView>;
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background }, guard: { flex: 1, alignItems: "center", justifyContent: "center" }, content: { paddingHorizontal: 18, paddingBottom: 42 },
-  kicker: { color: colors.primaryDark, fontFamily: fonts.black, fontSize: 10, letterSpacing: 1.5, marginTop: 10 }, heading: { color: colors.text, fontFamily: fonts.black, fontSize: 28, letterSpacing: -1, marginTop: 6 },
+  safe: { flex: 1, backgroundColor: colors.background }, guard: { flex: 1, alignItems: "center", justifyContent: "center" }, content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 42 },
+  kicker: { color: colors.primaryDark, fontFamily: fonts.black, fontWeight: '800', fontSize: 12, letterSpacing: 1.5, marginTop: 10 }, heading: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 28, letterSpacing: -1, marginTop: 6 },
   subtitle: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, marginTop: 7 }, form: { marginTop: 18, gap: 12 }, split: { flexDirection: "row", gap: 9 }, flex: { flex: 1, minWidth: 0 },
-  label: { color: colors.textMuted, fontFamily: fonts.semibold, fontSize: 9, letterSpacing: .8 }, chips: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
-  locationRow: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 8, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border }, locationText: { flex: 1, color: colors.textMuted, fontFamily: fonts.regular, fontSize: 10 }, locationAction: { color: colors.primaryDark, fontFamily: fonts.semibold, fontSize: 10, padding: 10 },
-  error: { color: colors.danger, fontFamily: fonts.medium, fontSize: 11 }, alternatives: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 24, marginBottom: 12 }, alternative: { minHeight: 38, paddingHorizontal: 13, borderRadius: 13, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" },
-  alternativeActive: { backgroundColor: colors.primary }, alternativeText: { color: colors.primaryDark, fontFamily: fonts.semibold, fontSize: 10 }, alternativeTextActive: { color: colors.white }, result: { gap: 5 },
-  planTitle: { color: colors.text, fontFamily: fonts.black, fontSize: 21 }, planExplanation: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 11, lineHeight: 16 }, limited: { color: colors.primaryDark, fontFamily: fonts.semibold, fontSize: 10, marginTop: 5 },
+  label: { color: colors.textMuted, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12, letterSpacing: .8 }, chips: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+  locationRow: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 8, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border }, locationText: { flex: 1, color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12 }, locationAction: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12, padding: 10 },
+  error: { color: colors.danger, fontFamily: fonts.medium, fontSize: 12 }, alternatives: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 24, marginBottom: 12 }, alternative: { minHeight: 44, paddingHorizontal: 13, borderRadius: 13, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" },
+  alternativeActive: { backgroundColor: colors.primary }, alternativeText: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 }, alternativeTextActive: { color: colors.white }, result: { gap: 5 },
+  planTitle: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 21 }, planExplanation: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18 }, limited: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12, marginTop: 5 },
   timeline: { gap: 10, marginTop: 10 }, eventRow: { minHeight: 108, flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }, pressed: { opacity: .7 },
-  order: { width: 36, height: 36, borderRadius: 14, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }, orderText: { color: colors.white, fontFamily: fonts.black, fontSize: 12 },
-  eventCopy: { flex: 1, minWidth: 0 }, eventTime: { color: colors.primaryDark, fontFamily: fonts.semibold, fontSize: 10 }, eventTitle: { color: colors.text, fontFamily: fonts.black, fontSize: 15, lineHeight: 19, marginTop: 4 }, eventVenue: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 10, marginTop: 3 }, reason: { color: colors.primaryDark, fontFamily: fonts.medium, fontSize: 9, marginTop: 6 },
+  order: { width: 36, height: 36, borderRadius: 14, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }, orderText: { color: colors.white, fontFamily: fonts.black, fontWeight: '800', fontSize: 12 },
+  eventCopy: { flex: 1, minWidth: 0 }, eventTime: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 }, eventTitle: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 15, lineHeight: 19, marginTop: 4 }, eventVenue: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, marginTop: 3 }, reason: { color: colors.primaryDark, fontFamily: fonts.medium, fontSize: 12, marginTop: 6 },
 });

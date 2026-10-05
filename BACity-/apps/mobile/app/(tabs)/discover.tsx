@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ActivityIndicator, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getNotifications } from "../../src/api/community";
 import { apiRequest } from "../../src/api/client";
@@ -10,6 +10,8 @@ import { RecommendationItem } from "../../src/api/recommendations";
 import { BrandMark } from "../../src/components/BrandMark";
 import { EmptyState } from "../../src/components/EmptyState";
 import { EventCard } from "../../src/components/EventCard";
+import { EventMedia } from '../../src/components/EventMedia';
+import { MediaScrim } from '../../src/components/MediaScrim';
 import { LoadingState } from "../../src/components/LoadingState";
 import { IconButton, SectionHeader, SkeletonList } from "../../src/components/SocialUI";
 import { useEvents, useToggleSaveEvent } from "../../src/hooks/useEvents";
@@ -17,7 +19,6 @@ import { useRecommendations } from "../../src/hooks/useRecommendations";
 import { excludeFeaturedEvent, selectFeaturedEvent } from "../../src/recommendations/homeFeed";
 import { useRecommendationLocation } from "../../src/recommendations/useRecommendationLocation";
 import { useAuthStore } from "../../src/store/authStore";
-import { imageForCategory } from "../../src/theme/categoryImages";
 import { PlusGateAction } from "../../src/plus/usePlusGate";
 import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
@@ -53,11 +54,8 @@ function FeaturedEvent({ event }: { event: EventOut }) {
       onPress={() => router.push("/event/" + event.id)}
       style={({ pressed }) => [styles.featured, pressed && styles.pressed]}
     >
-      <Image
-        source={{ uri: event.image_url || imageForCategory(event.category) }}
-        style={styles.featuredImage}
-      />
-      <View style={styles.featuredShade} />
+      <EventMedia uri={event.image_url} category={event.category} style={styles.featuredImage} />
+      <MediaScrim />
       <View style={styles.featuredTop}>
         <View style={styles.dateBadge}>
           <Text style={styles.dateDay}>{date.day}</Text>
@@ -142,7 +140,7 @@ function TonightEntry() {
     >
       <View style={styles.tonightIcon}><Ionicons name="moon" size={21} color={colors.white} /></View>
       <View style={styles.tonightCopy}><Text style={styles.tonightTitle}>Tonight / Right Now</Text><Text style={styles.tonightText}>A small set of realistic options for this evening.</Text></View>
-      {loading ? <ActivityIndicator color={colors.primaryDark} /> : <Ionicons name="chevron-forward" size={18} color={colors.text} />}
+      {loading ? <ActivityIndicator color={colors.primaryDark} /> : <Ionicons name="chevron-forward" size={18} color="#FFF8F4" />}
     </Pressable>}
   </PlusGateAction>;
 }
@@ -158,7 +156,7 @@ function EveningPlanEntry() {
     >
       <View style={styles.eveningIcon}><Ionicons name="sparkles" size={21} color={colors.white} /></View>
       <View style={styles.tonightCopy}><Text style={styles.tonightTitle}>Build My Evening</Text><Text style={styles.tonightText}>Turn a free evening into a realistic plan.</Text></View>
-      {loading ? <ActivityIndicator color={colors.primaryDark} /> : <Ionicons name="chevron-forward" size={18} color={colors.text} />}
+      {loading ? <ActivityIndicator color={colors.primaryDark} /> : <Ionicons name="chevron-forward" size={18} color="#FFF8F4" />}
     </Pressable>}
   </PlusGateAction>;
 }
@@ -174,7 +172,7 @@ function WeekendPlanEntry() {
     >
       <View style={styles.weekendIcon}><Ionicons name="calendar" size={21} color={colors.white} /></View>
       <View style={styles.tonightCopy}><Text style={styles.tonightTitle}>Weekend Generator</Text><Text style={styles.tonightText}>Build a realistic Saturday, Sunday, or full weekend.</Text></View>
-      {loading ? <ActivityIndicator color={colors.primaryDark} /> : <Ionicons name="chevron-forward" size={18} color={colors.text} />}
+      {loading ? <ActivityIndicator color={colors.primaryDark} /> : <Ionicons name="chevron-forward" size={18} color="#FFF8F4" />}
     </Pressable>}
   </PlusGateAction>;
 }
@@ -188,7 +186,7 @@ function GroupsEntry() {
   >
     <View style={styles.groupsIcon}><Ionicons name="people" size={21} color={colors.white} /></View>
     <View style={styles.tonightCopy}><Text style={styles.tonightTitle}>Groups & Group Match</Text><Text style={styles.tonightText}>Create with BACity+, or join and vote for free.</Text></View>
-    <Ionicons name="chevron-forward" size={18} color={colors.text} />
+    <Ionicons name="chevron-forward" size={18} color="#FFF8F4" />
   </Pressable>;
 }
 
@@ -204,7 +202,7 @@ function AreaWatchEntry() {
     >
       <View style={styles.areaWatchIcon}><Ionicons name="radio-outline" size={21} color={colors.white} /></View>
       <View style={styles.tonightCopy}><Text style={styles.tonightTitle}>Area Watch</Text><Text style={styles.tonightText}>See newly discovered activity in an area you choose.</Text></View>
-      <Ionicons name="chevron-forward" size={18} color={colors.text} />
+      <Ionicons name="chevron-forward" size={18} color="#FFF8F4" />
     </Pressable>}
   </PlusGateAction>;
 }
@@ -237,7 +235,6 @@ export default function HomeScreen() {
     await Promise.all(requests);
   }
 
-  if (fallback.isLoading) return <LoadingState />;
 
   const header = <>
     <View style={styles.topbar}>
@@ -254,7 +251,7 @@ export default function HomeScreen() {
       <Text style={styles.subtitle}>{user ? "A feed shaped by your interests, saves and local follows." : "Fresh events around Bratislava, with or without an account."}</Text>
     </View>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
-      {FILTERS.map((filter, index) => <Pressable key={filter} style={[styles.filter, index === 0 && styles.filterActive]} onPress={() => router.push("/(tabs)/explore")}>
+      {FILTERS.map((filter, index) => <Pressable key={filter} accessibilityRole="button" style={[styles.filter, index === 0 && styles.filterActive]} onPress={() => router.push({ pathname: '/(tabs)/explore', params: filter === 'Free' ? { free_only: '1' } : filter === 'All' ? {} : { category: filter } })}>
         <Text style={[styles.filterText, index === 0 && styles.filterTextActive]}>{filter}</Text>
       </Pressable>)}
     </ScrollView>
@@ -266,12 +263,11 @@ export default function HomeScreen() {
     /> : featured ? <FeaturedEvent event={featured} /> : !fallback.isLoading ? <EmptyState
       title="The city is quiet"
       subtitle="Fresh events will appear here as soon as BACity finds them."
-    /> : null}
-    <TonightEntry />
-    <EveningPlanEntry />
-    <WeekendPlanEntry />
-    <GroupsEntry />
-    <AreaWatchEntry />
+    /> : <LoadingState />}
+    <SectionHeader title="Compose your city" action="BACity+" onAction={() => router.push('/plus')} />
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.premiumRail}>
+      <TonightEntry /><EveningPlanEntry /><WeekendPlanEntry /><GroupsEntry /><AreaWatchEntry />
+    </ScrollView>
     {token ? <LocationPreference location={location} /> : null}
     <SectionHeader title={token ? "For you" : "Happening in Bratislava"} action="Explore" onAction={() => router.push("/(tabs)/explore")} />
     {loading ? <SkeletonList rows={5} /> : null}
@@ -312,6 +308,9 @@ export default function HomeScreen() {
       refreshing={refreshing}
       onRefresh={() => void refresh()}
       onEndReachedThreshold={0.45}
+      initialNumToRender={6}
+      maxToRenderPerBatch={6}
+      windowSize={7}
       onEndReached={() => {
         if (token && recommendations.hasNextPage && !recommendations.isFetchingNextPage) void recommendations.fetchNextPage();
       }}
@@ -322,26 +321,27 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   container: { flex: 1, backgroundColor: colors.background },
-  content: { paddingHorizontal: 18, paddingTop: 12, paddingBottom: 112 },
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 18, paddingTop: 12, paddingBottom: 112 },
+  premiumRail: { gap: 12, paddingBottom: 8 },
   topbar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 26 },
   topActions: { flexDirection: "row", alignItems: "center", gap: 7 },
   intro: { marginBottom: 17 },
-  kicker: { color: colors.primaryDark, fontFamily: fonts.black, fontSize: 9, letterSpacing: 1.7 },
+  kicker: { color: colors.primaryDark, fontFamily: fonts.black, fontWeight: '800', fontSize: 12, letterSpacing: 1.7 },
   headline: { color: colors.text, fontFamily: fonts.regular, fontSize: 38, lineHeight: 41, letterSpacing: -1.7, marginTop: 5 },
-  headlineAccent: { fontFamily: fonts.black, fontStyle: "italic" },
+  headlineAccent: { fontFamily: fonts.black, fontWeight: '800', fontStyle: "italic" },
   subtitle: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, marginTop: 8, maxWidth: 335 },
   filters: { gap: 8, paddingRight: 10, paddingBottom: 16 },
-  filter: { paddingHorizontal: 16, minHeight: 36, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
+  filter: { paddingHorizontal: 16, minHeight: 44, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
   filterActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  filterText: { color: colors.textMuted, fontFamily: fonts.semibold, fontSize: 10 },
+  filterText: { color: colors.textMuted, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
   filterTextActive: { color: colors.white },
-  tonightEntry: { minHeight: 78, flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 22, paddingHorizontal: 14, marginTop: 16 },
+  tonightEntry: { width: 270, minHeight: 150, flexDirection: 'column', alignItems: 'flex-start', gap: 12, backgroundColor: '#292336', borderRadius: 28, padding: 20 },
   tonightDisabled: { opacity: .65 }, tonightIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
   eveningIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: colors.primaryDark, alignItems: "center", justifyContent: "center" },
   weekendIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: "#7557A8", alignItems: "center", justifyContent: "center" },
   groupsIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: "#347A72", alignItems: "center", justifyContent: "center" },
   areaWatchIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: "#426CA8", alignItems: "center", justifyContent: "center" },
-  tonightCopy: { flex: 1 }, tonightTitle: { color: colors.text, fontFamily: fonts.black, fontSize: 15 }, tonightText: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 10, lineHeight: 15, marginTop: 3 },
+  tonightCopy: { flex: 1 }, tonightTitle: { color: '#FFF8F4', fontWeight: '700', fontSize: 19 }, tonightText: { color: '#C6BDCF', fontSize: 13, lineHeight: 19, marginTop: 6 },
   featured: {
     height: 408,
     borderRadius: 28,
@@ -374,8 +374,8 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     alignItems: "center",
   },
-  dateDay: { color: colors.primaryDark, fontFamily: fonts.black, fontSize: 8, letterSpacing: 0.7 },
-  dateDate: { color: colors.text, fontFamily: fonts.black, fontSize: 12, marginTop: 2 },
+  dateDay: { color: colors.primaryDark, fontFamily: fonts.black, fontWeight: '800', fontSize: 12, letterSpacing: 0.7 },
+  dateDate: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 12, marginTop: 2 },
   priceBadge: {
     alignSelf: "flex-start",
     backgroundColor: "rgba(39,35,41,0.78)",
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
     paddingVertical: 8,
   },
-  priceText: { color: colors.white, fontFamily: fonts.semibold, fontSize: 9 },
+  priceText: { color: colors.white, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
   featuredBottom: { position: "absolute", left: 17, right: 17, bottom: 17 },
   categoryBadge: {
     alignSelf: "flex-start",
@@ -393,10 +393,10 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     marginBottom: 8,
   },
-  categoryText: { color: colors.white, fontFamily: fonts.black, fontSize: 9 },
+  categoryText: { color: colors.white, fontFamily: fonts.black, fontWeight: '800', fontSize: 12 },
   featuredTitle: {
     color: colors.white,
-    fontFamily: fonts.black,
+    fontFamily: fonts.black, fontWeight: '800',
     fontSize: 27,
     lineHeight: 30,
     letterSpacing: -0.7,
@@ -405,28 +405,28 @@ const styles = StyleSheet.create({
   metaText: {
     color: "rgba(255,255,255,0.9)",
     fontFamily: fonts.medium,
-    fontSize: 10,
+    fontSize: 12,
     maxWidth: 190,
   },
   metaDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.65)", marginHorizontal: 3 },
   locationCard: { marginTop: 18, padding: 14, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 10 },
   locationIcon: { width: 42, height: 42, borderRadius: 15, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" },
   locationCopy: { flex: 1, minWidth: 210 },
-  locationTitle: { color: colors.text, fontFamily: fonts.black, fontSize: 12 },
-  locationText: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 10, lineHeight: 15, marginTop: 2 },
+  locationTitle: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 12 },
+  locationText: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, marginTop: 2 },
   locationActions: { width: "100%", flexDirection: "row", gap: 8 },
-  locationPrimary: { minHeight: 38, borderRadius: 14, paddingHorizontal: 14, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
-  locationPrimaryText: { color: colors.white, fontFamily: fonts.semibold, fontSize: 10 },
-  locationSecondary: { minHeight: 38, borderRadius: 14, paddingHorizontal: 14, backgroundColor: colors.surfaceAlt, alignItems: "center", justifyContent: "center" },
-  locationSecondaryText: { color: colors.text, fontFamily: fonts.semibold, fontSize: 10 },
+  locationPrimary: { minHeight: 44, borderRadius: 14, paddingHorizontal: 14, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
+  locationPrimaryText: { color: colors.white, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
+  locationSecondary: { minHeight: 44, borderRadius: 14, paddingHorizontal: 14, backgroundColor: colors.surfaceAlt, alignItems: "center", justifyContent: "center" },
+  locationSecondaryText: { color: colors.text, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
   locationStatus: { marginTop: 18, minHeight: 48, borderRadius: 17, paddingHorizontal: 12, backgroundColor: colors.primarySoft, flexDirection: "row", alignItems: "center", gap: 7 },
-  locationStatusText: { flex: 1, color: colors.textMuted, fontFamily: fonts.medium, fontSize: 10 },
-  locationLink: { color: colors.primaryDark, fontFamily: fonts.semibold, fontSize: 10 },
+  locationStatusText: { flex: 1, color: colors.textMuted, fontFamily: fonts.medium, fontSize: 12 },
+  locationLink: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
   pageLoader: { paddingVertical: 18 },
   retryPage: { alignItems: "center", paddingVertical: 16 },
   communityBanner: { marginTop: 18, padding: 14, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, flexDirection: "row", alignItems: "center", gap: 11 },
   communityIcon: { width: 44, height: 44, borderRadius: 15, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" },
   communityCopy: { flex: 1 },
-  communityTitle: { color: colors.text, fontFamily: fonts.black, fontSize: 12 },
-  communityText: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 10, lineHeight: 15, marginTop: 2 },
+  communityTitle: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 12 },
+  communityText: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, marginTop: 2 },
 });

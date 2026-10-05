@@ -45,7 +45,7 @@ function project(latitude: number, longitude: number) {
 }
 
 export default function MapScreen() {
-  const { data, isFetching, isError } = useQuery({
+  const { data, isFetching, isError, refetch } = useQuery({
     queryKey: ["map-events-viewport", "web-bratislava"],
     queryFn: () => eventsInViewport(API_BOUNDS),
     staleTime: 5 * 60_000,
@@ -148,10 +148,11 @@ export default function MapScreen() {
           <View style={styles.emptyIcon}>
             <Ionicons name="map-outline" size={23} color={colors.primary} />
           </View>
-          <Text style={styles.emptyTitle}>The map is waiting</Text>
+          <Text style={styles.emptyTitle}>{isError ? "Map events couldn't load" : isFetching ? "Finding city events" : "No mapped events here yet"}</Text>
           <Text style={styles.emptyText}>
-            Events need coordinates before they can appear here.
+            {isError ? "Check your connection and try again." : isFetching ? "The map stays available while events load." : "Events need coordinates before they can appear here."}
           </Text>
+          {isError && <Pressable accessibilityRole="button" onPress={() => void refetch()} style={{ minHeight: 48, justifyContent: 'center' }}><Text style={{ color: colors.primaryDark, fontWeight: '600' }}>Try again</Text></Pressable>}
         </View>
       )}
     </View>
@@ -256,8 +257,8 @@ const styles = StyleSheet.create({
   mapLabel: {
     position: "absolute",
     color: "#AAA99E",
-    fontFamily: fonts.semibold,
-    fontSize: 8,
+    fontFamily: fonts.semibold, fontWeight: '600',
+    fontSize: 12,
     letterSpacing: 1,
   },
   oldTownLabel: { left: "40%", top: "39%" },
@@ -318,13 +319,13 @@ const styles = StyleSheet.create({
   },
   eyebrow: {
     color: colors.primaryDark,
-    fontFamily: fonts.semibold,
-    fontSize: 9,
+    fontFamily: fonts.semibold, fontWeight: '600',
+    fontSize: 12,
     letterSpacing: 1.3,
   },
   heading: {
     color: colors.text,
-    fontFamily: fonts.black,
+    fontFamily: fonts.black, fontWeight: '800',
     fontSize: 28,
     marginTop: 1,
   },
@@ -360,8 +361,8 @@ const styles = StyleSheet.create({
   },
   counterText: {
     color: colors.white,
-    fontFamily: fonts.semibold,
-    fontSize: 10,
+    fontFamily: fonts.semibold, fontWeight: '600',
+    fontSize: 12,
   },
   empty: {
     position: "absolute",
@@ -389,7 +390,7 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     color: colors.text,
-    fontFamily: fonts.black,
+    fontFamily: fonts.black, fontWeight: '800',
     fontSize: 16,
     marginTop: 10,
   },
@@ -397,8 +398,8 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontFamily: fonts.regular,
     textAlign: "center",
-    fontSize: 11,
-    lineHeight: 17,
+    fontSize: 12,
+    lineHeight: 18,
     marginTop: 4,
   },
 });

@@ -14,11 +14,14 @@ import { useRecommendationLocation } from "../src/recommendations/useRecommendat
 import { groupTonightItems, resolveTonightView, tonightLocationCopy } from "../src/tonight/presentation";
 import { colors } from "../src/theme/colors";
 import { fonts } from "../src/theme/fonts";
+import { PremiumIntro } from "../src/components/PremiumUI";
+import { useBACityWaiting } from "../src/components/BACityMotion";
 
 export default function TonightScreen() {
   const gate = usePlusGate();
   const location = useRecommendationLocation(gate.decision === "allow");
   const query = useTonight(gate.decision === "allow", location.coordinates);
+  useBACityWaiting(gate.decision === "allow" && query.isPending && !query.data, "Finding tonight's possibilities");
   const save = useToggleSaveEvent();
   const items = query.data?.items ?? [];
   const sections = useMemo(() => groupTonightItems(items), [items]);
@@ -49,11 +52,7 @@ export default function TonightScreen() {
       onRefresh={() => void query.refetch()}
       ListHeaderComponent={<>
         <ScreenHeader title="Tonight / Right Now" />
-        <View style={styles.intro}>
-          <Text style={styles.kicker}>BACity+</Text>
-          <Text style={styles.title}>What can you realistically do tonight?</Text>
-          <Text style={styles.subtitle}>A small set of events that are underway, starting soon, or still ahead this evening.</Text>
-        </View>
+        <PremiumIntro icon="sparkles-outline" title="The city isn't done yet." subtitle="Happening now, starting soon, and still ahead tonight. Real options for the time you have." />
         <View style={styles.location}>
           <Ionicons name={query.data?.location_used ? "navigate" : "navigate-outline"} size={17} color={colors.primaryDark} />
           <Text style={styles.locationText}>{locationText}</Text>
@@ -70,6 +69,7 @@ export default function TonightScreen() {
       </>}
       renderSectionHeader={({ section }) => <Text style={styles.section}>{section.title}</Text>}
       renderItem={({ item }) => <EventCard
+        variant="premium"
         event={item.event}
         explanation={item.reasons[0]}
         saved={item.saved}
@@ -84,13 +84,13 @@ export default function TonightScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background }, guard: { flex: 1, alignItems: "center", justifyContent: "center" },
-  content: { paddingHorizontal: 18, paddingBottom: 36, flexGrow: 1 },
-  intro: { paddingTop: 16, paddingBottom: 18 }, kicker: { color: colors.primaryDark, fontFamily: fonts.black, fontSize: 10, letterSpacing: 1.5 },
-  title: { color: colors.text, fontFamily: fonts.black, fontSize: 29, lineHeight: 33, letterSpacing: -1, marginTop: 7 },
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 36, flexGrow: 1 },
+  intro: { paddingTop: 16, paddingBottom: 18 }, kicker: { color: colors.primaryDark, fontFamily: fonts.black, fontWeight: '800', fontSize: 12, letterSpacing: 1.5 },
+  title: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 29, lineHeight: 33, letterSpacing: -1, marginTop: 7 },
   subtitle: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, marginTop: 8 },
   location: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 8, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border, marginBottom: 8 },
-  locationText: { flex: 1, color: colors.textMuted, fontFamily: fonts.regular, fontSize: 10 },
-  locationAction: { color: colors.primaryDark, fontFamily: fonts.semibold, fontSize: 10, paddingVertical: 10 },
-  section: { color: colors.text, backgroundColor: colors.background, fontFamily: fonts.black, fontSize: 19, paddingTop: 20, paddingBottom: 10 },
-  allEvents: { minHeight: 48, alignItems: "center", justifyContent: "center", marginTop: 8 }, allEventsText: { color: colors.primaryDark, fontFamily: fonts.semibold, fontSize: 12 },
+  locationText: { flex: 1, color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12 },
+  locationAction: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12, paddingVertical: 10 },
+  section: { color: colors.text, backgroundColor: colors.background, fontFamily: fonts.black, fontWeight: '800', fontSize: 19, paddingTop: 20, paddingBottom: 10 },
+  allEvents: { minHeight: 48, alignItems: "center", justifyContent: "center", marginTop: 8 }, allEventsText: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
 });

@@ -16,6 +16,8 @@ import {
   restorePlayPurchases, startPlayPurchase, type PlayProduct, type PlayPurchase,
 } from "../src/billing/playBilling";
 import { canStartPlayPurchase, playStateMessage } from "../src/billing/playPresentation";
+import { PremiumIntro } from '../src/components/PremiumUI';
+import { tokens } from '../src/theme/tokens';
 
 export default function PlusPaywallScreen() {
   const params = useLocalSearchParams<{ feature?: string | string[]; unavailable?: string; billing?: string | string[] }>();
@@ -211,9 +213,8 @@ export default function PlusPaywallScreen() {
         </Pressable>
       </View>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.mark}><Ionicons name="sparkles" size={34} color={colors.white} /></View>
-        <Text style={styles.title}>Premium discovery tools for deciding what to do.</Text>
-        {feature ? <Text style={styles.context}>{PLUS_FEATURES[feature]} is planned as a BACity+ feature.</Text> : null}
+        <PremiumIntro icon="sparkles-outline" title="Less searching. More living." subtitle="Compose an evening, find your weekend, or let your group decide together." />
+        {feature ? <Text style={styles.context}>{PLUS_FEATURES[feature]} is a BACity+ discovery tool.</Text> : null}
         {params.unavailable === "1" ? <Text style={styles.notice}>We could not verify your access right now. Try again when your connection is available.</Text> : null}
         {returnMessage ? <Text style={styles.notice}>{returnMessage}</Text> : null}
         {billingError ? <Text style={styles.notice}>{billingError}</Text> : null}
@@ -289,20 +290,20 @@ export default function PlusPaywallScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   header: { minHeight: 58, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  headerSpace: { width: 44 }, brand: { color: colors.text, fontFamily: fonts.black, fontSize: 18 },
+  headerSpace: { width: 44 }, brand: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 18 },
   close: { width: 44, height: 44, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  content: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 30, paddingBottom: 32, alignItems: "center" },
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center', flexGrow: 1, paddingHorizontal: 24, paddingTop: 30, paddingBottom: 32, alignItems: "center" },
   mark: { width: 72, height: 72, borderRadius: 25, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center", marginBottom: 24 },
-  title: { maxWidth: 330, color: colors.text, fontFamily: fonts.black, fontSize: 29, lineHeight: 33, letterSpacing: -1, textAlign: "center" },
-  context: { color: colors.primaryDark, fontFamily: fonts.semibold, fontSize: 13, lineHeight: 19, textAlign: "center", marginTop: 14 },
+  title: { maxWidth: 330, color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 29, lineHeight: 33, letterSpacing: -1, textAlign: "center" },
+  context: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 13, lineHeight: 19, textAlign: "center", marginTop: 14 },
   notice: { width: "100%", color: colors.danger, fontFamily: fonts.medium, fontSize: 12, lineHeight: 18, textAlign: "center", backgroundColor: "#FFF0F1", borderRadius: 14, padding: 12, marginTop: 14 },
   list: { width: "100%", marginTop: 30, gap: 12 },
   row: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 12 },
   check: { width: 30, height: 30, borderRadius: 11, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" },
-  label: { color: colors.text, fontFamily: fonts.semibold, fontSize: 14 },
+  label: { color: colors.text, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 14 },
   coming: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, textAlign: "center", marginTop: 28 },
   button: { width: "100%", minHeight: 54, borderRadius: 18, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center", marginTop: 18 },
-  buttonText: { color: colors.white, fontFamily: fonts.black, fontSize: 14 }, pressed: { opacity: .75, transform: [{ scale: .98 }] },
+  buttonText: { color: colors.white, fontFamily: fonts.black, fontWeight: '800', fontSize: 14 }, pressed: { opacity: .75, transform: [{ scale: .98 }] },
   secondaryButton: { width: "100%", minHeight: 50, borderRadius: 18, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center", marginTop: 10 },
-  secondaryText: { color: colors.text, fontFamily: fonts.semibold, fontSize: 14 },
+  secondaryText: { color: colors.text, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 14 },
 });

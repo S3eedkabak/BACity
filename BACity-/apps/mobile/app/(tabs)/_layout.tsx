@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function CreateTabButton(props: any) {
   return (
@@ -22,11 +23,12 @@ function CreateTabButton(props: any) {
 }
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [styles.tabBar, { height: 72 + insets.bottom, paddingBottom: Math.max(8, insets.bottom) }],
         tabBarActiveTintColor: colors.primaryDark,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: styles.label,
@@ -98,7 +100,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: fonts.semibold,
-    fontSize: 9,
+    fontSize: 11,
     marginBottom: 1,
   },
   icon: { marginTop: 1 },
@@ -124,7 +126,7 @@ const styles = StyleSheet.create({
   createLabel: {
     color: colors.textMuted,
     fontFamily: fonts.semibold,
-    fontSize: 9,
+    fontSize: 11,
     marginTop: 2,
   },
   pressed: { opacity: 0.82, transform: [{ scale: 0.97 }] },

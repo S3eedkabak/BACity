@@ -4,7 +4,6 @@ import { useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
-  Image,
   PanResponder,
   Pressable,
   StyleSheet,
@@ -16,7 +15,8 @@ import * as eventsApi from "../api/events";
 import { EventOut } from "../types/event";
 import { useAuthStore } from "../store/authStore";
 import { colors } from "../theme/colors";
-import { imageForCategory } from "../theme/categoryImages";
+import { EventMedia } from './EventMedia';
+import { MediaScrim } from './MediaScrim';
 import { fonts } from "../theme/fonts";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -111,12 +111,8 @@ function Card({
       ]}
     >
       <View style={styles.imageWrap}>
-        <Image
-          source={{ uri: event.image_url || imageForCategory(event.category) }}
-          style={styles.image}
-          resizeMode="cover"
-        />
-        <View style={styles.imageShade} />
+        <EventMedia uri={event.image_url} category={event.category} style={styles.image} />
+        <MediaScrim />
 
         <View style={styles.topRow}>
           <View style={styles.categoryPill}>

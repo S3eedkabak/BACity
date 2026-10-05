@@ -9,6 +9,7 @@ import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { colors } from "../../src/theme/colors";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from "../../src/theme/fonts";
 import { nearbyUtilities, utilitiesInViewport, type UtilityBounds } from "../../src/api/utilities";
 import { eventsInViewport, nearbyEvents } from "../../src/api/events";
@@ -85,6 +86,7 @@ function distanceKm(a: Coordinates, b: Coordinates) {
 }
 
 export default function MapScreen() {
+  const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraRef>(null);
   const mapRef = useRef<MapViewRef>(null);
   const eventSourceRef = useRef<ShapeSourceRef>(null);
@@ -491,11 +493,11 @@ export default function MapScreen() {
       </MapView>
 
       <View pointerEvents="box-none" style={StyleSheet.absoluteFillObject}>
-        <View style={styles.topControls}>
-          <View style={styles.searchBar}>
+        <View style={[styles.topControls, { marginTop: Math.max(16, insets.top + 12) }]}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Search events" onPress={() => router.push('/(tabs)/explore')} style={styles.searchBar}>
             <Ionicons name="search" size={17} color={colors.primary} />
             <Text style={styles.searchText}>Find events</Text>
-          </View>
+          </Pressable>
 
           <Pressable
             accessibilityLabel={nearMeActive ? "Show all events" : "Show events near me"}
@@ -518,7 +520,7 @@ export default function MapScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.countPill}>
+        <View style={styles.layerTray}><View style={styles.countPill}>
           <View style={styles.countDot} />
           <Text style={styles.countText}>
             {nearMeActive
@@ -540,7 +542,7 @@ export default function MapScreen() {
           <Ionicons name="grid-outline" size={14} color={colors.textMuted} />
           <Text style={styles.allUtilitiesText}>All utilities</Text>
         </Pressable>
-
+        </View>
         <View style={styles.controls}>
           <Pressable
             accessibilityLabel="Zoom in"
@@ -597,6 +599,7 @@ export default function MapScreen() {
 }
 
 const styles = StyleSheet.create({
+  layerTray: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingHorizontal: 16, marginTop: 12 },
   container: {
     flex: 1,
     backgroundColor: colors.mapWater,
@@ -627,7 +630,7 @@ const styles = StyleSheet.create({
   searchText: {
     color: colors.textMuted,
     fontFamily: fonts.medium,
-    fontSize: 11,
+    fontSize: 12,
   },
   nearButton: {
     height: 46,
@@ -650,8 +653,8 @@ const styles = StyleSheet.create({
   },
   nearText: {
     color: colors.text,
-    fontFamily: fonts.semibold,
-    fontSize: 10,
+    fontFamily: fonts.semibold, fontWeight: '600',
+    fontSize: 12,
   },
   nearTextActive: {
     color: colors.white,
@@ -659,7 +662,7 @@ const styles = StyleSheet.create({
   countPill: {
     alignSelf: "flex-start",
     marginTop: 8,
-    marginLeft: 18,
+    marginLeft: 0,
     height: 26,
     paddingHorizontal: 10,
     borderRadius: 13,
@@ -677,13 +680,13 @@ const styles = StyleSheet.create({
   countText: {
     color: colors.white,
     fontFamily: fonts.medium,
-    fontSize: 8,
+    fontSize: 12,
   },
   layerButton: {
     alignSelf: "flex-start",
     marginTop: 8,
-    marginLeft: 18,
-    height: 34,
+    marginLeft: 0,
+    height: 44,
     paddingHorizontal: 12,
     borderRadius: 17,
     backgroundColor: "rgba(255,255,255,0.96)",
@@ -696,8 +699,8 @@ const styles = StyleSheet.create({
   allUtilitiesButton: {
     alignSelf: "flex-start",
     marginTop: 6,
-    marginLeft: 18,
-    height: 32,
+    marginLeft: 0,
+    height: 44,
     paddingHorizontal: 11,
     borderRadius: 16,
     backgroundColor: "rgba(255,255,255,0.96)",
@@ -707,20 +710,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
   },
-  allUtilitiesText: { color: colors.textMuted, fontFamily: fonts.semibold, fontSize: 9 },
+  allUtilitiesText: { color: colors.textMuted, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
   layerButtonActive: { backgroundColor: colors.free, borderColor: colors.free },
-  layerText: { color: colors.text, fontFamily: fonts.semibold, fontSize: 10 },
+  layerText: { color: colors.text, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
   layerTextActive: { color: colors.white },
   controls: {
     position: "absolute",
     right: 16,
-    bottom: 174,
+    bottom: 90,
     gap: 7,
   },
   controlButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 15,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: "rgba(255,255,255,0.96)",
     borderWidth: 1,
     borderColor: colors.border,
@@ -735,7 +738,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 18,
     right: 18,
-    bottom: 104,
+    bottom: 24,
     alignSelf: "center",
     minHeight: 34,
     paddingHorizontal: 12,
@@ -751,6 +754,6 @@ const styles = StyleSheet.create({
   statusText: {
     color: colors.textMuted,
     fontFamily: fonts.medium,
-    fontSize: 10,
+    fontSize: 12,
   },
 });

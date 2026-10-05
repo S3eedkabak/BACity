@@ -34,7 +34,7 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background }, content: { paddingHorizontal: 18, paddingBottom: 28, flexGrow: 1 },
+  safe: { flex: 1, backgroundColor: colors.background }, content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 28, flexGrow: 1 },
   row: { minHeight: 76, paddingVertical: 11, flexDirection: "row", alignItems: "center", gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }, unreadRow: { backgroundColor: colors.primarySoft }, pressed: { opacity: .72 },
-  icon: { width: 46, height: 46, borderRadius: 17, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" }, copy: { flex: 1 }, body: { color: colors.text, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 }, bodyUnread: { fontFamily: fonts.semibold }, time: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 9, marginTop: 4 }, dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.primary, marginRight: 5 },
+  icon: { width: 46, height: 46, borderRadius: 17, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" }, copy: { flex: 1 }, body: { color: colors.text, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 }, bodyUnread: { fontFamily: fonts.semibold, fontWeight: '600' }, time: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, marginTop: 4 }, dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.primary, marginRight: 5 },
 });

@@ -29,4 +29,4 @@ export default function SocialListScreen() {
     </>}
   </SafeAreaView>;
 }
-const styles = StyleSheet.create({ safe: { flex: 1, backgroundColor: colors.background }, content: { paddingHorizontal: 18, paddingBottom: 28, flexGrow: 1 }, error: { marginHorizontal: 18, padding: 12, color: colors.danger, backgroundColor: colors.surface }, more: { color: colors.primaryDark, textAlign: "center", padding: 18 } });
+const styles = StyleSheet.create({ safe: { flex: 1, backgroundColor: colors.background }, content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 28, flexGrow: 1 }, error: { marginHorizontal: 18, padding: 12, color: colors.danger, backgroundColor: colors.surface }, more: { color: colors.primaryDark, textAlign: "center", padding: 18 } });

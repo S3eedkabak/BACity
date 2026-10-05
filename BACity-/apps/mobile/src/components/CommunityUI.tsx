@@ -1,6 +1,8 @@
-import { PropsWithChildren } from "react";
+import { ComponentProps, PropsWithChildren, useState } from "react";
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,10 +16,12 @@ import { router } from "expo-router";
 import { BrandMark } from "./BrandMark";
 import { colors } from "../theme/colors";
 import { fonts } from "../theme/fonts";
+import { tokens } from '../theme/tokens';
 
 export function Page({ title, children }: PropsWithChildren<{ title: string }>) {
   return (
-    <SafeAreaView style={ui.safe} edges={["top"]}>
+    <SafeAreaView style={ui.safe} edges={["top", "bottom"]}>
+      <KeyboardAvoidingView style={ui.safe} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView
         contentContainerStyle={ui.page}
         keyboardShouldPersistTaps="handled"
@@ -40,6 +44,7 @@ export function Page({ title, children }: PropsWithChildren<{ title: string }>) 
         </Text>
         {children}
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -48,14 +53,21 @@ export function Card({ children }: PropsWithChildren) {
   return <View style={ui.card}>{children}</View>;
 }
 
+export function Disclosure({ title, icon = 'options-outline', initiallyOpen = false, children }: PropsWithChildren<{ title: string; icon?: ComponentProps<typeof Ionicons>['name']; initiallyOpen?: boolean }>) {
+  const [open, setOpen] = useState(initiallyOpen);
+  return <View style={ui.disclosure}><Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={title} onPress={() => setOpen(value => !value)} style={ui.disclosureHeader}><Ionicons name={icon} size={24} color={colors.primaryDark} /><Text style={ui.disclosureTitle}>{title}</Text><Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textMuted} /></Pressable>{open && <View style={ui.disclosureBody}>{children}</View>}</View>;
+}
+
 export function Button({
   title,
   onPress,
   busy = false,
+  variant = 'primary',
 }: {
   title: string;
   onPress: () => void;
   busy?: boolean;
+  variant?: 'primary' | 'secondary' | 'danger';
 }) {
   return (
     <Pressable
@@ -64,14 +76,16 @@ export function Button({
       onPress={onPress}
       style={({ pressed }) => [
         ui.button,
+        variant === 'secondary' && ui.buttonSecondary,
+        variant === 'danger' && ui.buttonDanger,
         pressed && ui.buttonPressed,
         busy && ui.disabled,
       ]}
     >
       {busy ? (
-        <ActivityIndicator color={colors.white} />
+        <ActivityIndicator color={variant === 'secondary' ? colors.primaryDark : colors.white} />
       ) : (
-        <Text style={ui.buttonText}>{title}</Text>
+        <Text style={[ui.buttonText, variant === 'secondary' && ui.buttonSecondaryText]}>{title}</Text>
       )}
     </Pressable>
   );
@@ -144,8 +158,18 @@ export function Notice({ text }: { text: string | null | undefined }) {
 }
 
 export const ui = StyleSheet.create({
+  disclosure: { borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  disclosureHeader: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: 16 },
+  disclosureTitle: { ...tokens.type.action, flex: 1, color: colors.text },
+  disclosureBody: { gap: 14, paddingBottom: 24 },
+  buttonSecondary: { backgroundColor: colors.surfaceAlt, shadowOpacity: 0 },
+  buttonSecondaryText: { color: colors.primaryDark },
+  buttonDanger: { backgroundColor: colors.danger },
   safe: { flex: 1, backgroundColor: colors.background },
   page: {
+    width: '100%',
+    maxWidth: tokens.layout.maxWidth,
+    alignSelf: 'center',
     paddingHorizontal: 18,
     gap: 14,
     backgroundColor: colors.background,
@@ -171,6 +195,8 @@ export const ui = StyleSheet.create({
   pressed: { opacity: 0.7, transform: [{ scale: 0.96 }] },
   topbarSpacer: { width: 40 },
   title: {
+    ...tokens.type.hero,
+    fontWeight: '800',
     fontSize: 31,
     lineHeight: 35,
     letterSpacing: -1,
@@ -180,6 +206,7 @@ export const ui = StyleSheet.create({
     marginBottom: 2,
   },
   heading: {
+    fontWeight: '700',
     fontSize: 18,
     lineHeight: 22,
     fontFamily: fonts.black,
@@ -199,23 +226,21 @@ export const ui = StyleSheet.create({
     color: colors.textMuted,
   },
   card: {
-    padding: 16,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: colors.border,
+    padding: 20,
+    borderRadius: 28,
     backgroundColor: colors.surface,
     gap: 11,
     shadowColor: colors.shadow,
-    shadowOpacity: 0.08,
+    shadowOpacity: 0,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 7 },
-    elevation: 2,
+    elevation: 0,
   },
   field: { gap: 7 },
   label: {
     color: colors.textMuted,
     fontFamily: fonts.semibold,
-    fontSize: 10,
+    fontSize: 12,
     letterSpacing: 0.65,
     textTransform: "uppercase",
   },
@@ -248,13 +273,14 @@ export const ui = StyleSheet.create({
   buttonPressed: { transform: [{ scale: 0.985 }], opacity: 0.92 },
   disabled: { opacity: 0.55 },
   buttonText: {
+    fontWeight: '600',
     color: colors.white,
     fontFamily: fonts.semibold,
-    fontSize: 13,
+    fontSize: 15,
     textAlign: "center",
   },
   chip: {
-    minHeight: 36,
+    minHeight: 44,
     paddingHorizontal: 14,
     borderRadius: 18,
     backgroundColor: colors.surface,
@@ -268,9 +294,10 @@ export const ui = StyleSheet.create({
     borderColor: colors.primary,
   },
   chipText: {
+    fontWeight: '600',
     color: colors.textMuted,
     fontFamily: fonts.semibold,
-    fontSize: 10,
+    fontSize: 13,
   },
   chipTextActive: { color: colors.white },
   noticeBox: {

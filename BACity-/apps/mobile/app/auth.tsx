@@ -97,7 +97,7 @@ export default function AuthScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.top}>
-            <Pressable style={styles.back} onPress={() => router.back()}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Back" style={styles.back} onPress={() => router.canGoBack() ? router.back() : router.replace("/welcome")}>
               <Ionicons name="chevron-back" size={20} color={colors.text} />
             </Pressable>
             <BrandMark compact />
@@ -164,6 +164,9 @@ export default function AuthScreen() {
           )}
 
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={mode === "login" ? "Log in" : "Create account"}
+            accessibilityState={{ disabled: busy, busy }}
             disabled={busy}
             style={({ pressed }) => [styles.primary, pressed && styles.pressed, busy && styles.disabled]}
             onPress={submit}
@@ -180,7 +183,7 @@ export default function AuthScreen() {
             )}
           </Pressable>
 
-          {Platform.OS !== "web" && <Pressable disabled={busy} style={({ pressed }) => [styles.googleButton, pressed && styles.pressed, busy && styles.disabled]} onPress={signInWithGoogle}>
+          {Platform.OS !== "web" && <Pressable accessibilityRole="button" accessibilityLabel="Continue with Google" disabled={busy} style={({ pressed }) => [styles.googleButton, pressed && styles.pressed, busy && styles.disabled]} onPress={signInWithGoogle}>
             <Text style={styles.googleMark}>G</Text><Text style={styles.googleText}>Continue with Google</Text>
           </Pressable>}
 
@@ -193,12 +196,14 @@ export default function AuthScreen() {
           />}
 
           {mode === "login" && (
-            <Pressable onPress={() => router.push({ pathname: "/account", params: { action: "forgot" } })} style={styles.textButton}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Forgot your password?" onPress={() => router.push({ pathname: "/account", params: { action: "forgot" } })} style={styles.textButton}>
               <Text style={styles.textButtonLabel}>Forgot your password?</Text>
             </Pressable>
           )}
 
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={mode === "login" ? "Create an account instead" : "Log in instead"}
             style={styles.switch}
             onPress={() => {
               setError("");
@@ -223,7 +228,7 @@ export default function AuthScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  content: { flexGrow: 1, paddingHorizontal: 20, paddingBottom: 34 },
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center', flexGrow: 1, paddingHorizontal: 20, paddingBottom: 34 },
   top: {
     minHeight: 56,
     flexDirection: "row",
@@ -231,36 +236,36 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   back: {
-    width: 42,
-    height: 42,
-    borderRadius: 16,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
   },
-  spacer: { width: 42 },
-  hero: { paddingTop: 38, paddingBottom: 30 },
+  spacer: { width: 48 },
+  hero: { paddingTop: 32, paddingBottom: 28 },
   eyebrow: {
     color: colors.primaryDark,
-    fontFamily: fonts.black,
-    fontSize: 10,
+    fontFamily: fonts.black, fontWeight: '800',
+    fontSize: 12,
     letterSpacing: 1.7,
   },
   title: {
     color: colors.text,
-    fontFamily: fonts.black,
-    fontSize: 38,
-    lineHeight: 40,
+    fontFamily: fonts.black, fontWeight: '800',
+    fontSize: 44,
+    lineHeight: 47,
     letterSpacing: -1.5,
     marginTop: 9,
   },
   subtitle: {
     color: colors.textMuted,
     fontFamily: fonts.regular,
-    fontSize: 14,
-    lineHeight: 21,
+    fontSize: 16,
+    lineHeight: 24,
     marginTop: 10,
     maxWidth: 335,
   },
@@ -268,8 +273,8 @@ const styles = StyleSheet.create({
   field: { gap: 7 },
   label: {
     color: colors.textMuted,
-    fontFamily: fonts.semibold,
-    fontSize: 10,
+    fontFamily: fonts.semibold, fontWeight: '600',
+    fontSize: 12,
     letterSpacing: 0.7,
     textTransform: "uppercase",
   },
@@ -282,7 +287,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     color: colors.text,
     fontFamily: fonts.regular,
-    fontSize: 14,
+    fontSize: 16,
   },
   errorBox: {
     marginTop: 14,
@@ -304,22 +309,23 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 9,
   },
-  primaryText: { color: colors.white, fontFamily: fonts.black, fontSize: 14 },
+  primaryText: { color: colors.white, fontFamily: fonts.black, fontWeight: '800', fontSize: 16 },
   pressed: { opacity: 0.9, transform: [{ scale: 0.985 }] },
   disabled: { opacity: 0.6 },
   textButton: { alignItems: "center", paddingVertical: 15 },
   appleButton: { width: "100%", height: 52, marginTop: 10 },
   googleButton: { width: "100%", minHeight: 52, marginTop: 10, borderRadius: 17, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9 },
-  googleMark: { color: "#4285F4", fontFamily: fonts.black, fontSize: 19 },
-  googleText: { color: colors.text, fontFamily: fonts.semibold, fontSize: 13 },
-  textButtonLabel: { color: colors.primaryDark, fontFamily: fonts.semibold, fontSize: 12 },
+  googleMark: { color: "#4285F4", fontFamily: fonts.black, fontWeight: '800', fontSize: 19 },
+  googleText: { color: colors.text, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 13 },
+  textButtonLabel: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
   switch: {
     marginTop: "auto",
     paddingTop: 36,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    flexWrap: "wrap",
   },
   switchMuted: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12 },
-  switchStrong: { color: colors.text, fontFamily: fonts.black, fontSize: 12 },
+  switchStrong: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 12 },
 });

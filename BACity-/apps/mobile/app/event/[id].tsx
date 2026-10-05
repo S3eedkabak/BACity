@@ -1,6 +1,11 @@
 import { Button } from "../../src/components/CommunityUI";
+import { EventMedia } from '../../src/components/EventMedia';
+import { MediaScrim } from '../../src/components/MediaScrim';
 import { Discussion } from "../../src/components/Discussion";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState } from 'react';
+import { IconButton, ListItem, OverflowMenu } from '../../src/components/SocialUI';
 import { externalLinking as Linking } from "../../src/api/externalLinking";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -8,7 +13,6 @@ import { useEvent, useSavedEvents, useToggleSaveEvent } from "../../src/hooks/us
 import { useAuthStore } from "../../src/store/authStore";
 import { LoadingState } from "../../src/components/LoadingState";
 import { EmptyState } from "../../src/components/EmptyState";
-import { imageForCategory } from "../../src/theme/categoryImages";
 import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
 import { PlusGateAction } from "../../src/plus/usePlusGate";
@@ -25,6 +29,7 @@ function formatWhen(iso: string) {
 }
 
 export default function EventDetailScreen() {
+  const [menu, setMenu] = useState(false);
   const { id } = useLocalSearchParams<{ id: string }>();
   const token = useAuthStore((s) => s.token);
   const { data: event, isLoading, isError } = useEvent(id);
@@ -43,26 +48,24 @@ export default function EventDetailScreen() {
       : event.price + " " + (event.currency ?? "EUR");
 
   return (
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.hero}>
-        <Image
-          source={{ uri: event.image_url || imageForCategory(event.category) }}
-          style={styles.heroImage}
-          resizeMode="cover"
-        />
-        <View style={styles.heroShade} />
+        <EventMedia uri={event.image_url} category={event.category} style={styles.heroImage} />
+        <MediaScrim />
         <View style={styles.heroTop}>
-          <Pressable style={styles.backButton} onPress={() => router.back()}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Go back" style={styles.backButton} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/discover')}>
             <Ionicons name="chevron-back" size={20} color={colors.text} />
           </Pressable>
           <View style={styles.heroBadges}>
           <View style={styles.categoryPill}>
             <Text style={styles.category}>{event.category}</Text>
           </View>
+          <View style={styles.backButton}><IconButton icon="ellipsis-horizontal" label="Event actions" onPress={() => setMenu(true)} /></View>
           {event.price === 0 && (
             <View style={styles.freePill}>
               <Text style={styles.freeText}>FREE</Text>
@@ -147,12 +150,18 @@ export default function EventDetailScreen() {
       {event.venue && <Button title={"More at " + event.venue.name} onPress={() => router.push(`/venue/${event.venue!.id}`)} />}
       <Discussion id={id} kind="event" />
     </ScrollView>
+    <OverflowMenu visible={menu} title="Event actions" onClose={() => setMenu(false)}>
+      <ListItem icon="share-outline" title="Share event" onPress={() => { setMenu(false); void Share.share({ title: event.title, message: event.title + (event.source_url ? '\n' + event.source_url : '') }); }} />
+      <ListItem icon="albums-outline" title="Add to a collection" onPress={() => { setMenu(false); router.push({ pathname: '/collection', params: { type: 'event', id } }); }} />
+      <ListItem icon="create-outline" title="Suggest a correction" onPress={() => { setMenu(false); router.push({ pathname: '/correction', params: { type: 'event', id } }); }} />
+    </OverflowMenu>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  content: { paddingBottom: 45 },
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingBottom: 45 },
   hero: {
     height: 405,
     marginHorizontal: 14,
@@ -190,18 +199,18 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 99,
   },
-  category: { color: colors.white, fontFamily: fonts.semibold, fontSize: 10 },
+  category: { color: colors.white, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
   freePill: {
     backgroundColor: colors.white,
     paddingHorizontal: 11,
     paddingVertical: 7,
     borderRadius: 99,
   },
-  freeText: { color: colors.free, fontFamily: fonts.black, fontSize: 9 },
+  freeText: { color: colors.free, fontFamily: fonts.black, fontWeight: '800', fontSize: 12 },
   heroText: { position: "absolute", left: 18, right: 18, bottom: 20 },
   title: {
     color: colors.white,
-    fontFamily: fonts.black,
+    fontFamily: fonts.black, fontWeight: '800',
     fontSize: 30,
     lineHeight: 33,
     letterSpacing: -0.8,
@@ -231,10 +240,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 10,
   },
-  label: { color: colors.textMuted, fontFamily: fonts.semibold, fontSize: 8, letterSpacing: 1 },
-  value: { color: colors.text, fontFamily: fonts.semibold, fontSize: 12, lineHeight: 17, marginTop: 4 },
+  label: { color: colors.textMuted, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12, letterSpacing: 1 },
+  value: { color: colors.text, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12, lineHeight: 18, marginTop: 4 },
   section: { paddingHorizontal: 18, paddingTop: 22 },
-  sectionTitle: { color: colors.text, fontFamily: fonts.black, fontSize: 19 },
+  sectionTitle: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 19 },
   description: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 13, lineHeight: 21, marginTop: 8 },
   saveButton: {
     margin: 18,
@@ -250,11 +259,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   saved: { backgroundColor: colors.primary, borderColor: colors.primary },
-  saveText: { color: colors.text, fontFamily: fonts.semibold, fontSize: 12 },
+  saveText: { color: colors.text, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
   savedText: { color: colors.white },
   chainButton: { minHeight: 72, marginHorizontal: 18, marginTop: 10, paddingHorizontal: 13, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, flexDirection: "row", alignItems: "center", gap: 11 },
   chainPressed: { opacity: .7 }, chainDisabled: { opacity: .62 }, chainIcon: { width: 42, height: 42, borderRadius: 15, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
-  chainCopy: { flex: 1 }, chainTitle: { color: colors.text, fontFamily: fonts.black, fontSize: 13 }, chainSubtitle: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 10, marginTop: 3 },
+  chainCopy: { flex: 1 }, chainTitle: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 13 }, chainSubtitle: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, marginTop: 3 },
   sourceButton: {
     alignSelf: "center",
     flexDirection: "row",
@@ -262,5 +271,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 10,
   },
-  sourceText: { color: colors.primaryDark, fontFamily: fonts.semibold, fontSize: 11 },
+  sourceText: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
 });

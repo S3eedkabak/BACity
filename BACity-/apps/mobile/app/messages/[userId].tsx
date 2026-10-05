@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,6 +14,7 @@ import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
 
 export default function ConversationScreen() {
+  const list = useRef<FlatList>(null);
   const { userId } = useLocalSearchParams<{ userId: string }>();
   const me = useAuthStore(state => state.user);
   const queryClient = useQueryClient();
@@ -34,6 +35,7 @@ export default function ConversationScreen() {
     <ScreenHeader title={profile.data?.display_name || "Conversation"} right={<IconButton icon="ellipsis-horizontal" label="Conversation options" onPress={() => setMenu(true)} />} />
     <Notice text={notice} />
     {thread.isPending || profile.isPending ? <View style={styles.loading}><SkeletonList rows={4} /></View> : thread.isError ? <EmptyState title="Conversation unavailable" subtitle={thread.error.message} action="Try again" onAction={() => thread.refetch()} /> : <FlatList
+      ref={list} onContentSizeChange={() => list.current?.scrollToEnd({ animated: false })}
       data={messages} keyExtractor={item => item.id} contentContainerStyle={styles.messages} keyboardShouldPersistTaps="handled"
       ListEmptyComponent={<EmptyState title="Start the conversation" subtitle="Say hello and keep it local." />}
       renderItem={({ item }) => { const mine = item.sender_id === me?.id; return <View style={[styles.messageRow, mine && styles.messageRowMine]}>{!mine && <Avatar uri={profile.data?.avatar_url} name={profile.data?.display_name} size={30} />}<View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs]}><Text style={[styles.message, mine && styles.messageMine]}>{item.body}</Text><Text style={[styles.messageTime, mine && styles.messageTimeMine]}>{new Date(item.created_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</Text></View></View>; }}
@@ -53,7 +55,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background }, loading: { padding: 18 }, messages: { flexGrow: 1, paddingHorizontal: 14, paddingVertical: 12, justifyContent: "flex-end" },
   messageRow: { flexDirection: "row", alignItems: "flex-end", gap: 7, marginVertical: 4 }, messageRowMine: { justifyContent: "flex-end" },
   bubble: { maxWidth: "78%", paddingHorizontal: 13, paddingTop: 9, paddingBottom: 6, borderRadius: 18 }, bubbleMine: { backgroundColor: colors.primary, borderBottomRightRadius: 6 }, bubbleTheirs: { backgroundColor: colors.surface, borderBottomLeftRadius: 6 },
-  message: { color: colors.text, fontFamily: fonts.regular, fontSize: 14, lineHeight: 19 }, messageMine: { color: colors.white }, messageTime: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 8, marginTop: 4 }, messageTimeMine: { color: "rgba(255,255,255,.75)", textAlign: "right" },
+  message: { color: colors.text, fontFamily: fonts.regular, fontSize: 14, lineHeight: 19 }, messageMine: { color: colors.white }, messageTime: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, marginTop: 4 }, messageTimeMine: { color: "rgba(255,255,255,.75)", textAlign: "right" },
   composer: { flexDirection: "row", alignItems: "flex-end", gap: 9, padding: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, backgroundColor: colors.surface },
   input: { flex: 1, maxHeight: 110, minHeight: 44, paddingHorizontal: 15, paddingVertical: 11, borderRadius: 20, backgroundColor: colors.surfaceAlt, color: colors.text, fontFamily: fonts.regular, fontSize: 14 },
   send: { width: 44, height: 44, borderRadius: 16, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }, pressed: { opacity: .75 }, disabled: { opacity: .45 },

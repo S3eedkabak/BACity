@@ -1,172 +1,43 @@
-import { Ionicons } from "@expo/vector-icons";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
-import { router } from "expo-router";
-import { EventOut } from "../types/event";
-import { colors } from "../theme/colors";
-import { imageForCategory } from "../theme/categoryImages";
-import { fonts } from "../theme/fonts";
+import { Ionicons } from '@expo/vector-icons';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { EventOut } from '../types/event';
+import { colors } from '../theme/colors';
+import { tokens } from '../theme/tokens';
+import { EventMedia } from './EventMedia';
 
-function formatWhen(iso: string) {
-  const d = new Date(iso);
-  return (
-    d.toLocaleDateString(undefined, {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-    }) +
-    " · " +
-    d.toLocaleTimeString(undefined, {
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-  );
-}
-
-function price(event: EventOut) {
-  if (event.price === 0) return "FREE";
-  if (event.price == null) return "TBD";
-  return event.price + " " + (event.currency ?? "EUR");
-}
-
-export function EventCard({
-  event,
-  explanation,
-  saved,
-  saving = false,
-  onToggleSave,
-}: {
-  event: EventOut;
-  explanation?: string;
-  saved?: boolean;
-  saving?: boolean;
-  onToggleSave?: () => void;
+export type EventCardVariant = 'hero' | 'feed' | 'horizontal' | 'compact' | 'map' | 'saved' | 'planner' | 'premium' | 'organizer';
+export function EventCard({ event, explanation, saved, saving = false, onToggleSave, variant = 'feed' }: {
+  event: EventOut; explanation?: string; saved?: boolean; saving?: boolean; onToggleSave?: () => void; variant?: EventCardVariant;
 }) {
-  const image = event.image_url || imageForCategory(event.category);
-
-  return (
-    <Pressable
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
-      onPress={() => router.push("/event/" + event.id)}
-    >
-      <Image source={{ uri: image }} style={styles.image} />
-      <View style={styles.body}>
-        {explanation ? <View style={styles.reasonRow}>
-          <Ionicons name="sparkles" size={12} color={colors.primaryDark} />
-          <Text style={styles.reason} numberOfLines={1}>{explanation}</Text>
-        </View> : null}
-        <View style={styles.metaRow}>
-          <View style={styles.categoryPill}>
-            <Text style={styles.category}>{event.category}</Text>
-          </View>
-          <Text style={[styles.price, event.price === 0 && styles.free]}>{price(event)}</Text>
-        </View>
-        <Text style={styles.title} numberOfLines={2}>
-          {event.title}
-        </Text>
-        <View style={styles.detail}>
-          <Ionicons name="calendar-outline" size={14} color={colors.primary} />
-          <Text style={styles.detailText}>{formatWhen(event.start_time)}</Text>
-        </View>
-        <View style={styles.detail}>
-          <Ionicons name="location-outline" size={14} color={colors.primary} />
-          <Text style={styles.detailText} numberOfLines={1}>
-            {event.venue?.name ?? event.address ?? "Bratislava"}
-          </Text>
-        </View>
-      </View>
-      {onToggleSave ? <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={saved ? "Remove from saved events" : "Save event"}
-        accessibilityState={{ checked: !!saved, disabled: saving }}
-        disabled={saving}
-        hitSlop={8}
-        onPress={(pressEvent) => { pressEvent.stopPropagation(); onToggleSave(); }}
-        style={({ pressed }) => [styles.chevron, pressed && styles.savePressed]}
-      >
-        <Ionicons name={saved ? "heart" : "heart-outline"} size={16} color={saved ? colors.primary : colors.text} />
-      </Pressable> : <View style={styles.chevron}>
-        <Ionicons name="arrow-up-outline" size={14} color={colors.text} />
-      </View>}
-    </Pressable>
-  );
+  const compact = ['compact', 'map', 'planner'].includes(variant);
+  const premium = variant === 'premium';
+  const date = new Date(event.start_time);
+  return <Pressable accessibilityRole="button" accessibilityLabel={`Open ${event.title}`} onPress={() => router.push('/event/' + event.id)}
+    style={({ pressed }) => [styles.card, compact && styles.compact, variant === 'horizontal' && styles.rail, premium && styles.premium, pressed && styles.pressed]}>
+    <View style={[styles.mediaWrap, variant === 'hero' && styles.heroMedia, variant === 'horizontal' && styles.railMedia, variant === 'saved' && styles.savedMedia, variant === 'organizer' && styles.organizerMedia, compact && styles.compactMedia]}>
+      <EventMedia uri={event.image_url} category={event.category} style={StyleSheet.absoluteFill} />
+      {!compact && <View style={styles.mediaMeta}><Text style={styles.tag}>{event.category}</Text><Text style={styles.tag}>{event.price === 0 ? 'Free' : event.price == null ? 'Price unknown' : `${event.price} ${event.currency || 'EUR'}`}</Text></View>}
+      {onToggleSave && <Pressable accessibilityRole="button" accessibilityLabel={saved ? 'Remove from saved events' : 'Save event'} accessibilityState={{ checked: !!saved, disabled: saving }} disabled={saving}
+        onPress={press => { press.stopPropagation(); onToggleSave(); }} style={styles.save}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={22} color={colors.text} /></Pressable>}
+    </View>
+    <View style={styles.body}>
+      {explanation && <Text style={[styles.reason, premium && styles.premiumReason]} numberOfLines={2}>{explanation}</Text>}
+      <Text style={[styles.when, premium && styles.light]}>{date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })} · {date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</Text>
+      <Text style={[styles.title, compact && styles.compactTitle, premium && styles.light]} numberOfLines={2}>{event.title}</Text>
+      <View style={styles.location}><Ionicons name="location-outline" size={16} color={premium ? tokens.premium.muted : colors.textMuted} /><Text style={[styles.venue, premium && styles.light]} numberOfLines={1}>{event.venue?.name || event.address || 'Bratislava'}</Text></View>
+    </View>
+  </Pressable>;
 }
-
 const styles = StyleSheet.create({
-  card: {
-    flexDirection: "row",
-    minHeight: 132,
-    backgroundColor: colors.surface,
-    borderRadius: 22,
-    marginBottom: 12,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: colors.shadow,
-    shadowOpacity: 0.07,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 5 },
-  },
-  pressed: {
-    transform: [{ scale: 0.985 }],
-    opacity: 0.96,
-  },
-  image: {
-    width: 108,
-    alignSelf: "stretch",
-    backgroundColor: colors.primarySoft,
-  },
-  body: { flex: 1, padding: 12, paddingRight: 30 },
-  reasonRow: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 7 },
-  reason: { flex: 1, color: colors.primaryDark, fontFamily: fonts.semibold, fontSize: 9 },
-  metaRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 6,
-  },
-  categoryPill: {
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 99,
-  },
-  category: {
-    color: colors.primaryDark,
-    fontFamily: fonts.semibold,
-    fontSize: 8,
-    letterSpacing: 0.4,
-  },
-  price: { color: colors.textMuted, fontFamily: fonts.semibold, fontSize: 9 },
-  free: { color: colors.free },
-  title: {
-    color: colors.text,
-    fontFamily: fonts.black,
-    fontSize: 15,
-    lineHeight: 18,
-    marginBottom: 7,
-  },
-  detail: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    marginTop: 3,
-  },
-  detailText: {
-    color: colors.textMuted,
-    fontFamily: fonts.medium,
-    fontSize: 10,
-    flex: 1,
-  },
-  chevron: {
-    position: "absolute",
-    right: 10,
-    bottom: 10,
-    width: 27,
-    height: 27,
-    borderRadius: 10,
-    backgroundColor: colors.primarySoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  savePressed: { opacity: 0.65, transform: [{ scale: 0.92 }] },
+  card: { marginBottom: 24, borderRadius: tokens.radius.lg, backgroundColor: colors.surface, overflow: 'hidden' },
+  heroMedia: { aspectRatio: tokens.image.hero }, railMedia: { aspectRatio: tokens.image.rail }, savedMedia: { aspectRatio: 1.2 }, organizerMedia: { aspectRatio: 2.1 },
+  compact: { flexDirection: 'row', marginBottom: 12 }, rail: { width: 270, marginRight: 14 }, premium: { backgroundColor: tokens.premium.surface },
+  pressed: { opacity: .9 }, mediaWrap: { aspectRatio: tokens.image.feed, position: 'relative' }, compactMedia: { width: 104, aspectRatio: 1 },
+  mediaMeta: { position: 'absolute', bottom: 16, left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-between' },
+  tag: { ...tokens.type.caption, color: '#FFFFFF', backgroundColor: tokens.scrim, paddingVertical: 7, paddingHorizontal: 12, borderRadius: 99 },
+  save: { position: 'absolute', top: 12, right: 12, width: 48, height: 48, borderRadius: 24, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+  body: { flex: 1, padding: 18, gap: 6 }, reason: { ...tokens.type.caption, color: colors.primaryDark }, when: { ...tokens.type.metadata, color: colors.primaryDark },
+  title: { ...tokens.type.section, color: colors.text }, compactTitle: { ...tokens.type.action }, location: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  venue: { ...tokens.type.metadata, color: colors.textMuted, flex: 1 }, light: { color: tokens.premium.text }, premiumReason: { color: tokens.premium.accent },
 });

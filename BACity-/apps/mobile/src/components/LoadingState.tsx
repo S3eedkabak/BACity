@@ -1,11 +1,14 @@
 import { useEffect, useRef } from "react";
 import { Animated, StyleSheet, View } from "react-native";
 import { colors } from "../theme/colors";
+import { useReducedMotion } from './BACityMotion';
 
 export function LoadingState() {
   const pulse = useRef(new Animated.Value(0.45)).current;
+  const reduced = useReducedMotion();
 
   useEffect(() => {
+    if (reduced !== false) { pulse.setValue(1); return; }
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulse, { toValue: 0.95, duration: 650, useNativeDriver: true }),
@@ -14,7 +17,7 @@ export function LoadingState() {
     );
     loop.start();
     return () => loop.stop();
-  }, [pulse]);
+  }, [pulse, reduced]);
 
   return (
     <View style={styles.page}>
@@ -40,7 +43,7 @@ export function LoadingState() {
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.background, padding: 18, paddingTop: 26 },
-  hero: { height: 44, width: "68%", borderRadius: 15, backgroundColor: colors.primarySoft },
+  hero: { height: 280, width: "100%", borderRadius: 28, backgroundColor: colors.primarySoft },
   row: { flexDirection: "row", gap: 8, marginVertical: 22 },
   chip: { width: 78, height: 34, borderRadius: 17, backgroundColor: colors.primarySoft },
   card: {

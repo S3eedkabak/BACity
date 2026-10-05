@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { colors } from "../theme/colors";
 import { fonts } from "../theme/fonts";
+import { tokens } from '../theme/tokens';
 
 export function EmptyState({
   title,
@@ -22,7 +23,7 @@ export function EmptyState({
       <Text style={styles.title}>{title}</Text>
       {!!subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
       {!!action && !!onAction && (
-        <Pressable style={styles.button} onPress={onAction}>
+        <Pressable accessibilityRole="button" style={({ pressed }) => [styles.button, pressed && { opacity: .8 }]} onPress={onAction}>
           <Text style={styles.buttonText}>{action}</Text>
         </Pressable>
       )}
@@ -47,6 +48,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
+    ...tokens.type.section,
     color: colors.text,
     fontFamily: fonts.black,
     fontSize: 21,
@@ -54,6 +56,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   subtitle: {
+    ...tokens.type.body,
     color: colors.textMuted,
     fontFamily: fonts.regular,
     fontSize: 13,

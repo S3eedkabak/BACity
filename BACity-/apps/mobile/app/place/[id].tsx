@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
   name: {
     marginTop: 14,
     color: colors.text,
-    fontFamily: fonts.black,
+    fontFamily: fonts.black, fontWeight: '800',
     fontSize: 27,
     letterSpacing: -0.75,
     textAlign: "center",
@@ -146,8 +146,8 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     color: colors.primaryDark,
-    fontFamily: fonts.semibold,
-    fontSize: 9,
+    fontFamily: fonts.semibold, fontWeight: '600',
+    fontSize: 12,
     textTransform: "capitalize",
   },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
   infoCopy: { flex: 1 },
   infoTitle: {
     color: colors.text,
-    fontFamily: fonts.black,
+    fontFamily: fonts.black, fontWeight: '800',
     fontSize: 16,
   },
   description: {
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
   },
   mapButtonText: {
     color: colors.white,
-    fontFamily: fonts.semibold,
+    fontFamily: fonts.semibold, fontWeight: '600',
     fontSize: 12,
   },
   pressed: { opacity: 0.88, transform: [{ scale: 0.985 }] },

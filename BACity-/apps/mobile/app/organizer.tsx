@@ -5,14 +5,18 @@ import { apiRequest } from "../src/api/client";
 import {
   Page,
   Card,
+  Disclosure,
   Field,
   Button,
   Chip,
   Notice,
   ui,
 } from "../src/components/CommunityUI";
+import { TemporalField } from '../src/components/TemporalField';
 
 export default function Organizer() {
+  const [eventDate, setEventDate] = useState('');
+  const [eventTime, setEventTime] = useState('18:00');
   const { claim } = useLocalSearchParams<{ claim?: string }>();
   const [orgs, setOrgs] = useState<any[]>([]);
   const [organization, setOrganization] = useState<any>(null);
@@ -119,7 +123,7 @@ export default function Organizer() {
 
       {claimOrganization && <Card><Text style={ui.heading}>Claim {claimOrganization.name}</Text><Text style={ui.text}>Provide a public HTTPS page that proves your relationship to this organization.</Text><Field label="Public ownership evidence URL" value={evidence} onChange={setEvidence} /><Button title="Request ownership review" busy={busy} onPress={async () => { setBusy(true); try { await apiRequest(`/community/organizations/${claimOrganization.id}/claim`, { method: 'POST', auth: true, body: { evidence_url: evidence, reason: 'Please verify my ownership using the supplied public evidence' } }); setNotice('Ownership claim submitted for moderation.'); } catch (e: any) { setNotice(e.message); } finally { setBusy(false); } }} /></Card>}
 
-      <Card><Text style={ui.heading}>Register an organization</Text><Field label="Organization name" value={newName} onChange={setNewName} /><Field label="Official website (HTTPS)" value={newWebsite} onChange={setNewWebsite} /><Button title="Create organization profile" busy={busy} onPress={async () => { setBusy(true); try { const created = await apiRequest<any>('/community/organizations', { method: 'POST', auth: true, body: { name: newName, website: newWebsite, description: null, venue_id: null } }); setNotice(`Created ${created.name}. Claim it from Explore to verify ownership.`); setNewName(''); setNewWebsite(''); } catch (e: any) { setNotice(e.message); } finally { setBusy(false); } }} /></Card>
+<Disclosure title="Register an organization"><Field label="Organization name" value={newName} onChange={setNewName} /><Field label="Official website (HTTPS)" value={newWebsite} onChange={setNewWebsite} /><Button title="Create organization profile" busy={busy} onPress={async () => { setBusy(true); try { const created = await apiRequest<any>('/community/organizations', { method: 'POST', auth: true, body: { name: newName, website: newWebsite, description: null, venue_id: null } }); setNotice(`Created ${created.name}. Claim it from Explore to verify ownership.`); setNewName(''); setNewWebsite(''); } catch (e: any) { setNotice(e.message); } finally { setBusy(false); } }} /></Disclosure>
 
       {!orgs.length ? (
         <Card>
@@ -146,7 +150,7 @@ export default function Organizer() {
 
       {Boolean(selected) && (
         <>
-          {organization && <Card><Text style={ui.heading}>Organization profile</Text><Field label="Name" value={organization.name} onChange={name => setOrganization({ ...organization, name })} /><Field label="Description" value={organization.description ?? ''} onChange={description => setOrganization({ ...organization, description })} multiline /><Button title="Save organization profile" busy={busy} onPress={async () => { setBusy(true); try { await apiRequest(`/community/organizations/${selected}`, { method: 'PATCH', auth: true, body: { name: organization.name, description: organization.description, website: organization.website, venue_id: organization.venue_id } }); setOrgs(current => current.map(org => org.id === selected ? { ...org, name: organization.name } : org)); setNotice('Organization updated.'); } catch (e: any) { setNotice(e.message); } finally { setBusy(false); } }} /></Card>}
+          {organization && <Disclosure title="Organization profile"><Field label="Name" value={organization.name} onChange={name => setOrganization({ ...organization, name })} /><Field label="Description" value={organization.description ?? ''} onChange={description => setOrganization({ ...organization, description })} multiline /><Button title="Save organization profile" busy={busy} onPress={async () => { setBusy(true); try { await apiRequest(`/community/organizations/${selected}`, { method: 'PATCH', auth: true, body: { name: organization.name, description: organization.description, website: organization.website, venue_id: organization.venue_id } }); setOrgs(current => current.map(org => org.id === selected ? { ...org, name: organization.name } : org)); setNotice('Organization updated.'); } catch (e: any) { setNotice(e.message); } finally { setBusy(false); } }} /></Disclosure>}
           {analytics && (
             <Card>
               <Text style={ui.heading}>Audience</Text>
@@ -156,22 +160,24 @@ export default function Organizer() {
             </Card>
           )}
 
-          <Card>
-            <Text style={ui.heading}>Publish an event or recurring series</Text>
+          <Disclosure title="Publish an event or recurring series" initiallyOpen>
             {field("title", "Title")}
             {field("description", "Description", true)}
             {field("address", "Address in Bratislava")}
             {field("source", "Official event URL (optional, HTTPS)")}
-            {field(
-              "dates",
-              "One start date per line, with timezone (e.g. 2026-12-10T19:00+01:00)",
-              true
-            )}
+            <TemporalField label="Event date" value={eventDate} onChange={setEventDate} />
+            <TemporalField label="Start time" mode="time" value={eventTime} onChange={setEventTime} />
+            <Button variant="secondary" title="Add this occurrence" onPress={() => {
+              const date = new Date(`${eventDate}T${eventTime}`);
+              if (Number.isNaN(date.getTime())) { setNotice('Choose a valid event date and time.'); return; }
+              setFields(current => ({ ...current, dates: [...(current.dates || '').split('\n').filter(Boolean), date.toISOString()].join('\n') }));
+            }} />
+            {(fields.dates || '').split('\n').filter(Boolean).map((value, index) => <Text key={index} style={ui.text}>{new Date(value).toLocaleString()}</Text>)}
+            <Disclosure title="Edit all dates" icon="calendar-outline">{field('dates', 'Start dates including timezone, one per line', true)}</Disclosure>
             <Button title="Publish dates" busy={busy} onPress={publish} />
-          </Card>
+          </Disclosure>
 
-          <Card>
-            <Text style={ui.heading}>Subscription</Text>
+          <Disclosure title="Subscription">
             {billing?.configured ? (
               <>
                 {billing.plans.map((tier: string) => (
@@ -198,7 +204,7 @@ export default function Organizer() {
                 Paid plans are not available yet. Payment services have not been configured.
               </Text>
             )}
-          </Card>
+          </Disclosure>
         </>
       )}
     </Page>

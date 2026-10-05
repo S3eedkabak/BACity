@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useAuthStore } from "../../src/store/authStore";
-import { useSavedEvents } from "../../src/hooks/useEvents";
+import { useSavedEvents, useToggleSaveEvent } from "../../src/hooks/useEvents";
 import { EventCard } from "../../src/components/EventCard";
 import { EmptyState } from "../../src/components/EmptyState";
 import { LoadingState } from "../../src/components/LoadingState";
@@ -12,7 +12,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function SavedScreen() {
   const token = useAuthStore((s) => s.token);
-  const { data, isLoading, isError } = useSavedEvents();
+  const { data, isLoading, isError, isRefetching, refetch } = useSavedEvents();
+  const save = useToggleSaveEvent();
 
   if (!token) {
     return (
@@ -39,8 +40,8 @@ export default function SavedScreen() {
   }
 
   if (isLoading) return <LoadingState />;
-  if (isError) {
-    return <EmptyState title="Couldn't load saved events" subtitle="Try again in a moment." />;
+  if (isError && !data) {
+    return <EmptyState title="Couldn't load saved events" subtitle="Your library is still yours. Check your connection." action="Try again" onAction={() => void refetch()} />;
   }
 
   return (
@@ -51,6 +52,8 @@ export default function SavedScreen() {
       data={data ?? []}
       keyExtractor={(item) => item.id}
       showsVerticalScrollIndicator={false}
+      refreshing={isRefetching}
+      onRefresh={() => void refetch()}
       ListHeaderComponent={
         <View style={styles.header}>
           <View style={styles.headingRow}>
@@ -63,7 +66,7 @@ export default function SavedScreen() {
           <Pressable accessibilityRole="button" onPress={() => router.push("/collections")}><Text style={styles.headerText}>Browse and create collections →</Text></Pressable>
         </View>
       }
-      renderItem={({ item }) => <EventCard event={item} />}
+      renderItem={({ item }) => <EventCard variant="saved" event={item} saved saving={save.isPending && save.variables?.id === item.id} onToggleSave={() => save.mutate({ id: item.id, saved: true })} />}
       ListEmptyComponent={
         <View style={styles.emptyWrap}>
           <View style={styles.emptyIcon}>
@@ -80,18 +83,18 @@ export default function SavedScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 18, paddingTop: 12, paddingBottom: 108 },
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center', padding: 18, paddingTop: 12, paddingBottom: 108 },
   header: { paddingBottom: 18 },
   eyebrow: {
     color: colors.primaryDark,
-    fontFamily: fonts.semibold,
-    fontSize: 9,
+    fontFamily: fonts.semibold, fontWeight: '600',
+    fontSize: 12,
     letterSpacing: 1.4,
   },
   headingRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   heading: {
     color: colors.text,
-    fontFamily: fonts.black,
+    fontFamily: fonts.black, fontWeight: '800',
     fontSize: 36,
     letterSpacing: -1.1,
     marginTop: 2,
@@ -106,7 +109,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: 6,
   },
-  count: { color: colors.white, fontFamily: fonts.black, fontSize: 11 },
+  count: { color: colors.white, fontFamily: fonts.black, fontWeight: '800', fontSize: 12 },
   headerText: {
     color: colors.textMuted,
     fontFamily: fonts.regular,
@@ -141,7 +144,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontFamily: fonts.black,
+    fontFamily: fonts.black, fontWeight: '800',
     fontSize: 29,
     textAlign: "center",
     letterSpacing: -0.8,
@@ -165,7 +168,7 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 24,
   },
-  loginText: { color: colors.white, fontFamily: fonts.semibold, fontSize: 12 },
+  loginText: { color: colors.white, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
   emptyWrap: { alignItems: "center" },
   emptyIcon: {
     width: 48,

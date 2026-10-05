@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Text } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { Page, Card, Button, Field, Notice, ui } from '../src/components/CommunityUI';
+import { Page, Card, Button, Disclosure, Field, Notice, ui } from '../src/components/CommunityUI';
 import { apiRequest } from '../src/api/client';
 import { PrivacyRequest } from '../src/api/privacy';
 import { useAuthStore } from '../src/store/authStore';
@@ -34,10 +34,10 @@ function PrivacyAdminContent() {
   if (!allowed) return <Page title="Privacy review"><Notice text="Administrator permission required." /></Page>;
   return <Page title="Privacy request review">
     <Notice text={notice} />
-    <Text style={ui.text}>Need-to-know access is audited. Identity assessment, legal exceptions and fulfilment happen through approved operational procedures, not automatically. Do not copy private data or identity documents into responses.</Text>
+    <Disclosure title="Review safeguards"><Text style={ui.text}>Need-to-know access is audited. Identity assessment, legal exceptions and fulfilment happen through approved operational procedures, not automatically. Do not copy private data or identity documents into responses.</Text></Disclosure>
     {queue.isLoading ? <Text style={ui.text}>Loading queue…</Text> : queue.isError ? <Button title="Retry queue" onPress={() => { void queue.refetch(); }} /> : queue.data?.length ? queue.data.map(value => <Card key={value.id}><Text style={ui.text}>{value.kind} · {value.status} · Due {new Date(value.due_at + 'Z').toLocaleDateString()}{value.overdue ? ' · OVERDUE' : ''}</Text><Button title="Review request" onPress={() => { setSelected(value.id); setResponse(''); }} /></Card>) : <Text style={ui.text}>No requests on this page.</Text>}
-    {offset > 0 && <Button title="Previous page" onPress={() => setOffset(value => Math.max(0, value - 20))} />}
-    {queue.data?.length === 20 && <Button title="Next page" onPress={() => setOffset(value => value + 20)} />}
+    {offset > 0 && <Button variant="secondary" title="Previous page" onPress={() => setOffset(value => Math.max(0, value - 20))} />}
+    {queue.data?.length === 20 && <Button variant="secondary" title="Next page" onPress={() => setOffset(value => value + 20)} />}
     {selected && <Card>
       {item.isLoading ? <Text style={ui.text}>Loading request…</Text> : item.isError ? <Button title="Retry request" onPress={() => { void item.refetch(); }} /> : <>
         <Text style={ui.heading}>{item.data?.kind} · {item.data?.status}</Text>
@@ -45,10 +45,12 @@ function PrivacyAdminContent() {
         <Text style={ui.text}>{item.data?.response}</Text>
         <Field label="User-facing response (no third-party private information)" value={response} onChange={value => setResponse(value.slice(0, 2000))} multiline />
         <Button title="Begin review" busy={busy} onPress={() => { void review('in_review', 'information_needed'); }} />
-        <Button title="Ask for proportionate additional information" busy={busy} onPress={() => { void review('awaiting_information', 'information_needed'); }} />
-        <Button title="Communicate assessed extension (once, within initial month)" busy={busy} onPress={() => { void review('in_review', 'other_assessed_reason', false, true); }} />
+        <Disclosure title="Additional information or extension">
+        <Button variant="secondary" title="Ask for proportionate additional information" busy={busy} onPress={() => { void review('awaiting_information', 'information_needed'); }} />
+        <Button variant="secondary" title="Communicate assessed extension (once, within initial month)" busy={busy} onPress={() => { void review('in_review', 'other_assessed_reason', false, true); }} />
+        </Disclosure>
         <Button title="Confirm identity assessed and request fulfilled" busy={busy} onPress={() => { void review('completed', 'fulfilled', true); }} />
-        <Button title="Record assessed refusal with explanation" busy={busy} onPress={() => { void review('refused', 'other_assessed_reason'); }} />
+        <Disclosure title="Record an assessed refusal"><Button variant="danger" title="Record assessed refusal with explanation" busy={busy} onPress={() => { void review('refused', 'other_assessed_reason'); }} /></Disclosure>
       </>}
     </Card>}
   </Page>;

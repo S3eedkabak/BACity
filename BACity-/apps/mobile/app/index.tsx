@@ -6,13 +6,15 @@ import { useAuthStore } from "../src/store/authStore";
 export default function EntryScreen() {
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
+  const loading = useAuthStore((s) => s.isLoading);
 
   useEffect(() => {
+    if (loading) return;
     const timer = setTimeout(() => {
       router.replace(token && user ? "/(tabs)/discover" : "/welcome");
     }, 120);
     return () => clearTimeout(timer);
-  }, [token, user]);
+  }, [token, user, loading]);
 
   return <AppLoadingScreen />;
 }
