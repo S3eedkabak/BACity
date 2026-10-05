@@ -2,7 +2,7 @@
 
 Branch crawler-v2; starting SHA 4d865ed2ac27153b186724df7ef9a6ef0b6ee361. Testing was local, mocked or isolated only. No deployment, provider attacks, contracts or real user-data changes.
 
-## Exact results
+## Initial pass results (historical baseline at 6b08cfb)
 
 | Validation | Result |
 |---|---|
@@ -97,3 +97,21 @@ Billing/entitlement/planner/crawler logic, welcome/splash and existing historica
 ## Manual follow-up (not performed)
 
 Configure approved document URLs/versions/contact; migrate isolated staging and inject keys. Sign in A/B/admin/moderator, submit a case as A and verify B/moderator denial, admin metadata/detail and review, A generic notification/status/export, account-switch form clearing and deletion redaction. Test OS gallery/location with camera absent, denied permission/citywide mode, screen readers/small screens. Exercise signed-off erasure/subscription/provider operations with deployment-owned accounts. Rehearse incident and restored-deletion reconciliation with synthetic data before production.
+
+## Owner-direction follow-up starting at 6b08cfb
+
+See compliance-owner-followup.md for all eleven reviewed owner rows and the age-enforcement deferral. Product approval is not legal approval. Updated current checklist: 73 total; IMPLEMENTED 11, ALREADY SATISFIED 14, NOT APPLICABLE 2, OWNER 7, LEGAL 28, PROCESSOR 3, PRODUCTION 4, STORE 3, BLOCKED 1. All 46 unresolved IDs remain in the evidence/blocker registers; two resolved product controls remain in the blocker table for traceability, marked nonblocking.
+
+Validation on final application code:
+
+- Complete API: 308 passed, 1 skipped, 12237 existing/deprecation warnings in 263.47 seconds. Command as above, with disposable DATABASE_URL=sqlite:////tmp/owner-followup.db. Includes privacy (22 cases), auth/recovery, account deletion, messaging/security, Level 3 and all other API regressions. Opt-in PostgreSQL skipped intentionally: no schema changes; prior isolated migration evidence remains historical, not a new run.
+- Focused development: privacy/community/security initially 71 passed, 1 failed; failure was obsolete public event-history expectation. Updated to require public suppression plus preserved own history; complete suite then passed. No tests disabled.
+- Mobile: 78 passed, 0 failed, 1231.441 ms using existing node test command. Focused privacy tests: 4 passed, 0 failed. New test executes transpiled conversation-profile fallback and checks 404 anonymized identity versus 401/403/500 propagation and UI wiring; not rendered device testing.
+- npm run typecheck passed.
+- Checklist columns/status/evidence/unresolved-blocker integrity passed; whitespace and staged scope reviewed.
+- No schema changes/migration verification, native rebuild, exports or device E2E in this follow-up; none claimed. No crawler logic changed; API Level 3 regressions included, separate crawler suite not rerun.
+- Disposable --rm test container removed automatically; test SQLite remained inside container /tmp. No real user/development database targeted or temporary PostgreSQL database created.
+
+Intentional code/config files: .env.example; mobile app/messages/index.tsx, app/messages/[userId].tsx, app/privacy.tsx, src/api/community.ts, src/api/privacy.ts, src/api/privacy.test.mjs; API app/config.py, app/api/routes/privacy.py, app/api/routes/community.py, app/schemas/event.py; tests/test_privacy.py, test_community.py, test_adversarial_security.py and test_postgres_migrations.py (existing concurrency expectation follows the approved shared-record semantics).
+Intentional documentation: compliance-owner-followup.md (new); account-lifecycle.md, compliance-master-checklist.md, compliance-evidence-index.md, compliance-launch-blockers.md, compliance-validation.md, data-breach-response.md, data-retention-policy-matrix.md, legal-review-input.md, privacy-data-inventory.md, privacy-notice-facts.md and privacy-operations.md.
+Billing/planners/crawler/native configuration/dependencies/welcome screens untouched. No personal owner details or secrets added; blank environment-backed contacts require owner configuration. Production deployment not performed.

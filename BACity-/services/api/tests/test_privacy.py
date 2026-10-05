@@ -152,3 +152,71 @@ def test_privacy_details_not_logged_and_no_location_or_identity_fields(client, d
     assert 'Private case contents' not in caplog.text
     for key in ('latitude', 'identity_document', 'email', 'user_id'):
         assert client.post('/privacy/requests', headers=ha, json={'kind': 'ACCESS', key: 'forbidden'}).status_code == 422
+
+
+def test_delivered_conversation_survives_sender_deletion_without_private_identity(client, db_session):
+    from sqlalchemy import text
+    from app.core.encryption import PREFIX
+    alice, ha = account(client, db_session, 'shared-alice')
+    bob, hb = account(client, db_session, 'shared-bob')
+    outsider, hc = account(client, db_session, 'shared-outsider')
+    alice.allow_general_messages = bob.allow_general_messages = True
+    alice.bio, alice.avatar_url = 'Private deleted bio', 'https://example.com/private-avatar'
+    db_session.commit()
+    assert client.post(f'/community/messages/{bob.id}', headers=ha, json={'body': 'Delivered to Bob'}).status_code == 200
+    assert client.post(f'/community/messages/{alice.id}', headers=hb, json={'body': 'Bob reply'}).status_code == 200
+    assert len(client.get(f'/community/messages/{alice.id}', headers=hb).json()) == 2
+    assert client.request('DELETE', '/community/account', headers=ha, json={'reason': 'Delete'}).status_code == 200
+    assert client.get(f'/community/messages/{bob.id}', headers=ha).status_code == 401
+    assert client.get(f'/community/profiles/{alice.id}', headers=hb).status_code == 404
+    assert client.post(f'/community/messages/{alice.id}', headers=hb, json={'body': 'Cannot send'}).status_code == 403
+    assert {m['body'] for m in client.get(f'/community/messages/{alice.id}', headers=hb).json()} == {'Delivered to Bob', 'Bob reply'}
+    assert client.get(f'/community/messages/{alice.id}', headers=hc).json() == []
+    notifications = client.get('/community/notifications', headers=hb).json()
+    assert any(n['kind'] == 'message' and n['target_id'] == str(alice.id) for n in notifications)
+    export = client.get('/community/account/export', headers=hb)
+    assert 'Private deleted bio' not in export.text and 'private-avatar' not in export.text
+    assert len(export.json()['messages']) == 2
+    assert all(body.startswith(PREFIX) for (body,) in db_session.execute(text('SELECT body FROM messages')))
+    assert client.request('DELETE', '/community/account', headers=hb, json={'reason': 'Delete'}).status_code == 200
+    assert db_session.query(Message).count() == 0
+
+
+def test_public_event_and_profile_history_do_not_attribute_community_contributor(client, db_session):
+    from app.models.event import Event
+    from app.schemas.event import EventOut
+    from tests.test_community import event_payload
+    author, ha = account(client, db_session, 'anonymous-contributor')
+    viewer, hv = account(client, db_session, 'anonymous-viewer')
+    admin, hh = account(client, db_session, 'anonymous-admin', role='ADMIN')
+    submitted = client.post('/community/submissions/events', headers=ha, json=event_payload()).json()
+    approved = client.post('/community/moderation/submissions/' + submitted['id'], headers=hh,
+        json={'decision': 'approve', 'reason': 'Valid real event'})
+    assert approved.status_code == 200, approved.text
+    event = db_session.query(Event).filter_by(contributor_id=author.id).one()
+    public = client.get(f'/events/{event.id}')
+    assert public.status_code == 200, public.text
+    assert public.json()['contributor_id'] is None
+    assert str(author.id) not in public.text and author.email not in public.text
+    assert EventOut.model_validate(event).model_dump()['contributor_id'] is None
+    assert client.get(f'/community/profiles/{author.id}', headers=hv).json()['contributions'] == []
+    assert client.get(f'/community/profiles/{author.id}/contributions', headers=hv).json() == []
+    assert client.get(f'/community/profiles/{author.id}/contributions', headers=ha).json()[0]['published_id'] == str(event.id)
+    assert client.get('/community/account/export', headers=ha).json()['events_contributed'][0]['contributor_id'] == str(author.id)
+    author.public_profile = False; db_session.commit()
+    assert client.get(f'/community/profiles/{author.id}', headers=hv).status_code == 404
+
+
+def test_public_contacts_configurable_without_exposing_internal_operations(client, monkeypatch):
+    from app.api.routes import privacy
+    config = Settings(controller_legal_name='Test controller', business_address='Test public address',
+        support_contact_email='support@example.com', legal_contact_email='legal@example.com',
+        operations_contact_email='internal@example.com', _env_file=None)
+    monkeypatch.setattr(privacy, 'get_settings', lambda: config)
+    result = client.get('/privacy/information')
+    assert result.json()['controller_legal_name'] == 'Test controller'
+    assert result.json()['business_address'] == 'Test public address'
+    assert 'internal@example.com' not in result.text and result.json()['documents_ready'] is False
+    for field in ('support_contact_email', 'legal_contact_email', 'operations_contact_email'):
+        with pytest.raises(ValueError):
+            Settings(**{field: 'bad@example.com\nBCC: secret'}, _env_file=None)

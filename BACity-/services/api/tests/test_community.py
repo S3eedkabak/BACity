@@ -213,7 +213,7 @@ def test_account_export_and_complete_private_data_erasure(client, db_session):
     anonymized = db_session.get(User, user.id)
     assert anonymized.email.endswith('@example.invalid') and not anonymized.active
     assert db_session.query(OAuthIdentity).filter_by(user_id=user.id).count() == 0
-    assert db_session.query(Message).filter(Message.sender_id == user.id).count() == 0
+    assert db_session.query(Message).filter(Message.sender_id == user.id).count() == 1
     deletion_mail = db_session.query(MailOutbox).filter_by(recipient='privacy@example.com').one()
     assert deletion_mail.subject == 'Your BACity account was deleted'
 
@@ -238,7 +238,8 @@ def test_rich_profile_social_pagination_and_avatar(client, db_session, sample_ev
     profile = client.get(f'/community/profiles/{alice.id}', headers=hb).json()
     assert profile['reputation_level'] == 'Local Guide'
     assert profile['followers'] == 1 and profile['contributions_count'] == 1 and profile['reviews_count'] == 1
-    assert client.get(f'/community/profiles/{alice.id}/contributions', params={'limit': 1}, headers=hb).json()[0]['title'] == sample_event.title
+    assert client.get(f'/community/profiles/{alice.id}/contributions', params={'limit': 1}, headers=hb).json() == []
+    assert client.get(f'/community/profiles/{alice.id}/contributions', params={'limit': 1}, headers=ha).json()[0]['title'] == sample_event.title
     assert client.get(f'/community/profiles/{alice.id}/reviews', params={'limit': 1}, headers=hb).json()[0]['target_name'] == sample_event.title
     assert client.get(f'/community/profiles/{alice.id}/followers', params={'limit': 1}, headers=hb).json()[0]['display_name'] == 'Bob Resident'
     following = client.get(f'/community/profiles/{alice.id}/following', params={'limit': 1}, headers=hb).json()

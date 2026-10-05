@@ -1,4 +1,4 @@
-import { apiRequest } from "./client";
+import { apiRequest, ApiError } from "./client";
 
 export type PublicProfile = {
   id: string; display_name: string | null; avatar_url: string | null; bio: string | null;
@@ -12,6 +12,17 @@ export type Notification = { id: string; kind: string; body: string; target_id: 
 export type FollowRecord = { id: string; target_type: string; target_id: string; target_label: string; target_subtitle: string; created_at: string };
 
 export const getProfile = (id: string) => apiRequest<PublicProfile>(`/community/profiles/${id}`, { auth: true });
+// An unavailable profile must not destroy an authorized recipient's history.
+// Never infer why a profile is unavailable or reuse its cached identity.
+export async function getConversationProfile(id: string) {
+  try { return await getProfile(id); }
+  catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return { display_name: 'Unavailable member', avatar_url: null, unavailable: true };
+    }
+    throw error;
+  }
+}
 export const getProfileHistory = (id: string, type: "contributions" | "reviews" | "followers" | "following", offset = 0, limit = 20) => apiRequest<any[]>(`/community/profiles/${id}/${type}`, { auth: true, params: { offset, limit } });
 export const getNotifications = () => apiRequest<Notification[]>("/community/notifications", { auth: true });
 export const markNotificationRead = (id: string) => apiRequest(`/community/notifications/${id}/read`, { method: "POST", auth: true });

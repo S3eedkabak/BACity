@@ -2,6 +2,8 @@
 
 Operational draft; named incident lead, privacy owner, counsel, on-call contact and secure register location REQUIRED before launch. No real notification is sent by this repository.
 
+Initial responsible role: BACity administrator/owner, using configured privacy/operations contacts. Role approval does not replace supplied contact details, assigned responders or a recorded tabletop rehearsal. OPERATIONS_CONTACT_EMAIL is internal configuration, not publicly disclosed or automatically emailed.
+
 DETECT -> CONTAIN -> PRESERVE MINIMIZED EVIDENCE -> ASSESS DATA/PEOPLE -> RISK ASSESSMENT -> RECORD -> ESCALATE -> AUTHORITY/USER NOTIFICATION DECISIONS -> REMEDIATE -> POSTMORTEM.
 
 Record awareness timestamp immediately. A qualified decision maker assesses notification duties and the 72-hour authority-notification timeline; not every incident is automatically reportable. If delayed or information incomplete, document rationale and phased updates. Escalate without waiting for complete forensic certainty. [Commission breach guidance](https://commission.europa.eu/law/law-topic/data-protection/information-business-and-organisations/obligations/what-data-breach-and-what-do-we-have-do-case-data-breach_en) and [GDPR Articles 33–34](https://eur-lex.europa.eu/eli/reg/2016/679/oj/eng).

@@ -62,11 +62,15 @@ def information():
     s = get_settings()
     return {
         'privacy_contact_email': s.privacy_contact_email or None,
+        'controller_legal_name': s.controller_legal_name or None,
+        'business_address': s.business_address or None,
+        'support_contact_email': s.support_contact_email or None,
+        'legal_contact_email': s.legal_contact_email or None,
         'privacy_notice_url': s.privacy_notice_url or None,
         'terms_url': s.terms_url or None,
         'privacy_notice_version': s.privacy_notice_version or None,
         'terms_version': s.terms_version or None,
-        'documents_ready': bool(s.privacy_notice_url and s.terms_url and s.privacy_contact_email and s.privacy_notice_version and s.terms_version),
+        'documents_ready': bool(s.controller_legal_name and s.business_address and s.privacy_notice_url and s.terms_url and s.privacy_contact_email and s.privacy_notice_version and s.terms_version),
         'message_encryption': 'Server-side encrypted at rest; not end-to-end encrypted.',
         'location': 'Recommendation location is optional, coarsened and request-scoped. Area Watch centers are saved privately until you delete them.',
         'recommendations': 'Ranking considers interests, saved categories, follows, event timing, proximity when enabled, freshness, quality and bounded popularity, with diversity. Scores and private histories are not shared.',

@@ -10,7 +10,7 @@ When existing billing prerequisites permit deletion, local account deletion is i
 
 - JWTs are revoked and the account is disabled.
 - Email, password hash, profile, identity-verification state, location preferences, and messaging settings are anonymized.
-- OAuth identity mappings, encrypted provider credentials, pending action tokens, queued email, saved events, messages, follows, blocks, notifications, memberships, votes, confirmations, reports, private collections, and account rate-limit keys are erased.
+- OAuth identity mappings, encrypted provider credentials, pending action tokens, queued email, saved events, follows, blocks, own notifications, memberships, votes, confirmations, reports and private collections are erased. Delivered encrypted conversations remain accessible only to the surviving participant under existing configurable expiry; deleting both participants erases that conversation. Hashed rate buckets expire through the existing worker rather than reliable raw-ID deletion.
 - Unpublished submissions are withdrawn and their payload, appeal, and decision text are erased.
 - Published reviews, comments, public collections, approved/rejected moderation records, attributed places/utilities, and audit logs remain under existing product behavior. Account-profile fields are cleared, but UUID linkage and retained free text may still identify people. The proposed integrity/accountability purposes, lawful basis and retention periods require approval; these records are not proven anonymous.
 - Operational backups expire on the backup schedule and are not edited in place. Restores must immediately re-run deletion records captured after the backup; production operations must retain that deletion ledger outside the restored database.

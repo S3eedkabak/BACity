@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, router } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "../../src/api/client";
-import { getConversation, getNotifications, getProfile, markNotificationRead, sendMessage } from "../../src/api/community";
+import { getConversation, getNotifications, getConversationProfile, markNotificationRead, sendMessage } from "../../src/api/community";
 import { Avatar, IconButton, ListItem, OverflowMenu, ScreenHeader, SkeletonList } from "../../src/components/SocialUI";
 import { EmptyState } from "../../src/components/EmptyState";
 import { Notice } from "../../src/components/CommunityUI";
@@ -18,7 +18,7 @@ export default function ConversationScreen() {
   const me = useAuthStore(state => state.user);
   const queryClient = useQueryClient();
   const [body, setBody] = useState(""); const [notice, setNotice] = useState(""); const [menu, setMenu] = useState(false); const [reason, setReason] = useState("");
-  const profile = useQuery({ queryKey: ["profile", userId], queryFn: () => getProfile(userId), enabled: !!userId });
+  const profile = useQuery({ queryKey: ["conversation-profile", me?.id, userId], queryFn: () => getConversationProfile(userId), enabled: !!userId && !!me });
   const thread = useQuery({ queryKey: ["conversation", userId], queryFn: () => getConversation(userId), enabled: !!userId });
   const notifications = useQuery({ queryKey: ["notifications"], queryFn: getNotifications });
   useEffect(() => {
@@ -38,6 +38,7 @@ export default function ConversationScreen() {
       ListEmptyComponent={<EmptyState title="Start the conversation" subtitle="Say hello and keep it local." />}
       renderItem={({ item }) => { const mine = item.sender_id === me?.id; return <View style={[styles.messageRow, mine && styles.messageRowMine]}>{!mine && <Avatar uri={profile.data?.avatar_url} name={profile.data?.display_name} size={30} />}<View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs]}><Text style={[styles.message, mine && styles.messageMine]}>{item.body}</Text><Text style={[styles.messageTime, mine && styles.messageTimeMine]}>{new Date(item.created_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</Text></View></View>; }}
     />}
+    {profile.data && 'unavailable' in profile.data && <Notice text="This profile is unavailable. Your conversation history remains accessible." />}
     <View style={styles.composer}><TextInput accessibilityLabel="Message" placeholder="Message…" placeholderTextColor={colors.textMuted} value={body} onChangeText={setBody} multiline style={styles.input} /><Pressable accessibilityRole="button" accessibilityLabel="Send message" disabled={!body.trim() || send.isPending} onPress={() => send.mutate()} style={({ pressed }) => [styles.send, pressed && styles.pressed, (!body.trim() || send.isPending) && styles.disabled]}><Ionicons name="arrow-up" size={20} color={colors.white} /></Pressable></View>
     <OverflowMenu visible={menu} title="Conversation options" onClose={() => setMenu(false)}>
       <ListItem icon="person-outline" title="View profile" onPress={() => { setMenu(false); router.push(`/member/${userId}`); }} />

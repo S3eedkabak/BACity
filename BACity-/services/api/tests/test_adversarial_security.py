@@ -135,7 +135,9 @@ def test_message_flood_bound_and_deleted_account(client, db_session):
     assert client.post(path, headers=ha, json={'body': 'one too many'}).status_code == 429
     assert client.request('DELETE', '/community/account', headers=hb, json={'reason': 'Delete test account'}).status_code == 200
     assert client.get(f'/community/messages/{a.id}', headers=hb).status_code == 401
-    assert db_session.query(Message).count() == 0
+    assert db_session.query(Message).count() == 30
+    assert len(client.get(path, headers=ha).json()) == 30
+    assert client.get(f'/community/profiles/{b.id}', headers=ha).status_code == 404
 
 
 @pytest.mark.parametrize('changes', [ {'exp': datetime.utcnow() - timedelta(seconds=1)}, {'sub': ''},

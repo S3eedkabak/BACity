@@ -1,5 +1,7 @@
 # Privacy request operations and logging policy
 
+Initial responsible role: BACity administrator/owner. Assign reviewers through existing ADMIN authorization, not hardcoded identities. Staff PRIVACY_CONTACT_EMAIL for intake and OPERATIONS_CONTACT_EMAIL for internal incident escalation; missing addresses, review schedule and rehearsal remain blockers. These are operational procedures, not an automatic incident-mail delivery system.
+
 ## Human rights workflow
 
 Authenticated users use /privacy/requests and the Privacy & account rights screen. A live account session proves session access, not automatically legal identity. The server never accepts caller user IDs, coordinates, contact duplicates or identity documents. The administrator must proportionately assess identity and record the boolean only; sensitive supporting documents belong in an approved secure operational process if genuinely needed, not this form.
@@ -24,4 +26,4 @@ Retention: POLICY_REQUIRED for logs, audit records and privacy cases; do not int
 
 ## Document configuration
 
-PRIVACY_CONTACT_EMAIL, PRIVACY_NOTICE_URL/VERSION and TERMS_URL/VERSION describe owner-approved published resources. URLs require HTTPS outside development and no embedded credentials; contact rejects header injection. Blank values show honest pre-production unavailability, not a fabricated policy. Document version is not consent or forced privacy acceptance. If counsel selects legally consented purposes/Terms acceptance, define the evidence and withdrawal model separately before launch. Migrate 0014 before privacy routes; then follow encrypted-data backfill/key runbook with writers stopped. No production configuration or contracts were changed here.
+CONTROLLER_LEGAL_NAME, BUSINESS_ADDRESS, PRIVACY_CONTACT_EMAIL, SUPPORT_CONTACT_EMAIL, LEGAL_CONTACT_EMAIL, PRIVACY_NOTICE_URL/VERSION and TERMS_URL/VERSION describe approved public identity/resources. OPERATIONS_CONTACT_EMAIL is internal and never returned publicly. URLs require HTTPS outside development and no embedded credentials; contacts reject header injection. Blank values mean pre-production unavailability, not fabricated policy. Versions are not consent/forced privacy acceptance. Counsel must approve any consent/acceptance evidence separately. Migrate 0014 before privacy routes and follow the existing encryption runbook. No production configuration or contracts changed.

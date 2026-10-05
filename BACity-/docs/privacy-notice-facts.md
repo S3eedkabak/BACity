@@ -6,7 +6,7 @@ The application processes the categories in privacy-data-inventory.md and activi
 
 Public profile is currently on by default; general-message opt-in is off and collections default private. Public avatars use public media URLs even for otherwise-private accounts. Explain this honestly and obtain a product decision on defaults before launch.
 
-Messages are server-side encrypted at rest, NOT E2EE. BACity servers can decrypt for authorized delivery and narrow reporting workflows. Metadata remains readable to DB operators. Account deletion currently removes both message directions; the message/recipient retention policy needs approval.
+Messages are server-side encrypted at rest, NOT E2EE. BACity servers can decrypt for authorized delivery and narrow reporting workflows. Metadata remains readable to DB operators. Approved product behavior preserves delivered encrypted conversations for an active counterpart after deletion, under existing configurable expiry. Deleted authentication/profile access is blocked; legal erasure/retention review remains open.
 
 Normal recommendations use interest/category/tag matching, saved-category affinity, followed organizers/venues/neighborhoods/categories/people, timing, bounded unique popularity, quality/freshness and optional proximity; diversity suppresses duplicates/repetition. Planners are ephemeral. No evidence of credit/employment/other significant-effect adjudication; counsel decides legal profiling classifications.
 

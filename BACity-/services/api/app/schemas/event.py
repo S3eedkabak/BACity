@@ -99,6 +99,12 @@ class EventOut(EventBase):
     ticket_url: Optional[str] = None
     neighborhood: Optional[str] = None
 
+    @field_serializer('contributor_id')
+    def hide_community_contributor(self, value):
+        # Preserve the response field for clients, never public human attribution.
+        # Internal moderation, blocking and own exports still use the ORM value.
+        return None
+
     @field_serializer('start_time', 'end_time', 'created_at', 'updated_at', 'last_seen_at')
     def serialize_utc(self, value):
         if value is None:

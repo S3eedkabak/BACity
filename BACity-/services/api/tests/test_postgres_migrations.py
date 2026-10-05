@@ -281,7 +281,7 @@ def test_upgrade_backfills_existing_source_references(monkeypatch):
                                  json={'body': 'Must not resurrect deleted chat'}).status_code == 403
                 assert http.get(f'/community/messages/{sender_id}', headers=recipient_headers).status_code == 401
             with sessions() as check:
-                assert check.query(Message).filter(Message.recipient_id == recipient_id).count() == 0
+                assert check.query(Message).filter(Message.recipient_id == recipient_id).count() == 1
         finally:
             release.set()
             if previous is None:

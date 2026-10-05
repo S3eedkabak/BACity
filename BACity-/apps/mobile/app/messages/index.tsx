@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "../../src/store/authStore";
-import { getConversation, getNotifications, getProfile } from "../../src/api/community";
+import { getConversation, getNotifications, getConversationProfile } from "../../src/api/community";
 import { Avatar, ScreenHeader, SkeletonList } from "../../src/components/SocialUI";
 import { EmptyState } from "../../src/components/EmptyState";
 import { colors } from "../../src/theme/colors";
@@ -22,7 +22,7 @@ export default function InboxScreen() {
   const userIds = useMemo(() => Array.from(new Set((notifications.data ?? []).filter(item => item.kind === "message" && item.target_id).map(item => item.target_id!))), [notifications.data]);
   const conversations = useQueries({ queries: userIds.map(userId => ({
     queryKey: ["inbox-thread", userId],
-    queryFn: async () => ({ userId, profile: await getProfile(userId), messages: await getConversation(userId) }),
+    queryFn: async () => ({ userId, profile: await getConversationProfile(userId), messages: await getConversation(userId) }),
   })) });
   const rows = conversations.map(result => result.data).filter(Boolean).map(thread => ({
     ...thread!, latest: thread!.messages[0],

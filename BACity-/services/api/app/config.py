@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     account_action_base_url: str = ""
     # Owner-approved published documents/contact only; blank means not configured.
     privacy_contact_email: str = ""
+    controller_legal_name: str = Field('', max_length=200)
+    business_address: str = Field('', max_length=1000)
+    support_contact_email: str = ''
+    legal_contact_email: str = ''
+    operations_contact_email: str = ''
     privacy_notice_url: str = ""
     privacy_notice_version: str = ""
     terms_url: str = ""
@@ -95,8 +100,9 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def deployment_secrets(self):
         from urllib.parse import urlsplit
-        if self.privacy_contact_email and ('@' not in self.privacy_contact_email or any(c in self.privacy_contact_email for c in '\r\n ?&')):
-            raise ValueError('Privacy contact must be a plain email address')
+        for contact in (self.privacy_contact_email, self.support_contact_email, self.legal_contact_email, self.operations_contact_email):
+            if contact and ('@' not in contact or any(c in contact for c in '\r\n ?&')):
+                raise ValueError('Contact must be a plain email address')
         for value in (self.privacy_notice_url, self.terms_url):
             if value:
                 part = urlsplit(value)

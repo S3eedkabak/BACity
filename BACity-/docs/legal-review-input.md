@@ -1,14 +1,14 @@
 # EU/Slovak legal-review input pack
 
-Engineering snapshot 2026-10-05; public Bratislava event discovery plus user profiles/social/messaging, organizer/public contributions/moderation, optional location/recommendations, premium planning/Groups/Area Watch and provider subscriptions. Repository has no established controller identity, launch audience or signed vendor contracts.
+Engineering snapshot 2026-10-05; public Bratislava event discovery plus user profiles/social/messaging, organizer/public contributions/moderation, optional location/recommendations, premium planning/Groups/Area Watch and provider subscriptions. Owner approved an adults-only 18+ audience as product direction, not verified-age compliance. Controller identity and signed vendor contracts remain unestablished. See compliance-owner-followup.md for reviewed decisions and the unresolved enforcement proposal.
 
 Use compliance-master-checklist.md as canonical decision register, privacy-data-inventory.md and records-of-processing.md as processing facts, dpia.md as risk draft, privacy-processors.md and international-transfers-checklist.md for service relationships. All launch blockers remain in compliance-launch-blockers.md.
 
 Counsel/owner decisions required:
 - Establish legal entity/establishment/contact, governing consumer market and supervising authority, DPO/representative need.
 - Approve per-purpose lawful bases and public-source personal-data handling/notice/correction; do not substitute native permission for legal consent.
-- Decide minors audience, minimum-age policy if needed, proportionate enforcement and safety defaults; no DOB or age gate currently collected.
-- Decide public profile/attribution defaults; independently public facts vs personal text and shared messaging erasure.
+- Review approved adults-only audience, declaration wording, proportionate enforcement, OAuth/legacy transition and safety defaults; no DOB or age gate currently collected.
+- Review approved public/private profile choices, anonymous-by-default event attribution and surviving-participant message retention; establish legal bases and exceptions.
 - Review active Play account-deletion block, billing retention, Stripe cancellation/refunds/withdrawal, offer disclosures and B2B boundaries.
 - Determine hosting/platform/private-communications DSA/ePrivacy classification, size exemptions, non-account notice access, reasons/complaints/reporting/advertising obligations.
 - Review profiling/sensitive event-interest inference/significant automated-effect classification; ranking is deterministic discovery, not credit/employment decisions.

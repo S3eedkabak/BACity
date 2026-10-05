@@ -131,7 +131,10 @@ def profile(identifier: UUID, user=Depends(get_current_user), db: Session = Depe
     ).first()
     result['is_following'] = bool(follow_link)
     result['follow_id'] = follow_link.id if follow_link else None
-    result['contributions'] = db.query(Submission).filter_by(user_id=target.id, state='approved').order_by(Submission.created_at.desc()).limit(5).all()
+    contributions = db.query(Submission).filter_by(user_id=target.id, state='approved')
+    if user.id != target.id:
+        contributions = contributions.filter(Submission.kind != 'event')
+    result['contributions'] = contributions.order_by(Submission.created_at.desc()).limit(5).all()
     # Only publication metadata is public, never claims, reasons or correction evidence.
     result['contributions'] = [dict(id=s.id, kind=s.kind, published_id=s.published_id, created_at=s.created_at) for s in result['contributions']]
     return result
@@ -160,8 +163,10 @@ def _contribution_record(db, submission):
 def profile_contributions(identifier: UUID, offset: int = Query(0, ge=0), limit: int = Query(20, ge=1, le=50),
                           user=Depends(get_current_user), db: Session = Depends(get_db)):
     target = _profile_access(db, user, identifier)
-    items = db.query(Submission).filter_by(user_id=target.id, state='approved').order_by(
-        Submission.created_at.desc()).offset(offset).limit(limit).all()
+    query = db.query(Submission).filter_by(user_id=target.id, state='approved')
+    if user.id != target.id:
+        query = query.filter(Submission.kind != 'event')
+    items = query.order_by(Submission.created_at.desc()).offset(offset).limit(limit).all()
     return [_contribution_record(db, item) for item in items]
 
 
@@ -901,10 +906,20 @@ def delete_account(payload: Reason, user=Depends(get_current_user), db: Session 
     db.query(ActionToken).filter_by(user_id=user_id).delete(synchronize_session=False)
     db.query(MailOutbox).filter_by(recipient=old_email).delete(synchronize_session=False)
     db.query(SavedEvent).filter_by(user_id=user_id).delete(synchronize_session=False)
-    db.query(Message).filter(or_(Message.sender_id == user_id, Message.recipient_id == user_id)).delete(synchronize_session=False)
+    # Delivered conversations belong to the surviving participant too. Keep
+    # encrypted content under existing bounded message expiry, never reactivate
+    # the deleted sender. Erase when neither participant remains active.
+    inactive = db.query(User.id).filter(User.active.is_(False))
+    db.query(Message).filter(or_(
+        and_(Message.sender_id == user_id, or_(Message.recipient_id == user_id, Message.recipient_id.in_(inactive))),
+        and_(Message.recipient_id == user_id, Message.sender_id.in_(inactive)),
+    )).delete(synchronize_session=False)
     db.query(Follow).filter(or_(Follow.user_id == user_id, and_(Follow.target_type.in_(['user', 'guide']), Follow.target_id == str(user_id)))).delete(synchronize_session=False)
     db.query(UserBlock).filter(or_(UserBlock.user_id == user_id, UserBlock.blocked_id == user_id)).delete(synchronize_session=False)
-    db.query(Notification).filter(or_(Notification.user_id == user_id, Notification.target_id == str(user_id))).delete(synchronize_session=False)
+    # Generic message notifications retain the surviving user's inbox link,
+    # not the deleted profile. Other target notifications are removed.
+    db.query(Notification).filter(or_(Notification.user_id == user_id,
+        and_(Notification.target_id == str(user_id), Notification.kind != 'message'))).delete(synchronize_session=False)
     db.query(OrganizationMember).filter_by(user_id=user_id).delete(synchronize_session=False)
     db.query(HelpfulVote).filter_by(user_id=user_id).delete(synchronize_session=False)
     db.query(UtilityConfirmation).filter_by(user_id=user_id).delete(synchronize_session=False)

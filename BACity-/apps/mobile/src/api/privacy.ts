@@ -7,6 +7,8 @@ export type PrivacyRequest = {
   overdue: boolean; extended: boolean; details?: string; response?: string;
 };
 export type PrivacyInformation = {
+  controller_legal_name: string | null; business_address: string | null;
+  support_contact_email: string | null; legal_contact_email: string | null;
   privacy_contact_email: string | null; privacy_notice_url: string | null; terms_url: string | null;
   privacy_notice_version: string | null; terms_version: string | null; documents_ready: boolean;
   message_encryption: string; location: string; recommendations: string;

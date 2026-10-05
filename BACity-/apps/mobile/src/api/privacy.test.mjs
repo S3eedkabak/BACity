@@ -42,3 +42,21 @@ test('privacy API uses centralized authenticated transport without caller identi
   assert.equal(calls[1].options.auth, true);
   assert.equal(calls[2].path, '/privacy/information');
 });
+
+test('conversation profile fallback hides unavailable identity without swallowing transport errors', async () => {
+  class ApiError extends Error { constructor(status) { super('Unavailable'); this.status = status; } }
+  let failure = new ApiError(404);
+  const exports = {};
+  const compiled = ts.transpileModule(source('./community.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
+  vm.runInNewContext(compiled, { exports, require: () => ({ ApiError, apiRequest: async () => { throw failure; } }) });
+  const fallback = await exports.getConversationProfile('opaque-id');
+  assert.deepEqual(JSON.parse(JSON.stringify(fallback)), { display_name: 'Unavailable member', avatar_url: null, unavailable: true });
+  for (const status of [401, 403, 500]) {
+    failure = new ApiError(status);
+    await assert.rejects(() => exports.getConversationProfile('opaque-id'), error => error === failure);
+  }
+  assert.match(source('../../app/messages/index.tsx'), /profile: await getConversationProfile/);
+  assert.match(source('../../app/messages/[userId].tsx'), /'unavailable' in profile.data/);
+  assert.match(source('../../app/privacy.tsx'), /controller_legal_name/);
+  assert.match(source('../../app/privacy.tsx'), /legal_contact_email/);
+});

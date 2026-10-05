@@ -45,6 +45,10 @@ function PrivacyContent() {
         <Text style={ui.text}>{info.data?.message_encryption}</Text>
         <Text style={ui.text}>{info.data?.location}</Text>
         <Text style={ui.text}>{info.data?.recommendations}</Text>
+        {info.data?.controller_legal_name && <Text selectable style={ui.text}>Controller/trader: {info.data.controller_legal_name}</Text>}
+        {info.data?.business_address && <Text selectable style={ui.text}>Business address: {info.data.business_address}</Text>}
+        {info.data?.support_contact_email && <Text selectable style={ui.text}>Support contact: {info.data.support_contact_email}</Text>}
+        {info.data?.legal_contact_email && <Text selectable style={ui.text}>Legal contact: {info.data.legal_contact_email}</Text>}
         {!info.data?.documents_ready && <Text style={ui.text}>Published privacy documents and contact details are not yet configured. This is a pre-production limitation.</Text>}
         {info.data?.privacy_notice_url && <Button title={`Privacy notice${info.data.privacy_notice_version ? ` (${info.data.privacy_notice_version})` : ''}`} onPress={() => { void externalLinking.openURL(info.data!.privacy_notice_url!); }} />}
         {info.data?.terms_url && <Button title="Terms" onPress={() => { void externalLinking.openURL(info.data!.terms_url!); }} />}
