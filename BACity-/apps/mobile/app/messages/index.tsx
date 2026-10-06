@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, StyleSheet, Text, View } from "react-native";
+import { AnimatedPressable as Pressable } from '../../src/components/motion/Motion';
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useQueries, useQuery } from "@tanstack/react-query";

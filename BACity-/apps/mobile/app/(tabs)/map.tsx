@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { AppIcon } from "../../src/components/AppIcon";
 import type {
   CameraRef,
   MapViewRef,
@@ -7,7 +7,8 @@ import type {
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
+import { AnimatedPressable as Pressable } from '../../src/components/motion/Motion';
 import { colors } from "../../src/theme/colors";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from "../../src/theme/fonts";
@@ -449,7 +450,7 @@ export default function MapScreen() {
             if (id) router.push("/event/" + String(id));
           }}
         >
-          <CircleLayer id="event-clusters" aboveLayerID="label_country_1" filter={["has", "point_count"]} style={{ circleColor: colors.primaryDark, circleRadius: 21, circleStrokeColor: colors.white, circleStrokeWidth: 3 }} />
+          <CircleLayer id="event-clusters" aboveLayerID="label_country_1" filter={["has", "point_count"]} style={{ circleColor: colors.primary, circleRadius: 21, circleStrokeColor: colors.white, circleStrokeWidth: 3 }} />
           <SymbolLayer id="event-cluster-count" aboveLayerID="event-clusters" filter={["has", "point_count"]} style={{ textField: ["get", "point_count_abbreviated"], textColor: colors.white, textSize: 11, textFont: ["Noto Sans Regular"] }} />
           <CircleLayer id="event-points" aboveLayerID="event-cluster-count" filter={["!", ["has", "point_count"]]} style={{
             circleColor: ["case", ["==", ["get", "nearby"], true], colors.primaryDark, colors.primary],
@@ -459,8 +460,9 @@ export default function MapScreen() {
             circleStrokeWidth: 3,
           }} />
           <SymbolLayer id="event-symbols" aboveLayerID="event-points" filter={["!", ["has", "point_count"]]} style={{
-            textField: "♥",
-            textColor: colors.white,
+            // Native text labels avoid font-glyph UI icons; keep GPU-native points.
+            textField: "E",
+            textColor: ["case", ["==", ["get", "nearby"], true], colors.textInverse, colors.white],
             textSize: 10,
             textFont: ["Noto Sans Regular"],
             textOpacity: nearMeActive ? ["case", ["==", ["get", "nearby"], true], 1, 0.45] : 1,
@@ -486,16 +488,16 @@ export default function MapScreen() {
           }}
         >
           <CircleLayer id="toilet-clusters" aboveLayerID="label_country_1" filter={["has", "point_count"]} style={{ circleColor: colors.free, circleRadius: 20, circleStrokeColor: colors.white, circleStrokeWidth: 3 }} />
-          <SymbolLayer id="toilet-cluster-count" aboveLayerID="toilet-clusters" filter={["has", "point_count"]} style={{ textField: ["get", "point_count_abbreviated"], textColor: colors.white, textSize: 11, textFont: ["Noto Sans Regular"] }} />
+          <SymbolLayer id="toilet-cluster-count" aboveLayerID="toilet-clusters" filter={["has", "point_count"]} style={{ textField: ["get", "point_count_abbreviated"], textColor: colors.textInverse, textSize: 11, textFont: ["Noto Sans Regular"] }} />
           <CircleLayer id="toilet-points" aboveLayerID="toilet-cluster-count" filter={["!", ["has", "point_count"]]} style={{ circleColor: colors.free, circleRadius: 14, circleStrokeColor: colors.white, circleStrokeWidth: 3 }} />
-          <SymbolLayer id="toilet-labels" aboveLayerID="toilet-points" filter={["!", ["has", "point_count"]]} style={{ textField: "WC", textColor: colors.white, textSize: 8, textFont: ["Noto Sans Regular"] }} />
+          <SymbolLayer id="toilet-labels" aboveLayerID="toilet-points" filter={["!", ["has", "point_count"]]} style={{ textField: "WC", textColor: colors.textInverse, textSize: 8, textFont: ["Noto Sans Regular"] }} />
         </ShapeSource>}
       </MapView>
 
       <View pointerEvents="box-none" style={StyleSheet.absoluteFillObject}>
         <View style={[styles.topControls, { marginTop: Math.max(16, insets.top + 12) }]}>
           <Pressable accessibilityRole="button" accessibilityLabel="Search events" onPress={() => router.push('/(tabs)/explore')} style={styles.searchBar}>
-            <Ionicons name="search" size={17} color={colors.primary} />
+            <AppIcon name="search" size={17} color={colors.primary} />
             <Text style={styles.searchText}>Find events</Text>
           </Pressable>
 
@@ -504,7 +506,7 @@ export default function MapScreen() {
             onPress={toggleNearMe}
             style={[styles.nearButton, nearMeActive && styles.nearButtonActive]}
           >
-            <Ionicons
+            <AppIcon
               name="navigate"
               size={17}
               color={nearMeActive ? colors.white : colors.primary}
@@ -535,11 +537,11 @@ export default function MapScreen() {
           onPress={() => { void toggleLayer(); }}
           style={[styles.layerButton, showUtilities && styles.layerButtonActive]}
         >
-          <Ionicons name={showUtilities ? "calendar-outline" : "business-outline"} size={16} color={showUtilities ? colors.white : colors.free} />
+          <AppIcon name={showUtilities ? "calendar-outline" : "business-outline"} size={16} color={showUtilities ? colors.white : colors.free} />
           <Text style={[styles.layerText, showUtilities && styles.layerTextActive]}>{showUtilities ? "Events" : "Toilets"}</Text>
         </Pressable>
         <Pressable accessibilityLabel="Browse all city utilities" onPress={() => router.push("/utilities")} style={styles.allUtilitiesButton}>
-          <Ionicons name="grid-outline" size={14} color={colors.textMuted} />
+          <AppIcon name="grid-outline" size={14} color={colors.textMuted} />
           <Text style={styles.allUtilitiesText}>All utilities</Text>
         </Pressable>
         </View>
@@ -549,26 +551,26 @@ export default function MapScreen() {
             onPress={() => zoom("in")}
             style={styles.controlButton}
           >
-            <Ionicons name="add" size={20} color={colors.text} />
+            <AppIcon name="add" size={20} color={colors.text} />
           </Pressable>
           <Pressable
             accessibilityLabel="Zoom out"
             onPress={() => zoom("out")}
             style={styles.controlButton}
           >
-            <Ionicons name="remove" size={20} color={colors.text} />
+            <AppIcon name="remove" size={20} color={colors.text} />
           </Pressable>
           <Pressable
             accessibilityLabel="Recenter map"
             onPress={recenter}
             style={styles.controlButton}
           >
-            <Ionicons name="locate" size={19} color={colors.primary} />
+            <AppIcon name="locate" size={19} color={colors.primary} />
           </Pressable>
         </View>
 
         <View style={styles.statusPill}>
-          <Ionicons
+          <AppIcon
             name={dataUnavailable || basemapUnavailable ? "cloud-offline-outline" : nearMeActive ? "navigate" : "map-outline"}
             size={13}
             color={dataUnavailable || basemapUnavailable ? colors.textMuted : colors.primary}
@@ -616,7 +618,7 @@ const styles = StyleSheet.create({
     height: 46,
     borderRadius: 16,
     paddingHorizontal: 14,
-    backgroundColor: "rgba(255,255,255,0.96)",
+    backgroundColor: colors.mediaOverlay,
     flexDirection: "row",
     alignItems: "center",
     gap: 9,
@@ -636,7 +638,7 @@ const styles = StyleSheet.create({
     height: 46,
     borderRadius: 16,
     paddingHorizontal: 13,
-    backgroundColor: "rgba(255,255,255,0.96)",
+    backgroundColor: colors.mediaOverlay,
     borderWidth: 1,
     borderColor: colors.border,
     flexDirection: "row",
@@ -689,7 +691,7 @@ const styles = StyleSheet.create({
     height: 44,
     paddingHorizontal: 12,
     borderRadius: 17,
-    backgroundColor: "rgba(255,255,255,0.96)",
+    backgroundColor: colors.mediaOverlay,
     borderWidth: 1,
     borderColor: colors.border,
     flexDirection: "row",
@@ -703,7 +705,7 @@ const styles = StyleSheet.create({
     height: 44,
     paddingHorizontal: 11,
     borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.96)",
+    backgroundColor: colors.mediaOverlay,
     borderWidth: 1,
     borderColor: colors.border,
     flexDirection: "row",
@@ -711,7 +713,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   allUtilitiesText: { color: colors.textMuted, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
-  layerButtonActive: { backgroundColor: colors.free, borderColor: colors.free },
+  layerButtonActive: { backgroundColor: colors.successSurface, borderColor: colors.free },
   layerText: { color: colors.text, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
   layerTextActive: { color: colors.white },
   controls: {
@@ -724,7 +726,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "rgba(255,255,255,0.96)",
+    backgroundColor: colors.mediaOverlay,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: "center",
@@ -743,7 +745,7 @@ const styles = StyleSheet.create({
     minHeight: 34,
     paddingHorizontal: 12,
     borderRadius: 17,
-    backgroundColor: "rgba(255,255,255,0.94)",
+    backgroundColor: colors.mediaOverlay,
     borderWidth: 1,
     borderColor: colors.border,
     flexDirection: "row",

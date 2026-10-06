@@ -1,15 +1,14 @@
-import { Ionicons } from "@expo/vector-icons";
+import { AppIcon } from "./AppIcon";
 import { router } from "expo-router";
 import { useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
   PanResponder,
-  Pressable,
   StyleSheet,
   Text,
-  View,
-} from "react-native";
+  View } from "react-native";
+import { AnimatedPressable as Pressable } from './motion/Motion';
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as eventsApi from "../api/events";
 import { EventOut } from "../types/event";
@@ -132,7 +131,7 @@ function Card({
         <View style={styles.imageBottom}>
           <Text style={styles.title} numberOfLines={2}>{event.title}</Text>
           <View style={styles.locationLine}>
-            <Ionicons name="location-outline" size={15} color="#fff" />
+            <AppIcon name="location-outline" size={15} color="#fff" />
             <Text style={styles.location} numberOfLines={1}>
               {event.venue?.name ?? event.address ?? "Bratislava"}
             </Text>
@@ -150,7 +149,7 @@ function Card({
           <Text style={styles.hint}>Right to save · left to pass</Text>
         </View>
         <Pressable style={styles.details} onPress={() => router.push("/event/" + event.id)}>
-          <Ionicons name="arrow-forward" size={19} color={colors.white} />
+          <AppIcon name="arrow-forward" size={19} color={colors.white} />
         </Pressable>
       </View>
 
@@ -166,7 +165,7 @@ export function EventDeck({ events }: { events: EventOut[] }) {
     return (
       <View style={styles.done}>
         <View style={styles.doneIcon}>
-          <Ionicons name="checkmark" size={27} color={colors.white} />
+          <AppIcon name="checkmark" size={27} color={colors.white} />
         </View>
         <Text style={styles.doneTitle}>You're all caught up</Text>
         <Text style={styles.doneText}>

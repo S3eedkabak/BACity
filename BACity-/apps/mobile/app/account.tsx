@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, Share, StyleSheet, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Share, StyleSheet, Switch, Text, View } from 'react-native';
+import { AnimatedPressable as Pressable } from '../src/components/motion/Motion';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, router } from 'expo-router';
 import { apiRequest } from '../src/api/client';

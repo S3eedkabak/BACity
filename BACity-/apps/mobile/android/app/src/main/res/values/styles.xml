@@ -4,7 +4,9 @@
     <item name="android:editTextStyle">@style/ResetEditText</item>
     <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
     <item name="colorPrimary">@color/colorPrimary</item>
-    <item name="android:statusBarColor">#FFF8F5</item>
+    <item name="android:statusBarColor">#100E12</item>
+    <item name="android:windowLightStatusBar">false</item>
+    <item name="android:navigationBarColor">#100E12</item>
   </style>
   <style name="ResetEditText" parent="@android:style/Widget.EditText">
     <item name="android:padding">0dp</item>

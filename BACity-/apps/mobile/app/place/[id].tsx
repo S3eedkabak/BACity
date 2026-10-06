@@ -1,7 +1,8 @@
-import { Ionicons } from "@expo/vector-icons";
+import { AppIcon } from "../../src/components/AppIcon";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Linking, StyleSheet, Text, View } from "react-native";
+import { AnimatedPressable as Pressable } from '../../src/components/motion/Motion';
 import { apiRequest } from "../../src/api/client";
 import { Page, Card, Notice } from "../../src/components/CommunityUI";
 import { Discussion } from "../../src/components/Discussion";
@@ -34,7 +35,7 @@ export default function Place() {
         <>
           <View style={styles.hero}>
             <View style={styles.heroIcon}>
-              <Ionicons name="location" size={30} color={colors.white} />
+              <AppIcon name="location" size={30} color={colors.white} />
             </View>
             <Text style={styles.name}>{place.name}</Text>
             <Text style={styles.address}>{place.address || "Bratislava"}</Text>
@@ -42,7 +43,7 @@ export default function Place() {
             <View style={styles.badges}>
               {!!place.trust_level && (
                 <View style={styles.badge}>
-                  <Ionicons name="shield-checkmark-outline" size={12} color={colors.primaryDark} />
+                  <AppIcon name="shield-checkmark-outline" size={12} color={colors.primaryDark} />
                   <Text style={styles.badgeText}>{String(place.trust_level).replaceAll("_", " ")}</Text>
                 </View>
               )}
@@ -67,7 +68,7 @@ export default function Place() {
           <Card>
             <View style={styles.infoRow}>
               <View style={styles.infoIcon}>
-                <Ionicons name="information-circle-outline" size={20} color={colors.primaryDark} />
+                <AppIcon name="information-circle-outline" size={20} color={colors.primaryDark} />
               </View>
               <View style={styles.infoCopy}>
                 <Text style={styles.infoTitle}>About this place</Text>
@@ -82,7 +83,7 @@ export default function Place() {
                 onPress={openMap}
                 style={({ pressed }) => [styles.mapButton, pressed && styles.pressed]}
               >
-                <Ionicons name="navigate-outline" size={17} color={colors.white} />
+                <AppIcon name="navigate-outline" size={17} color={colors.white} />
                 <Text style={styles.mapButtonText}>Open on map</Text>
               </Pressable>
             )}
@@ -182,7 +183,7 @@ const styles = StyleSheet.create({
   mapButton: {
     minHeight: 50,
     borderRadius: 17,
-    backgroundColor: colors.text,
+    backgroundColor: colors.primary,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -193,5 +194,5 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semibold, fontWeight: '600',
     fontSize: 12,
   },
-  pressed: { opacity: 0.88, transform: [{ scale: 0.985 }] },
+  pressed: { opacity: 0.88 },
 });

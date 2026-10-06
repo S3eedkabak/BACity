@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Text, Switch } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon } from "../src/components/AppIcon";
 import { ListItem } from '../src/components/SocialUI';
 import { colors } from '../src/theme/colors';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -41,5 +41,5 @@ export default function Collection() {
       router.replace('/collections');
     } catch (e: any) { setNotice(e.message); } finally { setBusy(false); }
   }
-  return <Page title="Create a collection"><Notice text={notice} /><Card><Field label="Title" value={title} onChange={setTitle} /><Field label="Description" value={description} onChange={setDescription} multiline /><Text style={ui.text}>Share publicly</Text><Switch accessibilityLabel="Share publicly" value={isPublic} onValueChange={setPublic} /><Text style={ui.muted}>{selected.length} selected</Text><Button title="Save collection" busy={busy} onPress={save} /></Card><Field label="Filter available events, places and utilities" value={query} onChange={setQuery} />{items.filter(i => i.name.toLowerCase().includes(query.toLowerCase())).map(item => <ListItem key={key(item)} icon={item.type === 'event' ? 'calendar-outline' : item.type === 'place' ? 'location-outline' : 'construct-outline'} title={item.name} subtitle={item.type} trailing={<Ionicons name={selected.includes(key(item)) ? 'checkmark-circle' : 'ellipse-outline'} size={24} color={selected.includes(key(item)) ? colors.primary : colors.textMuted} />} onPress={() => setSelected(current => current.includes(key(item)) ? current.filter(k => k !== key(item)) : [...current, key(item)])} />)}</Page>;
+  return <Page title="Create a collection"><Notice text={notice} /><Card><Field label="Title" value={title} onChange={setTitle} /><Field label="Description" value={description} onChange={setDescription} multiline /><Text style={ui.text}>Share publicly</Text><Switch accessibilityLabel="Share publicly" value={isPublic} onValueChange={setPublic} /><Text style={ui.muted}>{selected.length} selected</Text><Button title="Save collection" busy={busy} onPress={save} /></Card><Field label="Filter available events, places and utilities" value={query} onChange={setQuery} />{items.filter(i => i.name.toLowerCase().includes(query.toLowerCase())).map(item => <ListItem key={key(item)} icon={item.type === 'event' ? 'calendar-outline' : item.type === 'place' ? 'location-outline' : 'construct-outline'} title={item.name} subtitle={item.type} trailing={<AppIcon name={selected.includes(key(item)) ? 'checkmark-circle' : 'ellipse-outline'} size={24} color={selected.includes(key(item)) ? colors.primary : colors.textMuted} />} onPress={() => setSelected(current => current.includes(key(item)) ? current.filter(k => k !== key(item)) : [...current, key(item)])} />)}</Page>;
 }

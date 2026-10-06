@@ -4,10 +4,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useAuthStore } from "../src/store/authStore";
-import { AppLoadingScreen } from "../src/components/AppLoadingScreen";
 import { colors } from "../src/theme/colors";
-import { View, StyleSheet } from 'react-native';
-import { BACityEntrySequence, BACityLoadingProvider, prepareEntryFilm } from '../src/components/BACityMotion';
+import { View } from 'react-native';
+import { StartupScene } from '../src/components/StartupScene';
+import { LoadingExperienceProvider } from '../src/components/loading/LoadingExperience';
+import { useReducedMotion } from 'react-native-reanimated';
 import { listEvents } from '../src/api/events';
 import { entryDestination } from '../src/ux/motionPolicy';
 
@@ -19,13 +20,12 @@ export default function RootLayout() {
   const [finishedOwner, setFinishedOwner] = useState<string | null>(null);
   const pathname = usePathname();
   const navigation = useRootNavigationState();
+  const reduced = useReducedMotion();
   // Separate caches per session identity, without clearing queries after children mount.
   const queryClient = useMemo(() => new QueryClient({ defaultOptions: { queries: { retry: 1 } } }), [userId]);
 
   useEffect(() => {
     void hydrate();
-    // Warm the bundled clip before the user completes sign-in; never stream it at entry.
-    void prepareEntryFilm().catch(() => {});
   }, [hydrate]);
 
   useEffect(() => {
@@ -37,6 +37,9 @@ export default function RootLayout() {
   const finishEntry = useCallback(() => {
     if (userId && useAuthStore.getState().user?.id === userId) setFinishedOwner(userId);
   }, [userId]);
+
+  // Sign-in always resolves to Home, but never replays the cold-launch scene.
+  useEffect(() => { if (userId) finishEntry(); }, [userId, finishEntry]);
 
   useEffect(() => {
     if (!navigation?.key || completedOwner === userId) return;
@@ -52,21 +55,22 @@ export default function RootLayout() {
   const entryActive = !!userId && completedOwner !== userId;
 
   return (
-    <QueryClientProvider key={userId || 'guest'} client={queryClient}>
-      <SafeAreaProvider>
-        <StatusBar style="dark" />
-        <BACityLoadingProvider entryActive={entryActive}>
+    <SafeAreaProvider>
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <LoadingExperienceProvider>
+        <StatusBar style="light" />
+        <QueryClientProvider key={userId || 'guest'} client={queryClient}>
           <Stack
             screenOptions={{
               headerShown: false,
-              animation: "slide_from_right",
+              animation: reduced ? "fade" : "slide_from_right",
               contentStyle: { backgroundColor: colors.background },
             }}
           />
-        {authLoading && !userId ? <View style={StyleSheet.absoluteFill}><AppLoadingScreen /></View> : null}
-        {entryActive ? <BACityEntrySequence key={userId} onComplete={finishEntry} /> : null}
-        </BACityLoadingProvider>
-      </SafeAreaProvider>
-    </QueryClientProvider>
+        </QueryClientProvider>
+        <StartupScene ready={!authLoading && !!navigation?.key && !entryActive} onRetry={() => void hydrate()} />
+        </LoadingExperienceProvider>
+      </View>
+    </SafeAreaProvider>
   );
 }

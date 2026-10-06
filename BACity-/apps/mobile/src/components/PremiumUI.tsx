@@ -1,13 +1,14 @@
 import { ComponentProps, PropsWithChildren } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { StyleSheet, Text, View } from 'react-native';
+import { AnimatedPressable as Pressable } from './motion/Motion';
+import { AppIcon } from "./AppIcon";
 import { router } from 'expo-router';
 import { EventOut } from '../types/event';
 import { tokens } from '../theme/tokens';
 import { EventMedia } from './EventMedia';
 
-export function PremiumIntro({ title, subtitle, icon }: { title: string; subtitle: string; icon: ComponentProps<typeof Ionicons>['name'] }) {
-  return <View style={styles.intro}><View style={styles.orbit} /><Ionicons name={icon} size={32} color={tokens.premium.accent} /><Text style={styles.eyebrow}>BACITY+ · CITY, COMPOSED</Text><Text style={styles.title}>{title}</Text><Text style={styles.subtitle}>{subtitle}</Text></View>;
+export function PremiumIntro({ title, subtitle, icon }: { title: string; subtitle: string; icon: ComponentProps<typeof AppIcon>['name'] }) {
+  return <View style={styles.intro}><View style={styles.orbit} /><AppIcon name={icon} size={32} color={tokens.premium.accent} /><Text style={styles.eyebrow}>BACITY+ · CITY, COMPOSED</Text><Text style={styles.title}>{title}</Text><Text style={styles.subtitle}>{subtitle}</Text></View>;
 }
 
 /** A chronological stop, not a travel-time claim. All content comes from the planner response. */
@@ -29,8 +30,8 @@ const styles = StyleSheet.create({
   orbit: { position: 'absolute', width: 280, height: 280, borderRadius: 140, borderWidth: 50, borderColor: tokens.premium.surface, right: -130, top: -100 },
   eyebrow: { ...tokens.type.caption, letterSpacing: 1.4, color: tokens.premium.accent }, title: { ...tokens.type.hero, color: tokens.premium.text }, subtitle: { ...tokens.type.body, color: tokens.premium.muted },
   surface: { padding: 24, borderRadius: 28, backgroundColor: tokens.premium.surface, gap: 16 },
-  stop: { flexDirection: 'row', gap: 12 }, rail: { width: 52, alignItems: 'center' }, time: { ...tokens.type.caption, color: tokens.premium.background, marginBottom: 12 },
-  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: tokens.premium.muted }, anchorDot: { backgroundColor: '#C94758' }, line: { flex: 1, width: 1, backgroundColor: tokens.premium.muted, marginVertical: 8, minHeight: 40 },
+  stop: { flexDirection: 'row', gap: 12 }, rail: { width: 52, alignItems: 'center' }, time: { ...tokens.type.metadata, color: tokens.premium.muted, marginBottom: 12 },
+  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: tokens.premium.muted }, anchorDot: { backgroundColor: tokens.premium.accent }, line: { flex: 1, width: 1, backgroundColor: tokens.premium.muted, marginVertical: 8, minHeight: 40 },
   card: { flex: 1, borderRadius: 24, overflow: 'hidden', marginBottom: 20, backgroundColor: tokens.premium.surface }, media: { aspectRatio: 1.8 }, copy: { padding: 18, gap: 7 },
   eventTitle: { ...tokens.type.section, color: tokens.premium.text }, venue: { ...tokens.type.metadata, color: tokens.premium.muted }, reason: { ...tokens.type.metadata, color: tokens.premium.accent }, anchor: { ...tokens.type.caption, color: tokens.premium.accent }, pressed: { opacity: .85 },
 });

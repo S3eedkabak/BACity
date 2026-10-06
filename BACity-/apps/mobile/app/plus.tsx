@@ -1,6 +1,7 @@
-import { Ionicons } from "@expo/vector-icons";
+import { AppIcon } from "../src/components/AppIcon";
 import { router, useLocalSearchParams } from "expo-router";
-import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Linking, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import { AnimatedPressable as Pressable } from '../src/components/motion/Motion';
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors } from "../src/theme/colors";
@@ -209,7 +210,7 @@ export default function PlusPaywallScreen() {
         <View style={styles.headerSpace} />
         <Text style={styles.brand}>BACity+</Text>
         <Pressable accessibilityRole="button" accessibilityLabel="Dismiss BACity Plus" onPress={dismiss} style={({ pressed }) => [styles.close, pressed && styles.pressed]}>
-          <Ionicons name="close" size={22} color={colors.text} />
+          <AppIcon name="close" size={22} color={colors.text} />
         </Pressable>
       </View>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -226,7 +227,7 @@ export default function PlusPaywallScreen() {
         <View style={styles.list}>
           {Object.values(PLUS_FEATURES).map(label => (
             <View key={label} style={styles.row}>
-              <View style={styles.check}><Ionicons name="checkmark" size={15} color={colors.primaryDark} /></View>
+              <View style={styles.check}><AppIcon name="checkmark" size={15} color={colors.primaryDark} /></View>
               <Text style={styles.label}>{label}</Text>
             </View>
           ))}
@@ -296,14 +297,14 @@ const styles = StyleSheet.create({
   mark: { width: 72, height: 72, borderRadius: 25, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center", marginBottom: 24 },
   title: { maxWidth: 330, color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 29, lineHeight: 33, letterSpacing: -1, textAlign: "center" },
   context: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 13, lineHeight: 19, textAlign: "center", marginTop: 14 },
-  notice: { width: "100%", color: colors.danger, fontFamily: fonts.medium, fontSize: 12, lineHeight: 18, textAlign: "center", backgroundColor: "#FFF0F1", borderRadius: 14, padding: 12, marginTop: 14 },
+  notice: { width: "100%", color: colors.danger, fontFamily: fonts.medium, fontSize: 12, lineHeight: 18, textAlign: "center", backgroundColor: colors.dangerSurface, borderRadius: 14, padding: 12, marginTop: 14 },
   list: { width: "100%", marginTop: 30, gap: 12 },
   row: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 12 },
   check: { width: 30, height: 30, borderRadius: 11, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" },
   label: { color: colors.text, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 14 },
   coming: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, textAlign: "center", marginTop: 28 },
   button: { width: "100%", minHeight: 54, borderRadius: 18, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center", marginTop: 18 },
-  buttonText: { color: colors.white, fontFamily: fonts.black, fontWeight: '800', fontSize: 14 }, pressed: { opacity: .75, transform: [{ scale: .98 }] },
+  buttonText: { color: colors.white, fontFamily: fonts.black, fontWeight: '800', fontSize: 14 }, pressed: { opacity: .75 },
   secondaryButton: { width: "100%", minHeight: 50, borderRadius: 18, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center", marginTop: 10 },
   secondaryText: { color: colors.text, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 14 },
 });

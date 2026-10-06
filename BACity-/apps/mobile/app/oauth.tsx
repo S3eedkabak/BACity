@@ -1,7 +1,8 @@
-import { Ionicons } from "@expo/vector-icons";
+import { AppIcon } from "../src/components/AppIcon";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { AnimatedPressable as Pressable } from '../src/components/motion/Motion';
 import { AppLoadingScreen } from "../src/components/AppLoadingScreen";
 import { useAuthStore } from "../src/store/authStore";
 import { colors } from "../src/theme/colors";
@@ -26,7 +27,7 @@ export default function OAuthScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.icon}>
-        <Ionicons name="alert-circle-outline" size={28} color={colors.danger} />
+        <AppIcon name="alert-circle-outline" size={28} color={colors.danger} />
       </View>
       <Text style={styles.title}>Sign in didn't finish</Text>
       <Text style={styles.message}>{message}</Text>
@@ -49,7 +50,7 @@ const styles = StyleSheet.create({
     width: 62,
     height: 62,
     borderRadius: 22,
-    backgroundColor: "#FFF0F1",
+    backgroundColor: colors.dangerSurface,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 18,

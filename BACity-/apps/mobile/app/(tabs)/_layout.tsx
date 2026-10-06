@@ -1,6 +1,8 @@
 import { Tabs } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { AppIcon } from "../../src/components/AppIcon";
+import { TabIcon } from '../../src/components/TabIcon';
+import { StyleSheet, Text, View } from "react-native";
+import { AnimatedPressable as Pressable } from '../../src/components/motion/Motion';
 import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,7 +17,7 @@ function CreateTabButton(props: any) {
       style={({ pressed }) => [styles.createSlot, pressed && styles.pressed]}
     >
       <View style={styles.createCircle}>
-        <Ionicons name="add" size={24} color={colors.white} />
+        <AppIcon name="add" size={24} color={colors.white} />
       </View>
       <Text style={styles.createLabel}>Create</Text>
     </Pressable>
@@ -41,7 +43,7 @@ export default function TabsLayout() {
         options={{
           title: "Home",
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? "home" : "home-outline"} color={color} size={size} />
+            <TabIcon name="home" focused={focused} color={color} size={size} />
           ),
         }}
       />
@@ -50,7 +52,7 @@ export default function TabsLayout() {
         options={{
           title: "Explore",
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? "search" : "search-outline"} color={color} size={size} />
+            <TabIcon name="search" focused={focused} color={color} size={size} />
           ),
         }}
       />
@@ -66,7 +68,7 @@ export default function TabsLayout() {
         options={{
           title: "Map",
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? "map" : "map-outline"} color={color} size={size} />
+            <TabIcon name="map" focused={focused} color={color} size={size} />
           ),
         }}
       />
@@ -75,7 +77,7 @@ export default function TabsLayout() {
         options={{
           title: "Profile",
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? "person" : "person-outline"} color={color} size={size} />
+            <TabIcon name="person" focused={focused} color={color} size={size} />
           ),
         }}
       />
@@ -93,7 +95,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     backgroundColor: colors.surface,
     shadowColor: colors.text,
-    shadowOpacity: 0.07,
+    shadowOpacity: 0,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: -4 },
     elevation: 8,
@@ -118,7 +120,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     shadowColor: colors.primaryDark,
-    shadowOpacity: 0.18,
+    shadowOpacity: 0,
     shadowRadius: 7,
     shadowOffset: { width: 0, height: 3 },
     elevation: 4,
@@ -129,5 +131,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 2,
   },
-  pressed: { opacity: 0.82, transform: [{ scale: 0.97 }] },
+  pressed: { opacity: 0.82 },
 });

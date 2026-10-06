@@ -5,12 +5,12 @@
     "scheme": "bratislava-events",
     "version": "0.1.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",
     "splash": {
       "image": "./assets/icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FFF8F5"
+      "backgroundColor": "#100E12"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -34,6 +34,8 @@
       ]
     },
     "plugins": [
+      ["expo-build-properties", { "ios": { "deploymentTarget": "14.0" } }],
+      "./plugins/withRiveAsset",
       "expo-router",
       "expo-secure-store",
       "react-native-iap",

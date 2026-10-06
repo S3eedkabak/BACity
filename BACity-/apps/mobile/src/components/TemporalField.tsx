@@ -1,5 +1,6 @@
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { AnimatedPressable as Pressable } from './motion/Motion';
+import { AppIcon } from "./AppIcon";
 import { colors } from '../theme/colors';
 import { tokens } from '../theme/tokens';
 
@@ -19,9 +20,9 @@ export function TemporalField({ label, value, onChange, mode = 'date' }: { label
     }
   }
   return <View style={styles.group}><Text style={styles.label}>{label}</Text><View style={styles.control}>
-    <Pressable accessibilityRole="button" accessibilityLabel={`${label}: earlier ${mode === 'date' ? 'day' : 'time'}`} onPress={() => step(-1)} style={styles.button}><Ionicons name="remove" size={22} color={colors.text} /></Pressable>
+    <Pressable accessibilityRole="button" accessibilityLabel={`${label}: earlier ${mode === 'date' ? 'day' : 'time'}`} onPress={() => step(-1)} style={styles.button}><AppIcon name="remove" size={22} color={colors.text} /></Pressable>
     <TextInput accessibilityLabel={label} value={value} onChangeText={onChange} placeholder={mode === 'date' ? 'YYYY-MM-DD' : 'HH:MM'} style={styles.value} maxLength={mode === 'date' ? 10 : 5} keyboardType="numbers-and-punctuation" />
-    <Pressable accessibilityRole="button" accessibilityLabel={`${label}: later ${mode === 'date' ? 'day' : 'time'}`} onPress={() => step(1)} style={styles.button}><Ionicons name="add" size={22} color={colors.text} /></Pressable>
+    <Pressable accessibilityRole="button" accessibilityLabel={`${label}: later ${mode === 'date' ? 'day' : 'time'}`} onPress={() => step(1)} style={styles.button}><AppIcon name="add" size={22} color={colors.text} /></Pressable>
   </View></View>;
 }
 const styles = StyleSheet.create({ group: { gap: 8 }, label: { ...tokens.type.metadata, color: colors.textMuted }, control: { flexDirection: 'row', borderRadius: 20, backgroundColor: colors.surface, alignItems: 'center' }, button: { minWidth: 44, minHeight: 52, alignItems: 'center', justifyContent: 'center' }, value: { ...tokens.type.action, color: colors.text, textAlign: 'center', flex: 1, minWidth: 0, paddingVertical: 14 } });

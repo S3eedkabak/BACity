@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { AnimatedPressable as Pressable } from '../../src/components/motion/Motion';
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { AppIcon } from "../../src/components/AppIcon";
 import { groupsApi, GroupCandidate, VoteValue } from "../../src/api/groups";
 import { Button, Chip } from "../../src/components/CommunityUI";
 import { EmptyState } from "../../src/components/EmptyState";
@@ -17,7 +18,6 @@ import { fonts } from "../../src/theme/fonts";
 import type { EventCategory } from "../../src/types/event";
 import { EventMedia } from '../../src/components/EventMedia';
 import { PremiumIntro } from '../../src/components/PremiumUI';
-import { useBACityWaiting } from '../../src/components/BACityMotion';
 
 const CATEGORIES: EventCategory[] = ["Music", "Culture", "Arts", "Nightlife", "Theatre", "Family", "Community", "Food & Drink"];
 
@@ -25,10 +25,10 @@ function CandidateCard({ candidate, voting, busy, onVote }: { candidate: GroupCa
   return <View style={styles.candidate}>
     <Pressable accessibilityRole="button" accessibilityLabel={`Open ${candidate.event.title}`} onPress={() => router.push(groupEventRoute(candidate.event.id))}><EventMedia uri={candidate.event.image_url} category={candidate.event.category} style={{ aspectRatio: 1.5, borderRadius: 20, marginBottom: 16 }} /></Pressable>
     <Pressable onPress={() => router.push(groupEventRoute(candidate.event.id))} style={({ pressed }) => [styles.eventTop, pressed && styles.pressed]}>
-      <View style={styles.eventCopy}><Text style={styles.eventTime}>{new Date(candidate.event.start_time).toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" })}</Text><Text style={styles.eventTitle}>{candidate.event.title}</Text><Text style={styles.eventVenue}>{candidate.event.venue?.name ?? candidate.event.address ?? "Bratislava"}</Text></View><Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+      <View style={styles.eventCopy}><Text style={styles.eventTime}>{new Date(candidate.event.start_time).toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" })}</Text><Text style={styles.eventTitle}>{candidate.event.title}</Text><Text style={styles.eventVenue}>{candidate.event.venue?.name ?? candidate.event.address ?? "Bratislava"}</Text></View><AppIcon name="chevron-forward" size={18} color={colors.textMuted} />
     </Pressable>
     {candidate.explanations[0] ? <Text style={styles.reason}>{candidate.explanations[0]}</Text> : null}
-    {voting ? <View style={styles.votes}>{([[-1, "Dislike", "thumbs-down-outline"], [0, "Skip", "remove-outline"], [1, "Like", "thumbs-up-outline"]] as const).map(([value, label, icon]) => <Pressable key={value} disabled={busy} onPress={() => onVote(value)} style={[styles.vote, candidate.my_vote === value && styles.voteActive]}><Ionicons name={icon} size={16} color={candidate.my_vote === value ? colors.white : colors.primaryDark} /><Text style={[styles.voteText, candidate.my_vote === value && styles.voteTextActive]}>{label}</Text></Pressable>)}</View> : candidate.aggregate ? <Text style={styles.aggregate}>{candidate.aggregate.likes} likes · {candidate.aggregate.neutral} neutral · {candidate.aggregate.dislikes} dislikes</Text> : null}
+    {voting ? <View style={styles.votes}>{([[-1, "Dislike", "thumbs-down-outline"], [0, "Skip", "remove-outline"], [1, "Like", "thumbs-up-outline"]] as const).map(([value, label, icon]) => <Pressable key={value} disabled={busy} onPress={() => onVote(value)} style={[styles.vote, candidate.my_vote === value && styles.voteActive]}><AppIcon name={icon} size={16} color={candidate.my_vote === value ? colors.white : colors.primaryDark} /><Text style={[styles.voteText, candidate.my_vote === value && styles.voteTextActive]}>{label}</Text></Pressable>)}</View> : candidate.aggregate ? <Text style={styles.aggregate}>{candidate.aggregate.likes} likes · {candidate.aggregate.neutral} neutral · {candidate.aggregate.dislikes} dislikes</Text> : null}
   </View>;
 }
 
@@ -43,7 +43,6 @@ export default function GroupDetailScreen() {
   const [notice, setNotice] = useState<string | null>(null);
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
-  useBACityWaiting(generating, 'Finding a match for your group');
   const location = useRecommendationLocation(group?.role === "host");
 
   async function run(work: () => Promise<unknown>, success?: string) {

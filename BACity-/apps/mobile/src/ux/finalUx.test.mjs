@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
-import { entryDestination, entryPlayback, visibleWait, substantialWait } from './motionPolicy.ts';
+import { entryDestination } from './motionPolicy.ts';
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 
 test('completed sign-in entry goes to Home from auth, detail, map and restored routes', () => {
@@ -26,14 +26,12 @@ test('entry route is acknowledged before releasing overlay; callback remains sta
   assert.match(source, /useAuthStore.getState\(\).user\?\.id === userId/);
 });
 
-test('entry clip is locally prepared and does not play invisibly or show a separate logo page', () => {
-  const source = read('../components/BACityMotion.tsx');
-  assert.match(source, /asset.localUri \|\| asset.uri/);
-  assert.match(source, /shouldPlay=\{foreground && ready\}/);
-  assert.match(source, /mode === 'wait' \|\| playback === 'static'/);
-  assert.match(source, /onReadyForDisplay=\{\(\) => setReady\(true\)\}/);
-  assert.match(source, /entryPreparation = null; throw error/);
-  assert.match(source, /mode === 'entry' \? ResizeMode.CONTAIN : ResizeMode.COVER/);
+test('startup uses central loading without mandatory intro or video playback', () => {
+  const source = read('../components/StartupScene.tsx');
+  assert.match(source, /useStartupLoading/);
+  assert.match(source, /startupTimeout/);
+  assert.doesNotMatch(source, /expo-av|Video|\.mp4|router\.(push|replace)/);
+  assert.ok(!existsSync(new URL('../components/BACityMotion.tsx', import.meta.url)));
 });
 
 test('inbox and library retain loaded content on refresh failure and expose recovery', () => {
@@ -47,32 +45,24 @@ test('inbox and library retain loaded content on refresh failure and expose reco
   assert.match(library, /Couldn't refresh. Tap to retry/);
 });
 
-test('entry waits for accessibility preference, pauses in background, and fails safely', () => {
-  assert.equal(entryPlayback(null, false, true), 'hold');
-  assert.equal(entryPlayback(false, false, true), 'video');
-  assert.equal(entryPlayback(true, false, true), 'static');
-  assert.equal(entryPlayback(false, true, true), 'static');
-  assert.equal(entryPlayback(false, false, false), 'hold');
+test('fast startup has no artificial intro delay', () => {
+  assert.doesNotMatch(read('../components/StartupScene.tsx'), /tokens.motion.intro|INTRO_DONE/);
 });
-test('real wait dismisses immediately on completion, entry, or user dismissal', () => {
-  assert.equal(visibleWait(true, true, false, false), true);
-  for (const values of [[false,true,false,false],[true,false,false,false],[true,true,true,false],[true,true,false,true]]) assert.equal(visibleWait(...values), false);
+test('slow startup presentation depends on actual readiness', () => {
+  assert.match(read('../components/StartupScene.tsx'), /useStartupLoading\(!ready && !failed\)/);
 });
-test('cached content and entitlement failure never request a substantial loader', () => {
-  assert.equal(substantialWait(true, true, false), true);
-  assert.equal(substantialWait(true, true, true), false);
-  assert.equal(substantialWait(false, true, false), false);
-  assert.equal(substantialWait(true, false, false), false);
+test('startup timeout stops animation and offers retry without changing auth', () => {
+  const source = read('../components/StartupScene.tsx');
+  assert.match(source, /setFailed\(true\)/);
+  assert.match(source, /clearTimeout\(timer\)/);
+  assert.match(source, /onRetry\(\)/);
 });
-test('single centralized player uses supplied bundled media, no loop or audio', () => {
-  const source = read('../components/BACityMotion.tsx');
-  assert.equal((source.match(/<Video /g) || []).length, 1);
-  assert.match(source, /isMuted volume=\{0\} isLooping=\{false\}/);
-  assert.match(source, /didJustFinish/);
-  assert.match(source, /unloadAsync/);
-  assert.match(source, /15_000/);
-  assert.doesNotMatch(source, /router\.(push|replace)/);
-  for (const name of ['squiggle-flow', 'car-racing']) assert.ok(existsSync(new URL(`../../assets/motion/${name}.mp4`, import.meta.url)));
+test('cold startup survives session cache remount and is not replayed on login', () => {
+  const source = read('../../app/_layout.tsx');
+  assert.equal((source.match(/<StartupScene /g) || []).length, 1);
+  assert.ok(source.indexOf('</QueryClientProvider>') < source.indexOf('<StartupScene'));
+  assert.match(source, /if \(userId\) finishEntry\(\)/);
+  assert.doesNotMatch(source, /prepareEntryFilm|BACityLoadingProvider|BACityEntrySequence/);
 });
 test('session cache changes before descendants mount, initial query is not cleared on mount', () => {
   const source = read('../../app/_layout.tsx');
@@ -103,7 +93,7 @@ test('planner screens retain fail-closed gates, real generation and event detail
     const source = read(`../../app/${name}.tsx`);
     assert.ok(source.includes('usePlusGate'));
     assert.ok(source.includes('plusPaywallRoute'));
-    assert.ok(source.includes('useBACityWaiting'));
+    assert.ok(!source.includes('useBACityWaiting'));
     assert.ok(source.includes('PremiumIntro'));
   }
   assert.match(read('../components/PremiumUI.tsx'), /router.push\('\/event\/' \+ event.id\)/);

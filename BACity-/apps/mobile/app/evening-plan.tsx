@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import { AnimatedPressable as Pressable } from '../src/components/motion/Motion';
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { AppIcon } from "../src/components/AppIcon";
 import { EveningPlanAlternative } from "../src/api/eveningPlans";
 import { Button, Chip } from "../src/components/CommunityUI";
 import { EmptyState } from "../src/components/EmptyState";
@@ -17,7 +18,6 @@ import { fonts } from "../src/theme/fonts";
 import { EventCategory } from "../src/types/event";
 import { PremiumIntro, PlanStop } from "../src/components/PremiumUI";
 import { TemporalField } from "../src/components/TemporalField";
-import { useBACityWaiting } from "../src/components/BACityMotion";
 
 const CATEGORIES: EventCategory[] = ["Music", "Culture", "Arts", "Nightlife", "Theatre", "Comedy", "Family", "Community"];
 const STRATEGY_LABELS = { best_match: "Best match", relaxed: "Relaxed", something_different: "Something different" } as const;
@@ -39,7 +39,6 @@ export default function EveningPlanScreen() {
   const [editing, setEditing] = useState(true);
   const location = useRecommendationLocation(gate.decision === "allow");
   const generation = useEveningPlans();
-  useBACityWaiting(gate.decision === "allow" && generation.isPending, "Composing your evening");
   const plans = generation.data?.plans ?? [];
   const submitted = generation.data !== undefined || generation.isPending || generation.isError;
   const state = resolveEveningView(gate.decision, submitted, generation.isPending, generation.isError, plans.length);
@@ -94,7 +93,7 @@ export default function EveningPlanScreen() {
         <Text style={styles.label}>INTERESTS FOR THIS EVENING</Text>
         <View style={styles.chips}>{CATEGORIES.map(category => <Chip key={category} title={category} active={categories.includes(category)} onPress={() => toggleCategory(category)} />)}</View>
         <View style={styles.locationRow}>
-          <Ionicons name={location.coordinates ? "navigate" : "navigate-outline"} size={18} color={colors.primaryDark} />
+          <AppIcon name={location.coordinates ? "navigate" : "navigate-outline"} size={18} color={colors.primaryDark} />
           <Text style={styles.locationText}>{location.coordinates ? "Using approximate location for first-event convenience" : "Location is optional"}</Text>
           <Pressable onPress={() => void (location.enabled ? location.disable() : location.enable())}><Text style={styles.locationAction}>{location.enabled ? "Turn off" : "Use"}</Text></Pressable>
         </View>

@@ -1,25 +1,30 @@
-import { Ionicons } from "@expo/vector-icons";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { AppIcon } from "./AppIcon";
+import { StyleSheet, Text, View } from "react-native";
+import { AnimatedPressable as Pressable } from './motion/Motion';
 import { colors } from "../theme/colors";
 import { fonts } from "../theme/fonts";
 import { tokens } from '../theme/tokens';
+import { CharacterScene, CharacterMood } from './illustrations/CharacterScene';
+import { Reveal } from './motion/Motion';
 
 export function EmptyState({
   title,
   subtitle,
   action,
   onAction,
+  scene,
 }: {
   title: string;
   subtitle?: string;
   action?: string;
   onAction?: () => void;
+  scene?: CharacterMood;
 }) {
   return (
     <View style={styles.wrap}>
-      <View style={styles.icon}>
-        <Ionicons name="sparkles-outline" size={24} color={colors.primaryDark} />
-      </View>
+      {scene ? <Reveal><CharacterScene mood={scene} size={180} /></Reveal> : <View style={styles.icon}>
+        <AppIcon name="sparkles-outline" size={24} color={colors.primaryDark} />
+      </View>}
       <Text style={styles.title}>{title}</Text>
       {!!subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
       {!!action && !!onAction && (

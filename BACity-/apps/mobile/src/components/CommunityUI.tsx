@@ -3,15 +3,14 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  View,
-} from "react-native";
+  View } from "react-native";
+import { AnimatedPressable as Pressable } from './motion/Motion';
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { AppIcon } from "./AppIcon";
 import { router } from "expo-router";
 import { BrandMark } from "./BrandMark";
 import { colors } from "../theme/colors";
@@ -34,7 +33,7 @@ export function Page({ title, children }: PropsWithChildren<{ title: string }>) 
             onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)/discover")}
             style={({ pressed }) => [ui.back, pressed && ui.pressed]}
           >
-            <Ionicons name="chevron-back" size={20} color={colors.text} />
+            <AppIcon name="chevron-back" size={20} color={colors.text} />
           </Pressable>
           <BrandMark compact />
           <View style={ui.topbarSpacer} />
@@ -53,9 +52,9 @@ export function Card({ children }: PropsWithChildren) {
   return <View style={ui.card}>{children}</View>;
 }
 
-export function Disclosure({ title, icon = 'options-outline', initiallyOpen = false, children }: PropsWithChildren<{ title: string; icon?: ComponentProps<typeof Ionicons>['name']; initiallyOpen?: boolean }>) {
+export function Disclosure({ title, icon = 'options-outline', initiallyOpen = false, children }: PropsWithChildren<{ title: string; icon?: ComponentProps<typeof AppIcon>['name']; initiallyOpen?: boolean }>) {
   const [open, setOpen] = useState(initiallyOpen);
-  return <View style={ui.disclosure}><Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={title} onPress={() => setOpen(value => !value)} style={ui.disclosureHeader}><Ionicons name={icon} size={24} color={colors.primaryDark} /><Text style={ui.disclosureTitle}>{title}</Text><Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textMuted} /></Pressable>{open && <View style={ui.disclosureBody}>{children}</View>}</View>;
+  return <View style={ui.disclosure}><Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={title} onPress={() => setOpen(value => !value)} style={ui.disclosureHeader}><AppIcon name={icon} size={24} color={colors.primaryDark} /><Text style={ui.disclosureTitle}>{title}</Text><AppIcon name={open ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textMuted} /></Pressable>{open && <View style={ui.disclosureBody}>{children}</View>}</View>;
 }
 
 export function Button({
@@ -149,7 +148,7 @@ export function Chip({
 export function Notice({ text }: { text: string | null | undefined }) {
   return text ? (
     <View style={ui.noticeBox}>
-      <Ionicons name="information-circle-outline" size={17} color={colors.primaryDark} />
+      <AppIcon name="information-circle-outline" size={17} color={colors.primaryDark} />
       <Text accessibilityRole="alert" style={ui.notice}>
         {text}
       </Text>
@@ -183,8 +182,8 @@ export const ui = StyleSheet.create({
     justifyContent: "space-between",
   },
   back: {
-    width: 40,
-    height: 40,
+    width: tokens.icon.touch,
+    height: tokens.icon.touch,
     borderRadius: 15,
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -192,7 +191,7 @@ export const ui = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  pressed: { opacity: 0.7, transform: [{ scale: 0.96 }] },
+  pressed: { opacity: 0.7 },
   topbarSpacer: { width: 40 },
   title: {
     ...tokens.type.hero,
@@ -214,14 +213,12 @@ export const ui = StyleSheet.create({
     letterSpacing: -0.35,
   },
   text: {
-    fontSize: 14,
-    lineHeight: 21,
+    ...tokens.type.body,
     fontFamily: fonts.regular,
     color: colors.text,
   },
   muted: {
-    fontSize: 12,
-    lineHeight: 18,
+    ...tokens.type.metadata,
     fontFamily: fonts.regular,
     color: colors.textMuted,
   },
@@ -266,11 +263,11 @@ export const ui = StyleSheet.create({
     justifyContent: "center",
     minHeight: 48,
     shadowColor: colors.primaryDark,
-    shadowOpacity: 0.16,
+    shadowOpacity: 0,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
   },
-  buttonPressed: { transform: [{ scale: 0.985 }], opacity: 0.92 },
+  buttonPressed: { opacity: 0.92 },
   disabled: { opacity: 0.55 },
   buttonText: {
     fontWeight: '600',

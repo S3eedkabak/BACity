@@ -1,6 +1,7 @@
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, StyleSheet, Text, View } from "react-native";
+import { AnimatedPressable as Pressable } from '../src/components/motion/Motion';
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { AppIcon } from "../src/components/AppIcon";
 import { router } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getNotifications, markNotificationRead, type Notification } from "../src/api/community";
@@ -10,7 +11,7 @@ import { useAuthStore } from "../src/store/authStore";
 import { colors } from "../src/theme/colors";
 import { fonts } from "../src/theme/fonts";
 
-function icon(kind: string): keyof typeof Ionicons.glyphMap {
+function icon(kind: string): import('../src/components/AppIcon').AppIconName {
   if (kind === "message") return "chatbubble-outline";
   if (kind === "moderation") return "checkmark-circle-outline";
   if (kind === "organizer") return "business-outline";
@@ -28,7 +29,7 @@ export default function NotificationsScreen() {
   }
   return <SafeAreaView style={styles.safe} edges={["top", "bottom"]}><ScreenHeader title="Activity" />
     {!token ? <EmptyState title="Sign in to see activity" subtitle="Updates about messages, contributions and organizers appear here." action="Sign in" onAction={() => router.push({ pathname: "/auth", params: { mode: "login" } })} /> : query.isPending ? <View style={styles.content}><SkeletonList /></View> : query.isError ? <EmptyState title="Activity couldn't load" subtitle={query.error.message} action="Try again" onAction={() => query.refetch()} /> : <FlatList data={query.data} keyExtractor={item => item.id} contentContainerStyle={styles.content} refreshing={query.isRefetching} onRefresh={query.refetch} ListEmptyComponent={<EmptyState title="You're all caught up" subtitle="New community activity will appear here." />} renderItem={({ item }) => <Pressable onPress={() => open(item)} style={({ pressed }) => [styles.row, !item.read_at && styles.unreadRow, pressed && styles.pressed]}>
-      <View style={styles.icon}><Ionicons name={icon(item.kind)} size={21} color={colors.primaryDark} /></View><View style={styles.copy}><Text style={[styles.body, !item.read_at && styles.bodyUnread]}>{item.body}</Text><Text style={styles.time}>{new Date(item.created_at).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</Text></View>{!item.read_at && <View style={styles.dot} />}
+      <View style={styles.icon}><AppIcon name={icon(item.kind)} size={21} color={colors.primaryDark} /></View><View style={styles.copy}><Text style={[styles.body, !item.read_at && styles.bodyUnread]}>{item.body}</Text><Text style={styles.time}>{new Date(item.created_at).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</Text></View>{!item.read_at && <View style={styles.dot} />}
     </Pressable>} />}
   </SafeAreaView>;
 }

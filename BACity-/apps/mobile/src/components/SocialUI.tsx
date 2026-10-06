@@ -1,12 +1,16 @@
 import { ComponentProps, PropsWithChildren, useEffect, useState } from "react";
-import { Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import { AnimatedPressable as Pressable } from './motion/Motion';
+import { AppIcon } from "./AppIcon";
 import { router } from "expo-router";
 import { colors } from "../theme/colors";
 import { fonts } from "../theme/fonts";
 import { tokens } from "../theme/tokens";
+import { SkeletonPulse } from './motion/Motion';
+import { useReducedMotion } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-type IconName = ComponentProps<typeof Ionicons>["name"];
+type IconName = ComponentProps<typeof AppIcon>["name"];
 
 export function Avatar({ uri, name, size = 48 }: { uri?: string | null; name?: string | null; size?: number }) {
   const [failed, setFailed] = useState(false);
@@ -21,7 +25,7 @@ export function Avatar({ uri, name, size = 48 }: { uri?: string | null; name?: s
 
 export function IconButton({ icon, label, onPress, badge = false }: { icon: IconName; label: string; onPress: () => void; badge?: boolean }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={label} hitSlop={6} onPress={onPress} style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
-    <Ionicons name={icon} size={21} color={colors.text} />
+    <AppIcon name={icon} size={21} color={colors.text} />
     {badge && <View style={styles.badge} />}
   </Pressable>;
 }
@@ -47,28 +51,30 @@ export function ProfileRow({ profile, subtitle, action, onAction, onPress }: { p
   return <Pressable accessibilityRole="button" accessibilityLabel={`Open ${profile.display_name || profile.name || 'member'} profile`} onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
     <Avatar uri={profile.avatar_url} name={profile.display_name || profile.name} />
     <View style={styles.rowCopy}><Text style={styles.rowTitle} numberOfLines={1}>{profile.display_name || profile.name || "BACity member"}</Text><Text style={styles.rowSubtitle} numberOfLines={1}>{subtitle || profile.neighborhood || profile.reputation_level || "Bratislava"}</Text></View>
-    {action && onAction ? <Pressable accessibilityRole="button" onPress={(event) => { event.stopPropagation(); onAction(); }} style={({ pressed }) => [styles.smallAction, pressed && styles.pressed]}><Text style={styles.smallActionText}>{action}</Text></Pressable> : <Ionicons name="chevron-forward" size={17} color={colors.textMuted} />}
+    {action && onAction ? <Pressable accessibilityRole="button" onPress={(event) => { event.stopPropagation(); onAction(); }} style={({ pressed }) => [styles.smallAction, pressed && styles.pressed]}><Text style={styles.smallActionText}>{action}</Text></Pressable> : <AppIcon name="chevron-forward" size={17} color={colors.textMuted} />}
   </Pressable>;
 }
 
 export function ListItem({ icon, title, subtitle, onPress, trailing }: { icon: IconName; title: string; subtitle?: string | null; onPress?: () => void; trailing?: React.ReactNode }) {
   const content = <>
-    <View style={styles.listIcon}><Ionicons name={icon} size={20} color={colors.primaryDark} /></View>
+    <View style={styles.listIcon}><AppIcon name={icon} size={20} color={colors.primaryDark} /></View>
     <View style={styles.rowCopy}><Text style={styles.rowTitle} numberOfLines={1}>{title}</Text>{subtitle ? <Text style={styles.rowSubtitle} numberOfLines={2}>{subtitle}</Text> : null}</View>
-    {trailing ?? (onPress ? <Ionicons name="chevron-forward" size={17} color={colors.textMuted} /> : null)}
+    {trailing ?? (onPress ? <AppIcon name="chevron-forward" size={17} color={colors.textMuted} /> : null)}
   </>;
   return onPress ? <Pressable accessibilityRole="button" accessibilityLabel={title} onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>{content}</Pressable> : <View style={styles.row}>{content}</View>;
 }
 
 export function SkeletonList({ rows = 5 }: { rows?: number }) {
-  return <View>{Array.from({ length: rows }).map((_, index) => <View key={index} style={styles.skeletonRow}><View style={styles.skeletonAvatar} /><View style={styles.skeletonCopy}><View style={styles.skeletonWide} /><View style={styles.skeletonShort} /></View></View>)}</View>;
+  return <SkeletonPulse>{Array.from({ length: rows }).map((_, index) => <View key={index} style={styles.skeletonRow}><View style={styles.skeletonAvatar} /><View style={styles.skeletonCopy}><View style={styles.skeletonWide} /><View style={styles.skeletonShort} /></View></View>)}</SkeletonPulse>;
 }
 
 export function OverflowMenu({ visible, title = "More", onClose, children }: PropsWithChildren<{ visible: boolean; title?: string; onClose: () => void }>) {
-  return <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
+  const reduced = useReducedMotion();
+  const insets = useSafeAreaInsets();
+  return <Modal visible={visible} transparent animationType={reduced ? 'none' : 'slide'} onRequestClose={onClose}>
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
     <Pressable style={styles.overlay} onPress={onClose}>
-      <Pressable style={styles.sheet} onPress={event => event.stopPropagation()}>
+      <Pressable style={[styles.sheet, { paddingBottom: Math.max(tokens.space.lg, insets.bottom) }]} onPress={event => event.stopPropagation()}>
         <View style={styles.sheetHandle} /><View style={styles.sheetTitleRow}><Text style={styles.sheetTitle}>{title}</Text><IconButton icon="close" label="Close menu" onPress={onClose} /></View>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.sheetContent}>{children}</ScrollView>
       </Pressable>
@@ -81,7 +87,7 @@ const styles = StyleSheet.create({
   avatar: { backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
   avatarText: { color: colors.white, fontFamily: fonts.black },
   iconButton: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center" },
-  pressed: { opacity: .68, transform: [{ scale: .96 }] },
+  pressed: { opacity: .68 },
   badge: { position: "absolute", right: 7, top: 7, width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary, borderWidth: 2, borderColor: colors.background },
   header: { minHeight: 58, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 8 },
   headerSlot: { width: 44, alignItems: "flex-end" },

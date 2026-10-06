@@ -1,8 +1,9 @@
 import { useEffect, useMemo } from "react";
-import { ActivityIndicator, Pressable, SectionList, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, SectionList, StyleSheet, Text, View } from "react-native";
+import { AnimatedPressable as Pressable } from '../src/components/motion/Motion';
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { AppIcon } from "../src/components/AppIcon";
 import { EmptyState } from "../src/components/EmptyState";
 import { EventCard } from "../src/components/EventCard";
 import { ScreenHeader, SkeletonList } from "../src/components/SocialUI";
@@ -15,13 +16,11 @@ import { groupTonightItems, resolveTonightView, tonightLocationCopy } from "../s
 import { colors } from "../src/theme/colors";
 import { fonts } from "../src/theme/fonts";
 import { PremiumIntro } from "../src/components/PremiumUI";
-import { useBACityWaiting } from "../src/components/BACityMotion";
 
 export default function TonightScreen() {
   const gate = usePlusGate();
   const location = useRecommendationLocation(gate.decision === "allow");
   const query = useTonight(gate.decision === "allow", location.coordinates);
-  useBACityWaiting(gate.decision === "allow" && query.isPending && !query.data, "Finding tonight's possibilities");
   const save = useToggleSaveEvent();
   const items = query.data?.items ?? [];
   const sections = useMemo(() => groupTonightItems(items), [items]);
@@ -54,7 +53,7 @@ export default function TonightScreen() {
         <ScreenHeader title="Tonight / Right Now" />
         <PremiumIntro icon="sparkles-outline" title="The city isn't done yet." subtitle="Happening now, starting soon, and still ahead tonight. Real options for the time you have." />
         <View style={styles.location}>
-          <Ionicons name={query.data?.location_used ? "navigate" : "navigate-outline"} size={17} color={colors.primaryDark} />
+          <AppIcon name={query.data?.location_used ? "navigate" : "navigate-outline"} size={17} color={colors.primaryDark} />
           <Text style={styles.locationText}>{locationText}</Text>
           <Pressable onPress={() => void (location.enabled ? location.disable() : location.enable())}>
             <Text style={styles.locationAction}>{location.enabled ? "Turn off" : "Use location"}</Text>

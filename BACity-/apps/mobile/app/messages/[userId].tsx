@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from "react-native";
+import { AnimatedPressable as Pressable } from '../../src/components/motion/Motion';
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { AppIcon } from "../../src/components/AppIcon";
 import { useLocalSearchParams, router } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "../../src/api/client";
@@ -41,7 +42,7 @@ export default function ConversationScreen() {
       renderItem={({ item }) => { const mine = item.sender_id === me?.id; return <View style={[styles.messageRow, mine && styles.messageRowMine]}>{!mine && <Avatar uri={profile.data?.avatar_url} name={profile.data?.display_name} size={30} />}<View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs]}><Text style={[styles.message, mine && styles.messageMine]}>{item.body}</Text><Text style={[styles.messageTime, mine && styles.messageTimeMine]}>{new Date(item.created_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</Text></View></View>; }}
     />}
     {profile.data && 'unavailable' in profile.data && <Notice text="This profile is unavailable. Your conversation history remains accessible." />}
-    <View style={styles.composer}><TextInput accessibilityLabel="Message" placeholder="Message…" placeholderTextColor={colors.textMuted} value={body} onChangeText={setBody} multiline style={styles.input} /><Pressable accessibilityRole="button" accessibilityLabel="Send message" disabled={!body.trim() || send.isPending} onPress={() => send.mutate()} style={({ pressed }) => [styles.send, pressed && styles.pressed, (!body.trim() || send.isPending) && styles.disabled]}><Ionicons name="arrow-up" size={20} color={colors.white} /></Pressable></View>
+    <View style={styles.composer}><TextInput accessibilityLabel="Message" placeholder="Message…" placeholderTextColor={colors.textMuted} value={body} onChangeText={setBody} multiline style={styles.input} /><Pressable accessibilityRole="button" accessibilityLabel="Send message" disabled={!body.trim() || send.isPending} onPress={() => send.mutate()} style={({ pressed }) => [styles.send, pressed && styles.pressed, (!body.trim() || send.isPending) && styles.disabled]}><AppIcon name="arrow-up" size={20} color={colors.white} /></Pressable></View>
     <OverflowMenu visible={menu} title="Conversation options" onClose={() => setMenu(false)}>
       <ListItem icon="person-outline" title="View profile" onPress={() => { setMenu(false); router.push(`/member/${userId}`); }} />
       <TextInput accessibilityLabel="Reason" placeholder="Reason for reporting" placeholderTextColor={colors.textMuted} value={reason} onChangeText={setReason} multiline style={styles.reason} />

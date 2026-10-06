@@ -2,13 +2,14 @@ import { Button } from "../../src/components/CommunityUI";
 import { EventMedia } from '../../src/components/EventMedia';
 import { MediaScrim } from '../../src/components/MediaScrim';
 import { Discussion } from "../../src/components/Discussion";
-import { Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { AnimatedPressable as Pressable } from '../../src/components/motion/Motion';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import { IconButton, ListItem, OverflowMenu } from '../../src/components/SocialUI';
 import { externalLinking as Linking } from "../../src/api/externalLinking";
 import { router, useLocalSearchParams } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { AppIcon } from "../../src/components/AppIcon";
 import { useEvent, useSavedEvents, useToggleSaveEvent } from "../../src/hooks/useEvents";
 import { useAuthStore } from "../../src/store/authStore";
 import { LoadingState } from "../../src/components/LoadingState";
@@ -17,6 +18,7 @@ import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
 import { PlusGateAction } from "../../src/plus/usePlusGate";
 import { eventChainsRoute } from "../../src/eventChains/presentation";
+import { useMeaningfulLoading } from '../../src/components/loading/LoadingExperience';
 
 function formatWhen(iso: string) {
   return new Date(iso).toLocaleString(undefined, {
@@ -32,13 +34,17 @@ export default function EventDetailScreen() {
   const [menu, setMenu] = useState(false);
   const { id } = useLocalSearchParams<{ id: string }>();
   const token = useAuthStore((s) => s.token);
-  const { data: event, isLoading, isError } = useEvent(id);
+  const { data: event, isLoading, isError, refetch } = useEvent(id);
+  useMeaningfulLoading('event-details', isLoading && !event);
   const { data: savedEvents } = useSavedEvents();
   const toggleSave = useToggleSaveEvent();
   const isSaved = !!savedEvents?.some((e) => e.id === id);
 
-  if (isLoading) return <LoadingState />;
-  if (isError || !event) return <EmptyState title="Event not found" />;
+  if (isLoading) return <LoadingState variant="detail" />;
+  if (!event) return <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/discover')} style={{ minHeight: 48, padding: 20 }}><Text style={{ color: colors.text }}>Back</Text></Pressable>
+    <EmptyState title={isError ? "Couldn't load this event" : 'Event not found'} action="Try again" onAction={() => void refetch()} />
+  </SafeAreaView>;
 
   const price =
     event.price === 0
@@ -59,7 +65,7 @@ export default function EventDetailScreen() {
         <MediaScrim />
         <View style={styles.heroTop}>
           <Pressable accessibilityRole="button" accessibilityLabel="Go back" style={styles.backButton} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/discover')}>
-            <Ionicons name="chevron-back" size={20} color={colors.text} />
+            <AppIcon name="chevron-back" size={20} color={colors.text} />
           </Pressable>
           <View style={styles.heroBadges}>
           <View style={styles.categoryPill}>
@@ -76,7 +82,7 @@ export default function EventDetailScreen() {
         <View style={styles.heroText}>
           <Text style={styles.title}>{event.title}</Text>
           <View style={styles.locationLine}>
-            <Ionicons name="location-outline" size={15} color={colors.white} />
+            <AppIcon name="location-outline" size={15} color={colors.white} />
             <Text style={styles.location}>
               {event.venue?.name ?? event.address ?? "Bratislava"}
             </Text>
@@ -87,7 +93,7 @@ export default function EventDetailScreen() {
       <View style={styles.infoGrid}>
         <View style={styles.infoCard}>
           <View style={styles.infoIcon}>
-            <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+            <AppIcon name="calendar-outline" size={18} color={colors.primary} />
           </View>
           <Text style={styles.label}>WHEN</Text>
           <Text style={styles.value}>{formatWhen(event.start_time)}</Text>
@@ -95,7 +101,7 @@ export default function EventDetailScreen() {
 
         <View style={styles.infoCard}>
           <View style={styles.infoIcon}>
-            <Ionicons name="pricetag-outline" size={18} color={colors.primary} />
+            <AppIcon name="pricetag-outline" size={18} color={colors.primary} />
           </View>
           <Text style={styles.label}>PRICE</Text>
           <Text style={styles.value}>{price}</Text>
@@ -115,7 +121,7 @@ export default function EventDetailScreen() {
           onPress={() => toggleSave.mutate({ id: event.id, saved: isSaved })}
           disabled={toggleSave.isPending}
         >
-          <Ionicons
+          <AppIcon
             name={isSaved ? "heart" : "heart-outline"}
             size={19}
             color={isSaved ? colors.white : colors.text}
@@ -134,18 +140,18 @@ export default function EventDetailScreen() {
           onPress={onPress}
           disabled={loading}
         >
-          <View style={styles.chainIcon}><Ionicons name="git-branch-outline" size={20} color={colors.white} /></View>
+          <View style={styles.chainIcon}><AppIcon name="git-branch-outline" size={20} color={colors.white} /></View>
           <View style={styles.chainCopy}>
             <Text style={styles.chainTitle}>Build around this event</Text>
             <Text style={styles.chainSubtitle}>Find compatible events before or after</Text>
           </View>
-          {loading ? <Ionicons name="ellipsis-horizontal" size={18} color={colors.primaryDark} /> : <Ionicons name="chevron-forward" size={18} color={colors.text} />}
+          {loading ? <AppIcon name="ellipsis-horizontal" size={18} color={colors.primaryDark} /> : <AppIcon name="chevron-forward" size={18} color={colors.text} />}
         </Pressable>}
       </PlusGateAction>
 
       {!!event.source_url && <Pressable style={styles.sourceButton} onPress={() => Linking.openURL(event.source_url)}>
         <Text style={styles.sourceText}>View original event</Text>
-        <Ionicons name="arrow-up-outline" size={16} color={colors.primaryDark} />
+        <AppIcon name="arrow-up-outline" size={16} color={colors.primaryDark} />
       </Pressable>}
       {event.venue && <Button title={"More at " + event.venue.name} onPress={() => router.push(`/venue/${event.venue!.id}`)} />}
       <Discussion id={id} kind="event" />
@@ -181,10 +187,10 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   backButton: {
-    width: 42,
-    height: 42,
+    width: 48,
+    height: 48,
     borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.94)",
+    backgroundColor: colors.mediaOverlay,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -201,7 +207,7 @@ const styles = StyleSheet.create({
   },
   category: { color: colors.white, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
   freePill: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.successSurface,
     paddingHorizontal: 11,
     paddingVertical: 7,
     borderRadius: 99,

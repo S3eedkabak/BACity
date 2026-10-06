@@ -5,8 +5,9 @@
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as eventsApi from "../api/events";
-import { EventListParams } from "../types/event";
+import { EventListParams, EventListResponse } from "../types/event";
 import { useAuthStore } from "../store/authStore";
+import { withLoadingTestDelay } from '../loading/development';
 
 export function useEvents(params: EventListParams = {}) {
   return useQuery({
@@ -17,10 +18,14 @@ export function useEvents(params: EventListParams = {}) {
 }
 
 export function useEvent(id: string | undefined) {
+  const queryClient = useQueryClient();
   return useQuery({
     queryKey: ["event", id],
-    queryFn: () => eventsApi.getEvent(id as string),
+    queryFn: () => withLoadingTestDelay(() => eventsApi.getEvent(id as string)),
     enabled: !!id,
+    initialData: () => queryClient.getQueriesData<EventListResponse>({ queryKey: ['events'] })
+      .flatMap(([, value]) => value?.items ?? []).find(event => event.id === id),
+    initialDataUpdatedAt: 0,
   });
 }
 

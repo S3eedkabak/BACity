@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import { AnimatedPressable as Pressable } from '../src/components/motion/Motion';
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { AppIcon } from "../src/components/AppIcon";
 import { groupsApi, GroupSummary } from "../src/api/groups";
 import { Button, Chip, Field } from "../src/components/CommunityUI";
 import { EmptyState } from "../src/components/EmptyState";
@@ -23,9 +24,9 @@ const CATEGORIES: EventCategory[] = ["Music", "Culture", "Arts", "Nightlife", "T
 
 function GroupRow({ item }: { item: GroupSummary }) {
   return <Pressable onPress={() => router.push(groupRoute(item.id))} style={({ pressed }) => [styles.groupRow, pressed && styles.pressed]}>
-    <View style={styles.groupIcon}><Ionicons name="people" size={20} color={colors.primaryDark} /></View>
+    <View style={styles.groupIcon}><AppIcon name="people" size={20} color={colors.primaryDark} /></View>
     <View style={styles.groupCopy}><Text style={styles.groupName} numberOfLines={1}>{item.name}</Text><Text style={styles.groupMeta}>{groupStateLabel(item.status)} · {item.participant_count}/{item.max_participants} people</Text></View>
-    <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+    <AppIcon name="chevron-forward" size={18} color={colors.textMuted} />
   </Pressable>;
 }
 

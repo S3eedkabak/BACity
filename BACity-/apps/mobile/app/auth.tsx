@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { AppIcon } from "../src/components/AppIcon";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
@@ -6,14 +6,13 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   NativeModules,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  View,
-} from "react-native";
+  View } from "react-native";
+import { AnimatedPressable as Pressable } from '../src/components/motion/Motion';
 import { SafeAreaView } from "react-native-safe-area-context";
 import { BrandMark } from "../src/components/BrandMark";
 import { useAuthStore } from "../src/store/authStore";
@@ -98,7 +97,7 @@ export default function AuthScreen() {
         >
           <View style={styles.top}>
             <Pressable accessibilityRole="button" accessibilityLabel="Back" style={styles.back} onPress={() => router.canGoBack() ? router.back() : router.replace("/welcome")}>
-              <Ionicons name="chevron-back" size={20} color={colors.text} />
+              <AppIcon name="chevron-back" size={20} color={colors.text} />
             </Pressable>
             <BrandMark compact />
             <View style={styles.spacer} />
@@ -158,7 +157,7 @@ export default function AuthScreen() {
 
           {!!error && (
             <View style={styles.errorBox}>
-              <Ionicons name="alert-circle-outline" size={18} color={colors.danger} />
+              <AppIcon name="alert-circle-outline" size={18} color={colors.danger} />
               <Text style={styles.error}>{error}</Text>
             </View>
           )}
@@ -178,7 +177,7 @@ export default function AuthScreen() {
                 <Text style={styles.primaryText}>
                   {mode === "login" ? "Log in" : "Create account"}
                 </Text>
-                <Ionicons name="arrow-forward" size={18} color={colors.white} />
+                <AppIcon name="arrow-forward" size={18} color={colors.white} />
               </>
             )}
           </Pressable>
@@ -293,7 +292,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
     padding: 12,
     borderRadius: 16,
-    backgroundColor: "#FFF0F1",
+    backgroundColor: colors.dangerSurface,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
@@ -310,7 +309,7 @@ const styles = StyleSheet.create({
     gap: 9,
   },
   primaryText: { color: colors.white, fontFamily: fonts.black, fontWeight: '800', fontSize: 16 },
-  pressed: { opacity: 0.9, transform: [{ scale: 0.985 }] },
+  pressed: { opacity: 0.9 },
   disabled: { opacity: 0.6 },
   textButton: { alignItems: "center", paddingVertical: 15 },
   appleButton: { width: "100%", height: 52, marginTop: 10 },

@@ -1,5 +1,6 @@
-import { Ionicons } from "@expo/vector-icons";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { AppIcon } from "../../src/components/AppIcon";
+import { StyleSheet, Text, View } from "react-native";
+import { AnimatedPressable as Pressable } from '../../src/components/motion/Motion';
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -119,7 +120,7 @@ export default function MapScreen() {
               accessibilityLabel={`Open ${event.title}`}
             >
               <View style={styles.markerInner}>
-                <Ionicons name="heart" size={11} color={colors.white} />
+                <AppIcon name="heart" size={11} color={colors.white} />
               </View>
             </Pressable>
           );
@@ -132,7 +133,7 @@ export default function MapScreen() {
           <Text style={styles.heading}>Map</Text>
         </View>
         <Pressable accessibilityLabel="Browse all city utilities" onPress={() => router.push("/utilities")} style={styles.mapIcon}>
-          <Ionicons name="navigate" size={17} color={colors.primary} />
+          <AppIcon name="navigate" size={17} color={colors.primary} />
         </Pressable>
       </View>
 
@@ -146,7 +147,7 @@ export default function MapScreen() {
       {!pins.length && (
         <View style={styles.empty}>
           <View style={styles.emptyIcon}>
-            <Ionicons name="map-outline" size={23} color={colors.primary} />
+            <AppIcon name="map-outline" size={23} color={colors.primary} />
           </View>
           <Text style={styles.emptyTitle}>{isError ? "Map events couldn't load" : isFetching ? "Finding city events" : "No mapped events here yet"}</Text>
           <Text style={styles.emptyText}>
@@ -164,7 +165,7 @@ const styles = StyleSheet.create({
   map: {
     ...StyleSheet.absoluteFillObject,
     overflow: "hidden",
-    backgroundColor: "#F2F4EC",
+    backgroundColor: colors.mapLand,
   },
   water: {
     position: "absolute",
@@ -188,8 +189,8 @@ const styles = StyleSheet.create({
   district: {
     position: "absolute",
     borderWidth: 1,
-    borderColor: "#E1E5DA",
-    backgroundColor: "#F8F8F2",
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     borderRadius: 30,
   },
   districtOne: {
@@ -215,7 +216,7 @@ const styles = StyleSheet.create({
   },
   road: {
     position: "absolute",
-    backgroundColor: "#E3E2D9",
+    backgroundColor: colors.mapRoad,
     borderRadius: 99,
     opacity: 0.9,
   },
@@ -256,7 +257,7 @@ const styles = StyleSheet.create({
   },
   mapLabel: {
     position: "absolute",
-    color: "#AAA99E",
+    color: colors.textMuted,
     fontFamily: fonts.semibold, fontWeight: '600',
     fontSize: 12,
     letterSpacing: 1,
@@ -271,7 +272,7 @@ const styles = StyleSheet.create({
     marginLeft: -6,
     marginTop: -6,
     borderRadius: 6,
-    backgroundColor: colors.text,
+    backgroundColor: colors.primary,
     borderWidth: 3,
     borderColor: colors.surface,
   },
@@ -347,7 +348,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 99,
-    backgroundColor: colors.text,
+    backgroundColor: colors.primary,
     shadowColor: colors.shadow,
     shadowOpacity: 0.16,
     shadowRadius: 10,

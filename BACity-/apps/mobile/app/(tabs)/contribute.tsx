@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { AnimatedPressable as Pressable } from '../../src/components/motion/Motion';
+import { AppIcon } from "../../src/components/AppIcon";
 import { TemporalField } from "../../src/components/TemporalField";
 import { AreaWatchMapPicker } from "../../src/components/AreaWatchMapPicker";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -44,7 +45,7 @@ export default function ContributeScreen() {
         {kind !== "events" && <Toggle label="Wheelchair accessible" value={accessible} onChange={setAccessible} />}
         <Button title="Next: review & details" onPress={() => setStep(2)} />
       </View>}
-      {step === 2 && <View style={styles.section}><View style={styles.review}><Ionicons name={kind === "events" ? "calendar-outline" : "location-outline"} size={32} color={colors.primary} /><Text style={styles.sectionTitle}>{fields.name || "Your contribution"}</Text><Text style={styles.intro}>{fields.address || "Address not yet supplied"}</Text><Text style={styles.hint}>Every contribution is reviewed. You don't need a crawlable website to share an event.</Text></View>
+      {step === 2 && <View style={styles.section}><View style={styles.review}><AppIcon name={kind === "events" ? "calendar-outline" : "location-outline"} size={32} color={colors.primary} /><Text style={styles.sectionTitle}>{fields.name || "Your contribution"}</Text><Text style={styles.intro}>{fields.address || "Address not yet supplied"}</Text><Text style={styles.hint}>Every contribution is reviewed. You don't need a crawlable website to share an event.</Text></View>
         {field("source_url", kind === "events" ? "Original event website (optional, HTTPS)" : "Source website (optional, HTTPS)")}
         {kind === "events" && <>{field("public_source_url", "Public organizer/calendar website (optional)")}{field("image_url", "Image website (optional, HTTPS)")}{field("ticket_url", "Ticket website (optional, HTTPS)")}{field("price", "Price in EUR (leave blank if unknown)")}</>}
         <Button title="Submit for review" busy={busy} onPress={submit} />

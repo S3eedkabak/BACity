@@ -1,10 +1,12 @@
-import { Ionicons } from "@expo/vector-icons";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { AppIcon } from "../../src/components/AppIcon";
+import { FlatList, StyleSheet, Text, View } from "react-native";
+import { AnimatedPressable as Pressable } from '../../src/components/motion/Motion';
 import { useAuthStore } from "../../src/store/authStore";
 import { useSavedEvents, useToggleSaveEvent } from "../../src/hooks/useEvents";
 import { EventCard } from "../../src/components/EventCard";
 import { EmptyState } from "../../src/components/EmptyState";
 import { LoadingState } from "../../src/components/LoadingState";
+import { useMeaningfulLoading } from '../../src/components/loading/LoadingExperience';
 import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
 import { router } from "expo-router";
@@ -14,13 +16,14 @@ export default function SavedScreen() {
   const token = useAuthStore((s) => s.token);
   const { data, isLoading, isError, isRefetching, refetch } = useSavedEvents();
   const save = useToggleSaveEvent();
+  useMeaningfulLoading('saved', !!token && isLoading && !data);
 
   if (!token) {
     return (
       <View style={styles.guest}>
         <View style={styles.guestShape}>
           <View style={styles.guestIcon}>
-            <Ionicons name="heart" size={25} color={colors.white} />
+            <AppIcon name="heart" size={25} color={colors.white} />
           </View>
         </View>
         <Text style={styles.eyebrow}>YOUR PLANS</Text>
@@ -33,13 +36,13 @@ export default function SavedScreen() {
           onPress={() => router.push({ pathname: "/auth", params: { mode: "login" } })}
         >
           <Text style={styles.loginText}>Log in to save events</Text>
-          <Ionicons name="arrow-forward" size={17} color={colors.white} />
+          <AppIcon name="arrow-forward" size={17} color={colors.white} />
         </Pressable>
       </View>
     );
   }
 
-  if (isLoading) return <LoadingState />;
+  if (isLoading) return <LoadingState variant="saved" />;
   if (isError && !data) {
     return <EmptyState title="Couldn't load saved events" subtitle="Your library is still yours. Check your connection." action="Try again" onAction={() => void refetch()} />;
   }
@@ -69,10 +72,7 @@ export default function SavedScreen() {
       renderItem={({ item }) => <EventCard variant="saved" event={item} saved saving={save.isPending && save.variables?.id === item.id} onToggleSave={() => save.mutate({ id: item.id, saved: true })} />}
       ListEmptyComponent={
         <View style={styles.emptyWrap}>
-          <View style={styles.emptyIcon}>
-            <Ionicons name="heart-outline" size={24} color={colors.primary} />
-          </View>
-          <EmptyState title="Nothing saved yet" subtitle="Your best finds will collect here." />
+          <EmptyState scene="saved" title="Your next plan starts here" subtitle="Save an event that catches your eye. Your best finds will collect here." action="Explore events" onAction={() => router.push('/(tabs)/explore')} />
         </View>
       }
     />
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
   loginButton: {
     height: 52,
     borderRadius: 17,
-    backgroundColor: colors.text,
+    backgroundColor: colors.primary,
     paddingHorizontal: 18,
     flexDirection: "row",
     alignItems: "center",

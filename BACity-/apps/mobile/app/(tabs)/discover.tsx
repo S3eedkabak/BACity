@@ -1,8 +1,9 @@
-import { Ionicons } from "@expo/vector-icons";
+import { AppIcon } from "../../src/components/AppIcon";
 import { router } from "expo-router";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, View } from "react-native";
+import { AnimatedPressable as Pressable } from '../../src/components/motion/Motion';
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getNotifications } from "../../src/api/community";
 import { apiRequest } from "../../src/api/client";
@@ -25,6 +26,8 @@ import { fonts } from "../../src/theme/fonts";
 import { EventOut } from "../../src/types/event";
 import { eveningPlanRoute } from "../../src/evening/presentation";
 import { weekendPlanRoute } from "../../src/weekend/presentation";
+import { tokens } from '../../src/theme/tokens';
+import { useEventNavigation } from '../../src/hooks/useEventNavigation';
 
 const FILTERS = ["All", "Music", "Culture", "Nightlife", "Free"];
 
@@ -48,10 +51,11 @@ function priceLabel(event: EventOut) {
 }
 
 function FeaturedEvent({ event }: { event: EventOut }) {
+  const openEvent = useEventNavigation();
   const date = dateParts(event.start_time);
   return (
     <Pressable
-      onPress={() => router.push("/event/" + event.id)}
+      onPress={() => openEvent(event.id)}
       style={({ pressed }) => [styles.featured, pressed && styles.pressed]}
     >
       <EventMedia uri={event.image_url} category={event.category} style={styles.featuredImage} />
@@ -73,7 +77,7 @@ function FeaturedEvent({ event }: { event: EventOut }) {
           {event.title}
         </Text>
         <View style={styles.metaRow}>
-          <Ionicons name="location-outline" size={15} color={colors.white} />
+          <AppIcon name="location-outline" size={15} color={colors.white} />
           <Text style={styles.metaText} numberOfLines={1}>
             {event.venue?.name ?? event.address ?? "Bratislava"}
           </Text>
@@ -88,7 +92,7 @@ function FeaturedEvent({ event }: { event: EventOut }) {
 function LocationPreference({ location }: { location: ReturnType<typeof useRecommendationLocation> }) {
   if (location.enabled === null) {
     return <View style={styles.locationCard}>
-      <View style={styles.locationIcon}><Ionicons name="navigate-outline" size={19} color={colors.primaryDark} /></View>
+      <View style={styles.locationIcon}><AppIcon name="navigate-outline" size={19} color={colors.primaryDark} /></View>
       <View style={styles.locationCopy}>
         <Text style={styles.locationTitle}>Find events near you</Text>
         <Text style={styles.locationText}>BACity can use one approximate, foreground location. You can continue without it.</Text>
@@ -119,7 +123,7 @@ function LocationPreference({ location }: { location: ReturnType<typeof useRecom
                   : "Location-based recommendations are off";
 
   return <View style={styles.locationStatus}>
-    <Ionicons name={location.status === "granted" ? "navigate" : "navigate-outline"} size={16} color={colors.primaryDark} />
+    <AppIcon name={location.status === "granted" ? "navigate" : "navigate-outline"} size={16} color={colors.primaryDark} />
     <Text style={styles.locationStatusText}>{statusCopy}</Text>
     {location.status === "blocked" ? <Pressable onPress={() => void location.openSettings()}><Text style={styles.locationLink}>Settings</Text></Pressable> : null}
     {location.enabled && ["denied", "unavailable", "timeout", "error"].includes(location.status) ? <Pressable onPress={() => void location.retry()}><Text style={styles.locationLink}>Retry</Text></Pressable> : null}
@@ -138,9 +142,9 @@ function TonightEntry() {
       onPress={onPress}
       style={({ pressed }) => [styles.tonightEntry, pressed && styles.pressed, loading && styles.tonightDisabled]}
     >
-      <View style={styles.tonightIcon}><Ionicons name="moon" size={21} color={colors.white} /></View>
+      <View style={styles.tonightIcon}><AppIcon name="moon" size={21} color={colors.white} /></View>
       <View style={styles.tonightCopy}><Text style={styles.tonightTitle}>Tonight / Right Now</Text><Text style={styles.tonightText}>A small set of realistic options for this evening.</Text></View>
-      {loading ? <ActivityIndicator color={colors.primaryDark} /> : <Ionicons name="chevron-forward" size={18} color="#FFF8F4" />}
+      {loading ? <ActivityIndicator color={colors.primaryDark} /> : <AppIcon name="chevron-forward" size={18} color="#FFF8F4" />}
     </Pressable>}
   </PlusGateAction>;
 }
@@ -154,9 +158,9 @@ function EveningPlanEntry() {
       onPress={onPress}
       style={({ pressed }) => [styles.tonightEntry, pressed && styles.pressed, loading && styles.tonightDisabled]}
     >
-      <View style={styles.eveningIcon}><Ionicons name="sparkles" size={21} color={colors.white} /></View>
+      <View style={styles.eveningIcon}><AppIcon name="sparkles" size={21} color={colors.white} /></View>
       <View style={styles.tonightCopy}><Text style={styles.tonightTitle}>Build My Evening</Text><Text style={styles.tonightText}>Turn a free evening into a realistic plan.</Text></View>
-      {loading ? <ActivityIndicator color={colors.primaryDark} /> : <Ionicons name="chevron-forward" size={18} color="#FFF8F4" />}
+      {loading ? <ActivityIndicator color={colors.primaryDark} /> : <AppIcon name="chevron-forward" size={18} color="#FFF8F4" />}
     </Pressable>}
   </PlusGateAction>;
 }
@@ -170,9 +174,9 @@ function WeekendPlanEntry() {
       onPress={onPress}
       style={({ pressed }) => [styles.tonightEntry, pressed && styles.pressed, loading && styles.tonightDisabled]}
     >
-      <View style={styles.weekendIcon}><Ionicons name="calendar" size={21} color={colors.white} /></View>
+      <View style={styles.weekendIcon}><AppIcon name="calendar" size={21} color={colors.white} /></View>
       <View style={styles.tonightCopy}><Text style={styles.tonightTitle}>Weekend Generator</Text><Text style={styles.tonightText}>Build a realistic Saturday, Sunday, or full weekend.</Text></View>
-      {loading ? <ActivityIndicator color={colors.primaryDark} /> : <Ionicons name="chevron-forward" size={18} color="#FFF8F4" />}
+      {loading ? <ActivityIndicator color={colors.primaryDark} /> : <AppIcon name="chevron-forward" size={18} color="#FFF8F4" />}
     </Pressable>}
   </PlusGateAction>;
 }
@@ -184,9 +188,9 @@ function GroupsEntry() {
     onPress={() => router.push("/groups")}
     style={({ pressed }) => [styles.tonightEntry, pressed && styles.pressed]}
   >
-    <View style={styles.groupsIcon}><Ionicons name="people" size={21} color={colors.white} /></View>
+    <View style={styles.groupsIcon}><AppIcon name="people" size={21} color={colors.white} /></View>
     <View style={styles.tonightCopy}><Text style={styles.tonightTitle}>Groups & Group Match</Text><Text style={styles.tonightText}>Create with BACity+, or join and vote for free.</Text></View>
-    <Ionicons name="chevron-forward" size={18} color="#FFF8F4" />
+    <AppIcon name="chevron-forward" size={18} color="#FFF8F4" />
   </Pressable>;
 }
 
@@ -200,14 +204,15 @@ function AreaWatchEntry() {
       onPress={onPress}
       style={({ pressed }) => [styles.tonightEntry, pressed && styles.pressed, loading && styles.tonightDisabled]}
     >
-      <View style={styles.areaWatchIcon}><Ionicons name="radio-outline" size={21} color={colors.white} /></View>
+      <View style={styles.areaWatchIcon}><AppIcon name="radio-outline" size={21} color={colors.white} /></View>
       <View style={styles.tonightCopy}><Text style={styles.tonightTitle}>Area Watch</Text><Text style={styles.tonightText}>See newly discovered activity in an area you choose.</Text></View>
-      <Ionicons name="chevron-forward" size={18} color="#FFF8F4" />
+      <AppIcon name="chevron-forward" size={18} color="#FFF8F4" />
     </Pressable>}
   </PlusGateAction>;
 }
 
 export default function HomeScreen() {
+  const revealed = useRef(new Set<string>());
   const user = useAuthStore((state) => state.user);
   const token = useAuthStore((state) => state.token);
   const location = useRecommendationLocation(!!token);
@@ -247,7 +252,7 @@ export default function HomeScreen() {
     </View>
     <View style={styles.intro}>
       <Text style={styles.kicker}>{user ? "YOUR BRATISLAVA" : "LIVE MOMENT"}</Text>
-      <Text style={styles.headline}>Explore <Text style={styles.headlineAccent}>the city</Text></Text>
+      <Text style={styles.headline}>Bratislava,<Text style={styles.headlineAccent}>{'\n'}what’s happening?</Text></Text>
       <Text style={styles.subtitle}>{user ? "A feed shaped by your interests, saves and local follows." : "Fresh events around Bratislava, with or without an account."}</Text>
     </View>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
@@ -255,7 +260,7 @@ export default function HomeScreen() {
         <Text style={[styles.filterText, index === 0 && styles.filterTextActive]}>{filter}</Text>
       </Pressable>)}
     </ScrollView>
-    {fallback.isError ? <EmptyState
+    {fallback.isError && !featured ? <EmptyState
       title="The city feed is offline"
       subtitle="Check the API connection and try again."
       action="Try again"
@@ -283,9 +288,9 @@ export default function HomeScreen() {
       {promotions.data.slice(0, 2).map((item) => <EventCard key={item.event.id} event={item.event} explanation={item.label} />)}
     </> : null}
     <Pressable style={styles.communityBanner} onPress={() => router.push("/(tabs)/contribute")}>
-      <View style={styles.communityIcon}><Ionicons name="people-outline" size={20} color={colors.primaryDark} /></View>
+      <View style={styles.communityIcon}><AppIcon name="people-outline" size={20} color={colors.primaryDark} /></View>
       <View style={styles.communityCopy}><Text style={styles.communityTitle}>Know something we don’t?</Text><Text style={styles.communityText}>Add an event or local tip and help the city stay current.</Text></View>
-      <Ionicons name="arrow-forward" size={18} color={colors.text} />
+      <AppIcon name="arrow-forward" size={18} color={colors.text} />
     </Pressable>
   </>;
 
@@ -293,13 +298,17 @@ export default function HomeScreen() {
     <FlatList
       data={loading && !items.length ? [] : items}
       keyExtractor={(item) => item.event.id}
-      renderItem={({ item }) => <EventCard
+      renderItem={({ item, index }) => {
+        const entranceDelay = index < 3 && !revealed.current.has(item.event.id) ? index * tokens.motion.stagger : undefined;
+        revealed.current.add(item.event.id);
+        return <EventCard
+        entranceDelay={entranceDelay}
         event={item.event}
         explanation={preferredExplanation(item.reasons)}
         saved={item.saved}
         saving={save.isPending && save.variables?.id === item.event.id}
         onToggleSave={token ? () => save.mutate({ id: item.event.id, saved: item.saved }) : undefined}
-      />}
+      />; }}
       ListHeaderComponent={header}
       ListFooterComponent={footer}
       contentContainerStyle={styles.content}
@@ -324,36 +333,36 @@ const styles = StyleSheet.create({
   content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 18, paddingTop: 12, paddingBottom: 112 },
   premiumRail: { gap: 12, paddingBottom: 8 },
   topbar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 26 },
-  topActions: { flexDirection: "row", alignItems: "center", gap: 7 },
+  topActions: { flexDirection: "row", alignItems: "center", gap: 0 },
   intro: { marginBottom: 17 },
   kicker: { color: colors.primaryDark, fontFamily: fonts.black, fontWeight: '800', fontSize: 12, letterSpacing: 1.7 },
   headline: { color: colors.text, fontFamily: fonts.regular, fontSize: 38, lineHeight: 41, letterSpacing: -1.7, marginTop: 5 },
   headlineAccent: { fontFamily: fonts.black, fontWeight: '800', fontStyle: "italic" },
-  subtitle: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, marginTop: 8, maxWidth: 335 },
+  subtitle: { color: colors.textMuted, ...tokens.type.metadata, marginTop: 12, maxWidth: 335 },
   filters: { gap: 8, paddingRight: 10, paddingBottom: 16 },
   filter: { paddingHorizontal: 16, minHeight: 44, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
   filterActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   filterText: { color: colors.textMuted, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
   filterTextActive: { color: colors.white },
-  tonightEntry: { width: 270, minHeight: 150, flexDirection: 'column', alignItems: 'flex-start', gap: 12, backgroundColor: '#292336', borderRadius: 28, padding: 20 },
+  tonightEntry: { width: 270, minHeight: 150, flexDirection: 'column', alignItems: 'flex-start', gap: 12, backgroundColor: colors.surfaceAlt, borderRadius: tokens.radius.lg, padding: tokens.space.lg },
   tonightDisabled: { opacity: .65 }, tonightIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
-  eveningIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: colors.primaryDark, alignItems: "center", justifyContent: "center" },
-  weekendIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: "#7557A8", alignItems: "center", justifyContent: "center" },
-  groupsIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: "#347A72", alignItems: "center", justifyContent: "center" },
-  areaWatchIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: "#426CA8", alignItems: "center", justifyContent: "center" },
-  tonightCopy: { flex: 1 }, tonightTitle: { color: '#FFF8F4', fontWeight: '700', fontSize: 19 }, tonightText: { color: '#C6BDCF', fontSize: 13, lineHeight: 19, marginTop: 6 },
+  eveningIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
+  weekendIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
+  groupsIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
+  areaWatchIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
+  tonightCopy: { flex: 1 }, tonightTitle: { color: colors.text, fontWeight: '700', fontSize: 19 }, tonightText: { color: colors.textMuted, ...tokens.type.metadata, marginTop: 6 },
   featured: {
     height: 408,
     borderRadius: 28,
     overflow: "hidden",
     backgroundColor: colors.primarySoft,
     shadowColor: colors.shadow,
-    shadowOpacity: 0.18,
+    shadowOpacity: 0,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 9 },
     elevation: 6,
   },
-  pressed: { opacity: 0.95, transform: [{ scale: 0.992 }] },
+  pressed: { opacity: 0.95 },
   featuredImage: { width: "100%", height: "100%" },
   featuredShade: {
     ...StyleSheet.absoluteFillObject,
@@ -368,7 +377,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   dateBadge: {
-    backgroundColor: "rgba(255,255,255,0.94)",
+    backgroundColor: colors.mediaOverlay,
     borderRadius: 17,
     paddingHorizontal: 11,
     paddingVertical: 9,

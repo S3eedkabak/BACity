@@ -1,33 +1,39 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { router } from 'expo-router';
+import { AppIcon } from "./AppIcon";
+import { StyleSheet, Text, View } from 'react-native';
+import { AnimatedPressable as Pressable } from './motion/Motion';
 import { EventOut } from '../types/event';
 import { colors } from '../theme/colors';
 import { tokens } from '../theme/tokens';
 import { EventMedia } from './EventMedia';
+import { useState } from 'react';
+import { Reveal } from './motion/Motion';
+import { useEventNavigation } from '../hooks/useEventNavigation';
 
 export type EventCardVariant = 'hero' | 'feed' | 'horizontal' | 'compact' | 'map' | 'saved' | 'planner' | 'premium' | 'organizer';
-export function EventCard({ event, explanation, saved, saving = false, onToggleSave, variant = 'feed' }: {
-  event: EventOut; explanation?: string; saved?: boolean; saving?: boolean; onToggleSave?: () => void; variant?: EventCardVariant;
+export function EventCard({ event, explanation, saved, saving = false, onToggleSave, variant = 'feed', entranceDelay }: {
+  event: EventOut; explanation?: string; saved?: boolean; saving?: boolean; onToggleSave?: () => void; variant?: EventCardVariant; entranceDelay?: number;
 }) {
+  const [initialDelay] = useState(entranceDelay);
+  const openEvent = useEventNavigation();
   const compact = ['compact', 'map', 'planner'].includes(variant);
   const premium = variant === 'premium';
   const date = new Date(event.start_time);
-  return <Pressable accessibilityRole="button" accessibilityLabel={`Open ${event.title}`} onPress={() => router.push('/event/' + event.id)}
+  const card = <Pressable accessibilityRole="button" accessibilityLabel={`Open ${event.title}`} onPress={() => openEvent(event.id)}
     style={({ pressed }) => [styles.card, compact && styles.compact, variant === 'horizontal' && styles.rail, premium && styles.premium, pressed && styles.pressed]}>
     <View style={[styles.mediaWrap, variant === 'hero' && styles.heroMedia, variant === 'horizontal' && styles.railMedia, variant === 'saved' && styles.savedMedia, variant === 'organizer' && styles.organizerMedia, compact && styles.compactMedia]}>
       <EventMedia uri={event.image_url} category={event.category} style={StyleSheet.absoluteFill} />
       {!compact && <View style={styles.mediaMeta}><Text style={styles.tag}>{event.category}</Text><Text style={styles.tag}>{event.price === 0 ? 'Free' : event.price == null ? 'Price unknown' : `${event.price} ${event.currency || 'EUR'}`}</Text></View>}
       {onToggleSave && <Pressable accessibilityRole="button" accessibilityLabel={saved ? 'Remove from saved events' : 'Save event'} accessibilityState={{ checked: !!saved, disabled: saving }} disabled={saving}
-        onPress={press => { press.stopPropagation(); onToggleSave(); }} style={styles.save}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={22} color={colors.text} /></Pressable>}
+        onPress={press => { press.stopPropagation(); onToggleSave(); }} style={styles.save}><AppIcon name={saved ? 'bookmark' : 'bookmark-outline'} size={22} color={colors.text} /></Pressable>}
     </View>
     <View style={styles.body}>
       {explanation && <Text style={[styles.reason, premium && styles.premiumReason]} numberOfLines={2}>{explanation}</Text>}
       <Text style={[styles.when, premium && styles.light]}>{date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })} · {date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</Text>
       <Text style={[styles.title, compact && styles.compactTitle, premium && styles.light]} numberOfLines={2}>{event.title}</Text>
-      <View style={styles.location}><Ionicons name="location-outline" size={16} color={premium ? tokens.premium.muted : colors.textMuted} /><Text style={[styles.venue, premium && styles.light]} numberOfLines={1}>{event.venue?.name || event.address || 'Bratislava'}</Text></View>
+      <View style={styles.location}><AppIcon name="location-outline" size={16} color={premium ? tokens.premium.muted : colors.textMuted} /><Text style={[styles.venue, premium && styles.light]} numberOfLines={1}>{event.venue?.name || event.address || 'Bratislava'}</Text></View>
     </View>
   </Pressable>;
+  return initialDelay == null ? card : <Reveal delay={initialDelay}>{card}</Reveal>;
 }
 const styles = StyleSheet.create({
   card: { marginBottom: 24, borderRadius: tokens.radius.lg, backgroundColor: colors.surface, overflow: 'hidden' },

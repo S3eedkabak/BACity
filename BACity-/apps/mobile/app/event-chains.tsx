@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { AnimatedPressable as Pressable } from '../src/components/motion/Motion';
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { AppIcon } from "../src/components/AppIcon";
 import { EventChainItem, EventChainMode } from "../src/api/eventChains";
 import { EmptyState } from "../src/components/EmptyState";
 import { ScreenHeader, SkeletonList } from "../src/components/SocialUI";
@@ -13,7 +14,6 @@ import { usePlusGate } from "../src/plus/usePlusGate";
 import { colors } from "../src/theme/colors";
 import { fonts } from "../src/theme/fonts";
 import { PremiumIntro, PlanStop } from "../src/components/PremiumUI";
-import { useBACityWaiting } from "../src/components/BACityMotion";
 
 const MODES: { value: EventChainMode; label: string }[] = [
   { value: "before", label: "Before" },
@@ -31,7 +31,6 @@ export default function EventChainsScreen() {
   const [mode, setMode] = useState<EventChainMode>("full");
   const [alternative, setAlternative] = useState(0);
   const query = useEventChains(anchorEventId, mode, gate.decision === "allow");
-  useBACityWaiting(gate.decision === "allow" && query.isPending && !query.data, "Finding events that fit together");
   const chains = query.data?.chains ?? [];
   const state = resolveEventChainsView(gate.decision, query.isPending, query.isError, chains.length);
 
