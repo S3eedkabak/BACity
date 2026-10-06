@@ -10,8 +10,13 @@ import { BrandMark } from '../BrandMark';
 import { AnimatedPressable, SkeletonPulse } from '../motion/Motion';
 import { RiveCharacter } from './RiveCharacter';
 
-type Entry = { id: symbol; context: LoadingContext };
-const Context = createContext<{ add: (entry: Entry) => () => void } | null>(null);
+type Entry = { id: symbol; context: LoadingContext; graceMs?: number; minimumVisibleMs?: number };
+type LoadingExperienceApi = {
+  add: (entry: Entry) => () => void;
+  beginMajor: (context: LoadingContext) => void;
+  finishMajor: (context: LoadingContext) => void;
+};
+const Context = createContext<LoadingExperienceApi | null>(null);
 /** One owner across session cache remounts. Explicit pending-without-data only. */
 export function LoadingExperienceProvider({ children }: PropsWithChildren) {
   const [entries, setEntries] = useState<Entry[]>([]);
@@ -22,12 +27,28 @@ export function LoadingExperienceProvider({ children }: PropsWithChildren) {
   const opacity = useSharedValue(0);
   const presentation = useRef<LoadingPresentation>();
   const lastContext = useRef<LoadingContext>();
+  const majorEntries = useRef(new Map<LoadingContext, symbol>());
   const selected = entries.at(-1);
   const add = useCallback((entry: Entry) => {
     setEntries(values => [...values.filter(value => value.id !== entry.id), entry]);
     return () => setEntries(values => values.filter(value => value.id !== entry.id));
   }, []);
-  const value = useMemo(() => ({ add }), [add]);
+  const beginMajor = useCallback((context: LoadingContext) => {
+    const previous = majorEntries.current.get(context);
+    const id = Symbol(context);
+    majorEntries.current.set(context, id);
+    setEntries(values => [
+      ...values.filter(value => value.id !== previous && value.context !== context),
+      { id, context, graceMs: 0, minimumVisibleMs: 420 },
+    ]);
+  }, []);
+  const finishMajor = useCallback((context: LoadingContext) => {
+    const id = majorEntries.current.get(context);
+    if (!id) return;
+    majorEntries.current.delete(context);
+    setEntries(values => values.filter(value => value.id !== id));
+  }, []);
+  const value = useMemo(() => ({ add, beginMajor, finishMajor }), [add, beginMajor, finishMajor]);
   const fail = useCallback(() => { setFailed(true); if (__DEV__) console.warn('[LoadingExperience] Rive unavailable; using branded fallback'); }, []);
   useEffect(() => {
     const listener = AppState.addEventListener('change', state => setActive(state === 'active'));
@@ -42,7 +63,8 @@ export function LoadingExperienceProvider({ children }: PropsWithChildren) {
         setFailed(false); setVisible(selected);
         opacity.value = withTiming(1, { duration: reduced ? 0 : LOADING_EXIT_MS });
         if (__DEV__) console.debug('[LoadingExperience]', selected.context, 'thresholdPassed=true', loadingRegistry[selected.context].animation);
-      }, () => { opacity.value = withTiming(0, { duration: reduced ? 0 : LOADING_EXIT_MS }); }, () => setVisible(undefined), undefined, reduced ? 0 : LOADING_EXIT_MS);
+      }, () => { opacity.value = withTiming(0, { duration: reduced ? 0 : LOADING_EXIT_MS }); }, () => setVisible(undefined), undefined,
+        reduced ? 0 : LOADING_EXIT_MS, selected.graceMs, reduced ? 0 : selected.minimumVisibleMs);
       presentation.current.start();
       return;
     }
@@ -58,7 +80,10 @@ export function LoadingExperienceProvider({ children }: PropsWithChildren) {
         {failed || reduced ? <SkeletonPulse><View style={styles.fallback} /></SkeletonPulse> : <RiveCharacter animation={loadingRegistry[visible.context].animation} onFailure={fail} />}
         <Text accessibilityRole="text" accessibilityLiveRegion="polite" style={styles.copy}>{loadingRegistry[visible.context].copy}</Text>
       </View>
-      {visible.context !== 'startup' && <AnimatedPressable accessibilityRole="button" accessibilityLabel="Go back" style={styles.back} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/discover')}><Text style={styles.copy}>Back</Text></AnimatedPressable>}
+      {visible.context !== 'startup' && <AnimatedPressable accessibilityRole="button" accessibilityLabel="Go back" style={styles.back} onPress={() => {
+        finishMajor(visible.context);
+        router.canGoBack() ? router.back() : router.replace('/(tabs)/discover');
+      }}><Text style={styles.copy}>Back</Text></AnimatedPressable>}
     </Animated.View>}
   </Context.Provider>;
 }
@@ -69,6 +94,23 @@ export function useMeaningfulLoading(context: LoadingContext, pendingWithoutData
   useEffect(() => {
     if (pendingWithoutData && focused) return provider?.add({ id: id.current, context });
   }, [provider, context, pendingWithoutData, focused]);
+}
+/** Immediate branded presentation for actual major work such as plan generation. */
+export function useBrandedLoading(context: LoadingContext, pending: boolean) {
+  const provider = useContext(Context);
+  const focused = useIsFocused();
+  const id = useRef(Symbol(context));
+  useEffect(() => {
+    if (pending && focused) return provider?.add({ id: id.current, context, graceMs: 0, minimumVisibleMs: 420 });
+  }, [provider, context, pending, focused]);
+}
+/** Cross-route major transitions are started by navigation and completed by destination readiness. */
+export function useMajorTransition() {
+  const provider = useContext(Context);
+  return useMemo(() => ({
+    begin: (context: LoadingContext) => provider?.beginMajor(context),
+    finish: (context: LoadingContext) => provider?.finishMajor(context),
+  }), [provider]);
 }
 // Root startup is outside navigation focus; use the same centralized presentation.
 export function useStartupLoading(pending: boolean) {

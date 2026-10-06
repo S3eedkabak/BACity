@@ -18,7 +18,6 @@ export default function OAuthScreen() {
     if (started.current || error || !code) return;
     started.current = true;
     completeOAuth(code)
-      .then(() => router.replace("/(tabs)/discover"))
       .catch((e: any) => setMessage(e?.message ?? "Sign in could not be completed"));
   }, [code, completeOAuth, error]);
 

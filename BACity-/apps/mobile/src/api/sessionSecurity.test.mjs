@@ -79,6 +79,24 @@ async function loadAuthStore(auth, logoutRequest = async () => {}) {
   return { state: exports.useAuthStore.getState(), storedToken: () => storedToken };
 }
 
+test('only successful registration publishes a new-entry marker atomically with identity', async () => {
+  setSessionToken(null);
+  const store = await loadAuthStore({ register: async () => ({ id: 'new' }), login: async () => ({ access_token: 'new-token' }), getMe: async () => ({ id: 'new' }) });
+  await store.state.register('new@example.com', 'password');
+  assert.equal(store.state.user.id, 'new');
+  assert.equal(store.state.entryKind, 'new');
+  await store.state.login('new@example.com', 'password');
+  assert.equal(store.state.entryKind, 'returning');
+  setSessionToken(null);
+});
+
+test('failed registration cannot mark an existing account as new', async () => {
+  const store = await loadAuthStore({ register: async () => { throw new Error('Rejected'); } });
+  await assert.rejects(store.state.register('old@example.com', 'password'));
+  assert.equal(store.state.entryKind, 'returning');
+  assert.equal(store.state.user, null);
+});
+
 test('logout clears identity before an unavailable backend answers', async () => {
   setSessionToken('account-a');
   let finish;

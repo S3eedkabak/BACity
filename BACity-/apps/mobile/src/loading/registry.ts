@@ -1,4 +1,13 @@
-export type LoadingContext = 'startup' | 'event-details' | 'saved' | 'explore' | 'search' | 'map';
+export type LoadingContext =
+  | 'startup'
+  | 'event-details'
+  | 'saved'
+  | 'explore'
+  | 'search'
+  | 'map'
+  | 'bacity-plus'
+  | 'plan-generation'
+  | 'weekend-generation';
 // Enumerated with @rive-app/canvas 2.44.0 against the supplied, unchanged file.
 // 800x1000 artboard; loop=1; durations are frames at 60fps (2s/4s/2s).
 // State Machine 1 has one NUMBER input "level"; no booleans/triggers.
@@ -15,4 +24,7 @@ export const loadingRegistry = {
   explore: { animation: 'Intermediate', copy: 'Finding something good…' },
   search: { animation: 'Beginner', copy: 'Looking around…' },
   map: { animation: 'Expert', copy: 'Putting the city on the map…' },
+  'bacity-plus': { animation: 'Intermediate', copy: 'Composing your city…' },
+  'plan-generation': { animation: 'Intermediate', copy: 'Building your evening…' },
+  'weekend-generation': { animation: 'Expert', copy: 'Building your weekend…' },
 } as const satisfies Record<LoadingContext, { animation: typeof walkAsset.cycles[number]; copy: string }>;

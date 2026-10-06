@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { BrandMark } from '../src/components/BrandMark';
 import { AppIcon } from '../src/components/AppIcon';
 import { CharacterMood } from '../src/components/illustrations/CharacterScene';
@@ -22,6 +23,22 @@ function ProgressTrack({ active }: { active: boolean }) {
   const fill = useAnimatedStyle(() => ({ opacity: progress.value }));
   return <View style={styles.progressTrack}><Animated.View style={[StyleSheet.absoluteFill, styles.progressActive, fill]} /></View>;
 }
+function CinematicScrim() {
+  return <View pointerEvents="none" style={StyleSheet.absoluteFill} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+    <Svg width="100%" height="100%">
+      <Defs><LinearGradient id="onboarding-scrim" x1="0%" y1="0%" x2="0%" y2="100%">
+        <Stop offset="0" stopColor="#100E12" stopOpacity=".12" />
+        <Stop offset=".20" stopColor="#100E12" stopOpacity=".06" />
+        <Stop offset=".45" stopColor="#100E12" stopOpacity=".10" />
+        <Stop offset=".60" stopColor="#100E12" stopOpacity=".32" />
+        <Stop offset=".75" stopColor="#100E12" stopOpacity=".72" />
+        <Stop offset=".90" stopColor="#100E12" stopOpacity=".96" />
+        <Stop offset="1" stopColor="#2A0F20" stopOpacity="1" />
+      </LinearGradient></Defs>
+      <Rect width="100%" height="100%" fill="url(#onboarding-scrim)" />
+    </Svg>
+  </View>;
+}
 const pages: { title: string; copy: string; mood: CharacterMood; label: string }[] = [
   { title: 'Your city.\nNot another quiet night.', copy: 'Discover real events in Bratislava. A concert, a gallery, a new corner of the city.', mood: 'intro', label: 'DISCOVER' },
   { title: 'Find your kind\nof going out.', copy: 'Music, culture, community. Your interests help BACity surface the things you care about.', mood: 'saved', label: 'MAKE IT YOURS' },
@@ -33,7 +50,7 @@ export default function WelcomeScreen() {
   const [page, setPage] = useState(0);
   const [providerBusy, setProviderBusy] = useState<Provider | null>(null);
   const [providers, setProviders] = useState<authApi.OAuthStatus | null>(null);
-  const { width, height } = useWindowDimensions();
+  const { height } = useWindowDimensions();
   useEffect(() => { authApi.oauthStatus().then(setProviders).catch(() => setProviders(null)); }, []);
 
   async function continueWith(provider: Provider) {
@@ -54,8 +71,11 @@ export default function WelcomeScreen() {
 
   const current = pages[page];
   const last = page === pages.length - 1;
-  return <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-    <StatusBar style="light" />
+  return <View style={styles.root}>
+    <OnboardingVideo />
+    <CinematicScrim />
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <StatusBar style="light" translucent backgroundColor="transparent" />
     <View style={styles.top}><BrandMark compact />
       <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: '/auth', params: { mode: 'login' } })} style={styles.link}><Text style={styles.linkText}>Log in</Text></Pressable>
     </View>
@@ -63,7 +83,6 @@ export default function WelcomeScreen() {
       {pages.map((_, index) => <ProgressTrack key={index} active={index <= page} />)}
     </View>
     <ScrollView contentContainerStyle={[styles.story, height < 700 && styles.compactStory]} showsVerticalScrollIndicator={false}>
-      <View style={[styles.scene, height < 700 && { marginBottom: 12 }]}><OnboardingVideo height={Math.min((width - 40) * 9 / 16, height < 700 ? (last ? 92 : 125) : 250)} /></View>
       <Reveal key={`text-${page}`} delay={tokens.motion.stagger}>
         <Text style={styles.eyebrow}>{current.label}</Text>
         <Text style={[styles.title, height < 700 && styles.compactTitle]}>{current.title}</Text>
@@ -82,19 +101,20 @@ export default function WelcomeScreen() {
         <Pressable accessibilityRole="button" onPress={() => router.replace('/(tabs)/discover')} style={styles.link}><Text style={styles.muted}>{last ? 'Explore without an account' : 'Skip for now'}</Text></Pressable>
       </View>
     </View>
-  </SafeAreaView>;
+    </SafeAreaView>
+  </View>;
 }
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
+  root: { flex: 1, backgroundColor: colors.background },
+  safe: { flex: 1, backgroundColor: 'transparent' },
   top: { paddingHorizontal: tokens.layout.gutter, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   progress: { flexDirection: 'row', gap: tokens.space.sm, paddingHorizontal: tokens.layout.gutter, marginTop: tokens.space.md },
   progressTrack: { height: 3, flex: 1, borderRadius: 2, backgroundColor: colors.border },
   progressActive: { backgroundColor: colors.primaryDark },
-  story: { flexGrow: 1, justifyContent: 'center', padding: tokens.space.xl, width: '100%', maxWidth: tokens.layout.maxWidth, alignSelf: 'center' },
-  compactStory: { paddingHorizontal: 20, paddingVertical: 12 },
+  story: { flexGrow: 1, justifyContent: 'flex-end', paddingHorizontal: tokens.space.xl, paddingTop: 180, paddingBottom: tokens.space.md, width: '100%', maxWidth: tokens.layout.maxWidth, alignSelf: 'center' },
+  compactStory: { paddingHorizontal: 20, paddingTop: 100, paddingBottom: 8 },
   compactTitle: { fontSize: 27, lineHeight: 30 },
   compactCopy: { fontSize: 14, lineHeight: 20, marginTop: 8 },
-  scene: { alignItems: 'center', marginBottom: tokens.space.lg },
   eyebrow: { ...tokens.type.caption, letterSpacing: 2, color: colors.primaryDark, marginBottom: tokens.space.md },
   title: { ...tokens.type.hero, color: colors.text },
   copy: { ...tokens.type.body, color: colors.textMuted, marginTop: tokens.space.md },

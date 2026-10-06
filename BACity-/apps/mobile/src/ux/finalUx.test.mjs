@@ -21,7 +21,8 @@ test('entry route is acknowledged before releasing overlay; callback remains sta
   const source = read('../../app/_layout.tsx');
   assert.match(source, /const finishEntry = useCallback/);
   assert.match(source, /if \(!navigation\?\.key \|\| completedOwner === userId\) return/);
-  assert.match(source, /destination === 'home'\) router.replace\('\/\(tabs\)\/discover'\)/);
+  assert.match(source, /destination === 'home' && navigatingOwner.current !== userId/);
+  assert.match(source, /router.replace\('\/\(tabs\)\/discover'\)/);
   assert.match(source, /destination === 'complete'\) setCompletedOwner\(finishedOwner\)/);
   assert.match(source, /useAuthStore.getState\(\).user\?\.id === userId/);
 });
@@ -71,11 +72,18 @@ test('session cache changes before descendants mount, initial query is not clear
   assert.match(source, /return \(\) => queryClient.clear\(\)/);
   assert.doesNotMatch(source, /setTimeout/);
 });
-test('Home retains hero, personalized feed, location and premium routes', () => {
+test('Home retains hero and feed while premium tools are consolidated behind one story entry', () => {
   const source = read('../../app/(tabs)/discover.tsx');
-  for (const name of ['FeaturedEvent', 'excludeFeaturedEvent', 'useRecommendations', 'LocationPreference', 'TonightEntry', 'EveningPlanEntry', 'WeekendPlanEntry', 'GroupsEntry', 'AreaWatchEntry']) assert.ok(source.includes(name));
-  assert.ok(source.indexOf('<FeaturedEvent') < source.indexOf('<SectionHeader title="Compose your city"'));
+  for (const name of ['FeaturedEvent', 'excludeFeaturedEvent', 'useRecommendations', 'PlusEntry', "router.push('/plus-experience')"]) assert.ok(source.includes(name));
+  for (const name of ['TonightEntry', 'EveningPlanEntry', 'WeekendPlanEntry', 'GroupsEntry', 'AreaWatchEntry', 'premiumRail']) assert.ok(!source.includes(name));
+  assert.ok(source.indexOf('<FeaturedEvent') < source.indexOf('<PlusEntry'));
   assert.doesNotMatch(source, /if \(fallback.isLoading\) return/);
+});
+test('BACity Plus is a closable story with real feature routes, segmented progress and directional taps', () => {
+  const source = read('../../app/plus-experience.tsx');
+  for (const value of ['StoryProgress', 'leftZone', 'rightZone', 'Exit BACity Plus', 'PlusGateAction', '/tonight', '/evening-plan', '/weekend-plan', '/groups', '/area-watches', '/(tabs)/explore']) assert.ok(source.includes(value));
+  assert.match(source, /direction\.value = next > page \? 1 : -1/);
+  assert.match(source, /useRecommendationLocation/);
 });
 test('media failures use local vector fallback; no arbitrary web stock imagery', () => {
   const source = read('../components/EventMedia.tsx');

@@ -6,6 +6,7 @@ import { AnimatedPressable as Pressable } from '../../src/components/motion/Moti
 import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useMajorTransition } from '../../src/components/loading/LoadingExperience';
 
 function CreateTabButton(props: any) {
   return (
@@ -26,6 +27,7 @@ function CreateTabButton(props: any) {
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  const major = useMajorTransition();
   return (
     <Tabs
       screenOptions={{
@@ -65,6 +67,9 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="map"
+        listeners={({ navigation }) => ({
+          tabPress: () => { if (!navigation.isFocused()) major.begin('map'); },
+        })}
         options={{
           title: "Map",
           tabBarIcon: ({ color, size, focused }) => (

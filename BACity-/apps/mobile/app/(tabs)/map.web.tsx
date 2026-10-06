@@ -3,12 +3,14 @@ import { StyleSheet, Text, View } from "react-native";
 import { AnimatedPressable as Pressable } from '../../src/components/motion/Motion';
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
+import { useIsFocused } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
 import type { EventOut } from "../../src/types/event";
 import { eventsInViewport } from "../../src/api/events";
 import { loadMapSnapshot, updateMapSnapshot } from "../../src/map/mapCache";
+import { useMajorTransition } from "../../src/components/loading/LoadingExperience";
 
 const BRATISLAVA = {
   latitude: 48.1486,
@@ -46,6 +48,8 @@ function project(latitude: number, longitude: number) {
 }
 
 export default function MapScreen() {
+  const focused = useIsFocused();
+  const major = useMajorTransition();
   const { data, isFetching, isError, refetch } = useQuery({
     queryKey: ["map-events-viewport", "web-bratislava"],
     queryFn: () => eventsInViewport(API_BOUNDS),
@@ -53,6 +57,12 @@ export default function MapScreen() {
     placeholderData: (previous) => previous,
   });
   const [cachedEvents, setCachedEvents] = useState<EventOut[]>([]);
+
+  useEffect(() => {
+    if (!focused) return;
+    const timer = setTimeout(() => major.finish('map'), 0);
+    return () => clearTimeout(timer);
+  }, [focused, major]);
 
   useEffect(() => {
     let active = true;

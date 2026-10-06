@@ -18,6 +18,7 @@ import { fonts } from "../src/theme/fonts";
 import { EventCategory } from "../src/types/event";
 import { PremiumIntro, PlanStop } from "../src/components/PremiumUI";
 import { TemporalField } from "../src/components/TemporalField";
+import { useBrandedLoading } from "../src/components/loading/LoadingExperience";
 
 const CATEGORIES: EventCategory[] = ["Music", "Culture", "Arts", "Nightlife", "Theatre", "Comedy", "Family", "Community"];
 const STRATEGY_LABELS = { best_match: "Best match", relaxed: "Relaxed", something_different: "Something different" } as const;
@@ -39,6 +40,7 @@ export default function EveningPlanScreen() {
   const [editing, setEditing] = useState(true);
   const location = useRecommendationLocation(gate.decision === "allow");
   const generation = useEveningPlans();
+  useBrandedLoading('plan-generation', generation.isPending);
   const plans = generation.data?.plans ?? [];
   const submitted = generation.data !== undefined || generation.isPending || generation.isError;
   const state = resolveEveningView(gate.decision, submitted, generation.isPending, generation.isError, plans.length);

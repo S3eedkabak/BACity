@@ -45,7 +45,7 @@ export default function AuthScreen() {
       } else {
         await register(email.trim(), password, displayName.trim() || undefined);
       }
-      router.replace("/(tabs)/discover");
+      // The root owns authenticated Home entry and its session greeting.
     } catch (e: any) {
       setError(e?.message ?? "Could not continue");
     } finally {
@@ -60,7 +60,7 @@ export default function AuthScreen() {
       if (!credential.identityToken || !credential.authorizationCode) throw new Error("Apple did not return complete sign-in credentials.");
       const displayName = [credential.fullName?.givenName, credential.fullName?.familyName].filter(Boolean).join(" ") || null;
       await completeNativeOAuth("apple", credential.identityToken, credential.authorizationCode, displayName);
-      router.replace("/(tabs)/discover");
+      // The root owns authenticated Home entry.
     } catch (e: any) {
       if (e?.code !== "ERR_REQUEST_CANCELED") setError(e?.message ?? "Apple sign in could not be completed");
     } finally { setBusy(false); }
@@ -79,7 +79,7 @@ export default function AuthScreen() {
       if (response.type !== "success") return;
       if (!response.data.idToken) throw new Error("Google did not return an identity token.");
       await completeNativeOAuth("google", response.data.idToken);
-      router.replace("/(tabs)/discover");
+      // The root owns authenticated Home entry.
     } catch (e: any) { setError(e?.message ?? "Google sign in could not be completed"); }
     finally { setBusy(false); }
   }

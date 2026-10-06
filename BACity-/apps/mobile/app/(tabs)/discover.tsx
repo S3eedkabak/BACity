@@ -20,14 +20,12 @@ import { useRecommendations } from "../../src/hooks/useRecommendations";
 import { excludeFeaturedEvent, selectFeaturedEvent } from "../../src/recommendations/homeFeed";
 import { useRecommendationLocation } from "../../src/recommendations/useRecommendationLocation";
 import { useAuthStore } from "../../src/store/authStore";
-import { PlusGateAction } from "../../src/plus/usePlusGate";
 import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
 import { EventOut } from "../../src/types/event";
-import { eveningPlanRoute } from "../../src/evening/presentation";
-import { weekendPlanRoute } from "../../src/weekend/presentation";
 import { tokens } from '../../src/theme/tokens';
 import { useEventNavigation } from '../../src/hooks/useEventNavigation';
+import { useMajorTransition } from '../../src/components/loading/LoadingExperience';
 
 const FILTERS = ["All", "Music", "Culture", "Nightlife", "Free"];
 
@@ -89,126 +87,13 @@ function FeaturedEvent({ event }: { event: EventOut }) {
   );
 }
 
-function LocationPreference({ location }: { location: ReturnType<typeof useRecommendationLocation> }) {
-  if (location.enabled === null) {
-    return <View style={styles.locationCard}>
-      <View style={styles.locationIcon}><AppIcon name="navigate-outline" size={19} color={colors.primaryDark} /></View>
-      <View style={styles.locationCopy}>
-        <Text style={styles.locationTitle}>Find events near you</Text>
-        <Text style={styles.locationText}>BACity can use one approximate, foreground location. You can continue without it.</Text>
-      </View>
-      <View style={styles.locationActions}>
-        <Pressable accessibilityRole="button" onPress={() => void location.enable()} style={styles.locationPrimary}><Text style={styles.locationPrimaryText}>Enable</Text></Pressable>
-        <Pressable accessibilityRole="button" onPress={() => void location.disable()} style={styles.locationSecondary}><Text style={styles.locationSecondaryText}>Not now</Text></Pressable>
-      </View>
-    </View>;
-  }
-
-  const statusCopy = location.status === "granted"
-    ? "Using an approximate current location"
-    : location.status === "locating"
-      ? "Finding your approximate location…"
-      : location.status === "blocked"
-        ? "BACity location is on, but OS permission is blocked"
-        : location.status === "denied"
-          ? "BACity location is on, but OS permission was denied"
-          : location.status === "unavailable"
-            ? "Location services are unavailable"
-            : location.status === "timeout"
-              ? "No location fix yet · check the emulator or GPS"
-              : location.status === "outside-area"
-                ? "Outside Bratislava · using the citywide feed"
-                : location.enabled
-                  ? "Location could not be read · using the citywide feed"
-                  : "Location-based recommendations are off";
-
-  return <View style={styles.locationStatus}>
-    <AppIcon name={location.status === "granted" ? "navigate" : "navigate-outline"} size={16} color={colors.primaryDark} />
-    <Text style={styles.locationStatusText}>{statusCopy}</Text>
-    {location.status === "blocked" ? <Pressable onPress={() => void location.openSettings()}><Text style={styles.locationLink}>Settings</Text></Pressable> : null}
-    {location.enabled && ["denied", "unavailable", "timeout", "error"].includes(location.status) ? <Pressable onPress={() => void location.retry()}><Text style={styles.locationLink}>Retry</Text></Pressable> : null}
-    <Pressable onPress={() => void (location.enabled ? location.disable() : location.enable())}>
-      <Text style={styles.locationLink}>{location.enabled ? "Turn off" : "Enable"}</Text>
-    </Pressable>
-  </View>;
-}
-
-function TonightEntry() {
-  return <PlusGateAction feature="tonight" onAllowed={() => router.push("/tonight")}>
-    {({ onPress, loading }) => <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Open Tonight and Right Now"
-      disabled={loading}
-      onPress={onPress}
-      style={({ pressed }) => [styles.tonightEntry, pressed && styles.pressed, loading && styles.tonightDisabled]}
-    >
-      <View style={styles.tonightIcon}><AppIcon name="moon" size={21} color={colors.white} /></View>
-      <View style={styles.tonightCopy}><Text style={styles.tonightTitle}>Tonight / Right Now</Text><Text style={styles.tonightText}>A small set of realistic options for this evening.</Text></View>
-      {loading ? <ActivityIndicator color={colors.primaryDark} /> : <AppIcon name="chevron-forward" size={18} color="#FFF8F4" />}
-    </Pressable>}
-  </PlusGateAction>;
-}
-
-function EveningPlanEntry() {
-  return <PlusGateAction feature="build_my_evening" onAllowed={() => router.push(eveningPlanRoute())}>
-    {({ onPress, loading }) => <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Build My Evening"
-      disabled={loading}
-      onPress={onPress}
-      style={({ pressed }) => [styles.tonightEntry, pressed && styles.pressed, loading && styles.tonightDisabled]}
-    >
-      <View style={styles.eveningIcon}><AppIcon name="sparkles" size={21} color={colors.white} /></View>
-      <View style={styles.tonightCopy}><Text style={styles.tonightTitle}>Build My Evening</Text><Text style={styles.tonightText}>Turn a free evening into a realistic plan.</Text></View>
-      {loading ? <ActivityIndicator color={colors.primaryDark} /> : <AppIcon name="chevron-forward" size={18} color="#FFF8F4" />}
-    </Pressable>}
-  </PlusGateAction>;
-}
-
-function WeekendPlanEntry() {
-  return <PlusGateAction feature="weekend_generator" onAllowed={() => router.push(weekendPlanRoute())}>
-    {({ onPress, loading }) => <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Open Weekend Generator"
-      disabled={loading}
-      onPress={onPress}
-      style={({ pressed }) => [styles.tonightEntry, pressed && styles.pressed, loading && styles.tonightDisabled]}
-    >
-      <View style={styles.weekendIcon}><AppIcon name="calendar" size={21} color={colors.white} /></View>
-      <View style={styles.tonightCopy}><Text style={styles.tonightTitle}>Weekend Generator</Text><Text style={styles.tonightText}>Build a realistic Saturday, Sunday, or full weekend.</Text></View>
-      {loading ? <ActivityIndicator color={colors.primaryDark} /> : <AppIcon name="chevron-forward" size={18} color="#FFF8F4" />}
-    </Pressable>}
-  </PlusGateAction>;
-}
-
-function GroupsEntry() {
-  return <Pressable
-    accessibilityRole="button"
-    accessibilityLabel="Open Groups and Group Match"
-    onPress={() => router.push("/groups")}
-    style={({ pressed }) => [styles.tonightEntry, pressed && styles.pressed]}
-  >
-    <View style={styles.groupsIcon}><AppIcon name="people" size={21} color={colors.white} /></View>
-    <View style={styles.tonightCopy}><Text style={styles.tonightTitle}>Groups & Group Match</Text><Text style={styles.tonightText}>Create with BACity+, or join and vote for free.</Text></View>
-    <AppIcon name="chevron-forward" size={18} color="#FFF8F4" />
+function PlusEntry({ onOpen }: { onOpen: () => void }) {
+  return <Pressable accessibilityRole="button" accessibilityLabel="Enter BACity Plus" onPress={onOpen} style={({ pressed }) => [styles.plusEntry, pressed && styles.pressed]}>
+    <View style={styles.plusGlow} />
+    <View style={styles.plusMark}><AppIcon name="sparkles" size={24} color={colors.white} /></View>
+    <View style={styles.plusCopy}><Text style={styles.plusLabel}>BACITÝ+</Text><Text style={styles.plusTitle}>Compose your city</Text><Text style={styles.plusText}>Plans made around your time, mood and city.</Text></View>
+    <View style={styles.plusArrow}><AppIcon name="arrow-forward" size={20} color={colors.white} /></View>
   </Pressable>;
-}
-
-function AreaWatchEntry() {
-  return <PlusGateAction feature="area_watch" onAllowed={() => router.push("/area-watches")}>
-    {({ onPress, loading }) => <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Open Area Watch"
-      accessibilityState={{ disabled: loading }}
-      disabled={loading}
-      onPress={onPress}
-      style={({ pressed }) => [styles.tonightEntry, pressed && styles.pressed, loading && styles.tonightDisabled]}
-    >
-      <View style={styles.areaWatchIcon}><AppIcon name="radio-outline" size={21} color={colors.white} /></View>
-      <View style={styles.tonightCopy}><Text style={styles.tonightTitle}>Area Watch</Text><Text style={styles.tonightText}>See newly discovered activity in an area you choose.</Text></View>
-      <AppIcon name="chevron-forward" size={18} color="#FFF8F4" />
-    </Pressable>}
-  </PlusGateAction>;
 }
 
 export default function HomeScreen() {
@@ -216,6 +101,7 @@ export default function HomeScreen() {
   const user = useAuthStore((state) => state.user);
   const token = useAuthStore((state) => state.token);
   const location = useRecommendationLocation(!!token);
+  const major = useMajorTransition();
   const recommendations = useRecommendations(!!token, location.coordinates);
   const fallback = useEvents({ limit: 24 });
   const activity = useQuery({ queryKey: ["notifications"], queryFn: getNotifications, enabled: !!token, staleTime: 30_000 });
@@ -269,11 +155,7 @@ export default function HomeScreen() {
       title="The city is quiet"
       subtitle="Fresh events will appear here as soon as BACity finds them."
     /> : <LoadingState />}
-    <SectionHeader title="Compose your city" action="BACity+" onAction={() => router.push('/plus')} />
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.premiumRail}>
-      <TonightEntry /><EveningPlanEntry /><WeekendPlanEntry /><GroupsEntry /><AreaWatchEntry />
-    </ScrollView>
-    {token ? <LocationPreference location={location} /> : null}
+    <PlusEntry onOpen={() => { major.begin('bacity-plus'); router.push('/plus-experience'); }} />
     <SectionHeader title={token ? "For you" : "Happening in Bratislava"} action="Explore" onAction={() => router.push("/(tabs)/explore")} />
     {loading ? <SkeletonList rows={5} /> : null}
     {failed && !items.length ? <EmptyState title="Your city feed is offline" subtitle="Cached content will remain when available. Check your connection and retry." action="Try again" onAction={() => void refresh()} /> : null}
@@ -331,7 +213,11 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   container: { flex: 1, backgroundColor: colors.background },
   content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 18, paddingTop: 12, paddingBottom: 112 },
-  premiumRail: { gap: 12, paddingBottom: 8 },
+  plusEntry: { minHeight: 142, overflow: 'hidden', borderRadius: 26, backgroundColor: '#50162F', padding: 19, marginTop: 22, marginBottom: 22, flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1, borderColor: '#7D3153' },
+  plusGlow: { position: 'absolute', width: 180, height: 180, borderRadius: 90, right: -45, top: -70, backgroundColor: colors.primary, opacity: .46 },
+  plusMark: { width: 48, height: 48, borderRadius: 17, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  plusCopy: { flex: 1, minWidth: 0 }, plusLabel: { color: colors.primaryDark, fontFamily: fonts.black, fontWeight: '800', fontSize: 11, letterSpacing: 1.6 }, plusTitle: { color: colors.white, fontFamily: fonts.black, fontWeight: '800', fontSize: 22, letterSpacing: -.7, marginTop: 5 }, plusText: { color: '#D4C0CA', fontFamily: fonts.regular, fontSize: 12, lineHeight: 17, marginTop: 4 },
+  plusArrow: { width: 42, height: 42, borderRadius: 15, backgroundColor: 'rgba(16,14,18,.32)', alignItems: 'center', justifyContent: 'center' },
   topbar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 26 },
   topActions: { flexDirection: "row", alignItems: "center", gap: 0 },
   intro: { marginBottom: 17 },

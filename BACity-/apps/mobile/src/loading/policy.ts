@@ -1,8 +1,8 @@
 export const LOADING_GRACE_MS = 500;
 export const LOADING_EXIT_MS = 180;
 export const LOADING_MIN_VISIBLE_MS = 200;
-export function exitDelay(shownAt: number, now: number) {
-  return Math.max(0, LOADING_MIN_VISIBLE_MS - (now - shownAt));
+export function exitDelay(shownAt: number, now: number, minimumVisibleMs = LOADING_MIN_VISIBLE_MS) {
+  return Math.max(0, minimumVisibleMs - (now - shownAt));
 }
 // Explicit opt-in for local development only. Never changes API transport/cache.
 export function developmentDelay(enabled: boolean, value: string | undefined) {
@@ -24,18 +24,29 @@ export class LoadingPresentation {
   private hide: () => void;
   private clock: Clock;
   private exitMs: number;
-  constructor(show: () => void, exit: () => void, hide: () => void, clock: Clock = systemClock, exitMs = LOADING_EXIT_MS) {
+  private graceMs: number;
+  private minimumVisibleMs: number;
+  constructor(
+    show: () => void,
+    exit: () => void,
+    hide: () => void,
+    clock: Clock = systemClock,
+    exitMs = LOADING_EXIT_MS,
+    graceMs = LOADING_GRACE_MS,
+    minimumVisibleMs = LOADING_MIN_VISIBLE_MS,
+  ) {
     this.show = show; this.exit = exit; this.hide = hide; this.clock = clock; this.exitMs = exitMs;
+    this.graceMs = graceMs; this.minimumVisibleMs = minimumVisibleMs;
   }
   start() {
-    this.schedule(() => { this.shownAt = this.clock.now(); this.show(); }, LOADING_GRACE_MS);
+    this.schedule(() => { this.shownAt = this.clock.now(); this.show(); }, this.graceMs);
   }
   complete() {
     if (this.completed || this.disposed) return;
     this.completed = true;
     this.clear();
     if (this.shownAt === undefined) return;
-    const wait = exitDelay(this.shownAt, this.clock.now());
+    const wait = exitDelay(this.shownAt, this.clock.now(), this.minimumVisibleMs);
     this.schedule(this.exit, wait);
     this.schedule(this.hide, wait + this.exitMs);
   }

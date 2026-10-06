@@ -20,6 +20,7 @@ interface AuthState {
   token: string | null;
   user: authApi.UserOut | null;
   isLoading: boolean;
+  entryKind: 'new' | 'returning';
   hydrate: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, displayName?: string) => Promise<void>;
@@ -29,20 +30,21 @@ interface AuthState {
   refreshUser: () => Promise<void>;
 }
 
-async function persistSession(accessToken: string, set: (state: Partial<AuthState>) => void) {
+async function persistSession(accessToken: string, set: (state: Partial<AuthState>) => void, entryKind: 'new' | 'returning' = 'returning') {
   setSessionToken(accessToken);
   const revision = getSessionRevision();
   set({ token: accessToken, user: null });
   await persistStoredToken(accessToken);
   if (revision !== getSessionRevision()) return;
   const user = await authApi.getMe();
-  if (revision === getSessionRevision()) set({ user });
+  if (revision === getSessionRevision()) set({ user, entryKind });
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   token: null,
   user: null,
   isLoading: true,
+  entryKind: 'returning',
 
   hydrate: async () => {
     const startingRevision = getSessionRevision();
@@ -56,7 +58,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ token });
       try {
         const user = await authApi.getMe();
-        if (hydratedRevision === getSessionRevision()) set({ user });
+        if (hydratedRevision === getSessionRevision()) set({ user, entryKind: 'returning' });
       } catch {
         if (hydratedRevision !== getSessionRevision()) return;
         await persistStoredToken(null);
@@ -81,7 +83,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   register: async (email, password, displayName) => {
     await authApi.register(email, password, displayName);
-    await get().login(email, password);
+    const { access_token } = await authApi.login(email, password);
+    await persistSession(access_token, set, 'new');
   },
 
   completeOAuth: async (code) => {

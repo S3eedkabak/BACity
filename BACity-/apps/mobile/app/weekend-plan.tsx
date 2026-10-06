@@ -18,6 +18,7 @@ import type { EventCategory } from "../src/types/event";
 import { defaultWeekendStart, isChronologicalWeekendPlan, resolveWeekendView, validateWeekendStart, weekendEventRoute, weekendPlanNotice } from "../src/weekend/presentation";
 import { PremiumIntro, PlanStop } from "../src/components/PremiumUI";
 import { TemporalField } from "../src/components/TemporalField";
+import { useBrandedLoading } from "../src/components/loading/LoadingExperience";
 
 const CATEGORIES: EventCategory[] = ["Music", "Culture", "Arts", "Theatre", "Exhibitions", "Festivals", "Family", "Community"];
 const MODES: { value: WeekendMode; label: string }[] = [
@@ -55,6 +56,7 @@ export default function WeekendPlanScreen() {
   const [editing, setEditing] = useState(true);
   const location = useRecommendationLocation(gate.decision === "allow");
   const generation = useWeekendPlans();
+  useBrandedLoading('weekend-generation', generation.isPending);
   const plans = generation.data?.plans ?? [];
   const submitted = generation.data !== undefined || generation.isPending || generation.isError;
   const state = resolveWeekendView(gate.decision, submitted, generation.isPending, generation.isError, plans.length);

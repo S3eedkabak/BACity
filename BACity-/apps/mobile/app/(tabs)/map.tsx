@@ -7,6 +7,7 @@ import type {
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useIsFocused } from "@react-navigation/native";
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
 import { AnimatedPressable as Pressable } from '../../src/components/motion/Motion';
 import { colors } from "../../src/theme/colors";
@@ -29,6 +30,7 @@ import {
   buildEventFeatureCollection,
   hasValidMapCoordinates,
 } from "../../src/map/eventGeoJson";
+import { useMajorTransition } from "../../src/components/loading/LoadingExperience";
 
 // Expo Router evaluates route modules while building its web route context. Avoid
 // initializing the native MapLibre bridge during that discovery pass.
@@ -87,6 +89,8 @@ function distanceKm(a: Coordinates, b: Coordinates) {
 }
 
 export default function MapScreen() {
+  const focused = useIsFocused();
+  const major = useMajorTransition();
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraRef>(null);
   const mapRef = useRef<MapViewRef>(null);
@@ -104,6 +108,17 @@ export default function MapScreen() {
   const [currentLocation, setCurrentLocation] = useState<Coordinates | null>(
     null
   );
+
+  useEffect(() => {
+    if (focused && mapReady) major.finish('map');
+  }, [focused, mapReady, major]);
+  useEffect(() => {
+    if (!focused || mapReady) return;
+    // Never trap navigation if MapLibre/provider fails to emit a readiness event.
+    const timer = setTimeout(() => major.finish('map'), 8_000);
+    return () => clearTimeout(timer);
+  }, [focused, mapReady, major]);
+  useEffect(() => () => major.finish('map'), [major]);
 
   useEffect(() => {
     let active = true;
@@ -398,9 +413,14 @@ export default function MapScreen() {
           setBasemapUnavailable(false);
           setMapReady(true);
         }}
+        onDidFinishRenderingFrameFully={() => {
+          setBasemapUnavailable(false);
+          setMapReady(true);
+        }}
         onDidFailLoadingMap={() => {
           setBasemapUnavailable(true);
           setMapReady(false);
+          major.finish('map');
         }}
       >
         <Camera

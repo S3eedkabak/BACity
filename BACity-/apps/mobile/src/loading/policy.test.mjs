@@ -57,10 +57,11 @@ test('real browser timers keep their global receiver', () => {
   assert.match(read('./policy.ts'), /set: \(callback, ms\) => setTimeout\(callback, ms\)/);
   assert.match(read('./policy.ts'), /clear: timer => clearTimeout\(timer\)/);
 });
-test('video autoplay pauses offscreen/background, holds final frame and falls back safely', () => {
+test('full-bleed onboarding video loops, pauses offscreen/background and falls back safely', () => {
   const source = read('../components/OnboardingVideo.tsx');
-  assert.match(source, /focused && active && !finished/); assert.match(source, /useNativeControls=\{false\}/);
-  assert.match(source, /isLooping=\{false\}/); assert.match(source, /isMuted/); assert.match(source, /ResizeMode.COVER/);
+  assert.match(source, /focused && active/); assert.match(source, /useNativeControls=\{false\}/);
+  assert.match(source, /isLooping/); assert.match(source, /isMuted/); assert.match(source, /ResizeMode.COVER/);
+  assert.match(source, /StyleSheet\.absoluteFillObject/); assert.doesNotMatch(source, /borderRadius/);
   assert.match(source, /bratislava-poster.jpg/); assert.match(source, /setFailed\(true\)/); assert.match(source, /!failed && !reduced/);
 });
 test('only missing-data foreground loading integrates; cached refresh remains visible', () => {
@@ -69,4 +70,12 @@ test('only missing-data foreground loading integrates; cached refresh remains vi
   assert.match(read('../../app/(tabs)/saved.tsx'), /isLoading && !data/);
   assert.match(read('../../app/(tabs)/explore.tsx'), /!initialFinished.current/);
   assert.doesNotMatch(read('../../app/(tabs)/map.tsx'), /useMeaningfulLoading/);
+});
+test('central Rive system owns major Map, Plus and generation transitions', () => {
+  const provider = read('../components/loading/LoadingExperience.tsx');
+  assert.match(provider, /beginMajor/); assert.match(provider, /finishMajor/); assert.match(provider, /useBrandedLoading/);
+  assert.match(read('../../app/(tabs)/_layout.tsx'), /major\.begin\('map'\)/);
+  assert.match(read('../../app/(tabs)/map.tsx'), /onDidFinishRenderingFrameFully/);
+  assert.match(read('../../app/evening-plan.tsx'), /useBrandedLoading\('plan-generation', generation\.isPending\)/);
+  assert.match(read('../../app/weekend-plan.tsx'), /useBrandedLoading\('weekend-generation', generation\.isPending\)/);
 });

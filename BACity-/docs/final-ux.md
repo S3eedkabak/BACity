@@ -1,5 +1,15 @@
 # FINAL-UX — implementation ledger
 
+## UX adjustments — 2026-10-06
+
+This section supersedes the onboarding-card, hold-final-frame, Home premium-rail and Map-not-wired statements in the earlier media ledger. No backend, API, entitlement, billing, Map data/cache/marker or location-privacy behavior changed.
+
+- Onboarding now uses the supplied optimized MP4 as a full-viewport, cover-cropped, muted looping background. It has no radius, border or controls. The existing four steps, login/providers, registration, guest skip, Back and progress remain above an SVG cinematic scrim that is lightest over the upper/middle image and becomes near-black/dark-magenta beneath the copy and actions. Focus/background and reduced-motion poster behavior remain.
+- Home retains its featured hero and recommendation feed but replaces the five-card premium rail with one BACITÝ+ entry. The new `/plus-experience` route presents eight closable story pages for the actual implemented Tonight, Evening, Weekend, Event Chains, Groups, Area Watch and optional-location capabilities. Feature actions retain the existing fail-closed `PlusGateAction`; Groups participation remains free and Event Chains still begins from a real selected event. The existing `/plus` billing/paywall implementation is unchanged.
+- BACITÝ+ uses segmented progress, left/right tap zones, forward/reverse spatial Reanimated transitions, stagger-free physical page continuity and an always-visible exit. Location uses the existing request-scoped/coarsened foreground flow; no coordinates or story preferences are persisted.
+- The single root loading provider now also owns immediate branded major transitions. Map tab press starts the Expert character and MapLibre initializes behind it; native full-frame readiness ends it, Map failure also releases it, and an eight-second safety release prevents trapping. Web reveals after its coherent local map shell mounts. Home → BACITÝ+ uses Intermediate. Actual Evening generation uses Intermediate; actual Weekend generation uses Expert. No API delay was introduced and normal fast interactions remain immediate.
+- Responsive browser QA at390×844 verified full-bleed onboarding/control bounds, settled BACITÝ+ pages, forward overlap during transition, consolidated Home entry, real Rive BACITÝ+ entry, real Rive Map entry and clean Map reveal. Complete mobile tests: **116 passed**; TypeScript and Expo public config passed. All-platform Expo export passed: web2.22MB, Android4.19MB, iOS4.14MB. Native Android `assembleDebug`: **BUILD SUCCESSFUL**,986 tasks (75 executed/911 up-to-date). No native iOS runtime build is available on Windows.
+
 ## Current media/loading integration — 2026-10-06
 
 This section supersedes **only** the prior startup/vector/video-removal decisions below. The dark redesign remains. Branch FINAL-UX; existing uncommitted redesign preserved. No backend/API, authentication, location-consent, crawler, billing or entitlement changes.
@@ -179,3 +189,60 @@ The initial entry overlay dismissed without acknowledging Home. The per-identity
 The initial video started while hidden behind a separate static brand view. Entry media is now warmed using the existing Expo Asset dependency and a deduplicated local download; native playback uses the local file, begins only after display readiness, and contains the full portrait frame rather than cropping it. The normal entry preparation is transparent over the existing page instead of an additional BACity logo screen. Static branding remains only for reduced-motion/error recovery. Public-feed prefetch moves after entry completion to reduce competing work during playback. No auth/backend/session-storage behavior or supplied video file was changed.
 
 Regression checks: **93 mobile tests passed**, TypeScript passed, web/Android/iOS exports passed and native Android assembleDebug passed (915 tasks; 63 executed, 852 up-to-date). Four added entry safeguards cover Home routing from prior routes, logout/account-switch cancellation, route acknowledgement/one-shot navigation, and local preparation/display-ready playback. A connected emulator was discovered during this follow-up, but it was on the launcher with no running packager; authenticated login playback was not visually exercised and no claim of measured frame-rate improvement is made.
+
+## Session greeting (facial Rive)
+
+The root presents one process-local greeting after resolved authentication, with
+Home navigation and data preparation running underneath. Successful email
+registration sets an in-memory `new` marker atomically with the resolved user;
+login/hydration/OAuth are returning entries. OAuth has no authoritative new-account
+flag, so it is deliberately not guessed. No greeting flag or identity is persisted.
+Claim/deadline survive StrictMode and root remounts. Navigation, another login and
+foregrounding cannot replay a claimed greeting. Logout/account change hides it.
+The total deadline is 2.2 seconds (including a 220ms Reanimated exit). Background
+entry completes the presentation. Reduced-motion users get an immediate exit at
+the same deadline. The greeting currently uses ONLY the brand/text fallback.
+
+`greeting.riv` is the supplied facial asset unchanged. Inspection with local Rive
+canvas 2.44.0 found four 500×500 artboards: `animation_color`, `import`, `rig`,
+`animation`. The color artboard has `idle` (5s loop), `blink` (3s loop),
+`changeEye-1`…`changeEye-7` (3s one-shots), `changeEye-idle`, touch/cursor timelines
+(1s), and `particle1`…`particle7` (1s). `State Machine 1` exposes only four triggers:
+`touchUp-cursor`, `touchDown-cursor`, `touchUp`, `touchDown` (no boolean/numeric inputs).
+This asset is no longer used or packaged for greeting. Its opaque demo backdrop
+and cursor presentation were rejected; the original binary remains as an unused
+reference. The separate walk asset remains exclusive to loading/navigation.
+
+Replacement inspection: the supplied 20,532-byte expressive showcase has ONE
+500×500 artboard, `New Artboard`, with `Idle` (4s loop), `Hello` (4s one-shot),
+`Walk` and `Angry` (5s one-shots). `State Machine 1` has three trigger inputs:
+`Hello`, `Walk`, `Angry`. Actual local runtime playback confirms the cheerful wave,
+but also an opaque gray stage (not canvas/container CSS). There is no alternate
+clean artboard, background toggle, or supported cross-platform background-removal
+API in the installed runtimes. Per the task's strict rule it is NOT integrated.
+Supply an editor-exported `.riv` with the artboard/background fill removed or made
+transparent, retaining `Hello`; do not fake transparency with masks/overlays.
+
+Onboarding visibility correction: the full-screen cover layout and composition
+are unchanged. The scrim uses explicit 0%→100% coordinates and seven stops:
+0%/12%, 20%/6%, 45%/10%, 60%/32%, 75%/72%, 90%/96%, 100%/100% opacity.
+The upper/central footage stays visible while copy/CTA get progressively stronger
+contrast. The 960×540 ~1Mbps encode was replaced from the original 4K source with
+1920×1080 H.264 High, 30fps, CRF20, yuv420p/bt709 and fast-start; no color/brightness
+filters, audio, stretching or footage replacement. Runtime file is 55.8MB (~5.95Mbps)
+for the original 75.03 seconds. The bundled poster is a sharp unfiltered frame from
+the same encode. Device capture timed out twice through the computer-use skill:
+Android visual acceptance remains blocked, not claimed as passed.
+
+Current correction validation: 125 mobile tests passed, TypeScript and Expo config
+passed; web/Android/iOS exports passed without either greeting demo asset bundled.
+Android `assembleDebug` passed: 986 tasks (84 executed, 902 up-to-date). The real
+exported onboarding was visually checked at 393×852: visible castle/sky, readable
+headline/CTA, full-bleed video and gradual lower scrim. This is WEB visual QA, not
+native QA. The connected emulator's capture failed twice, so native visual/runtime
+acceptance remains unverified. There is no lint script in this app.
+Manual check: rebuild/install the development client, cold-open an authenticated
+account, then navigate/background/foreground; greet only once. In a fresh process,
+finish email registration and verify only “Welcome to BACITÝ”, then Home. In another
+fresh process sign in an existing account and verify only “Welcome back”. Both
+currently use the plain brand/text fallback while awaiting a transparent asset.
