@@ -234,6 +234,14 @@ for the original 75.03 seconds. The bundled poster is a sharp unfiltered frame f
 the same encode. Device capture timed out twice through the computer-use skill:
 Android visual acceptance remains blocked, not claimed as passed.
 
+Android follow-up: leading-dot string offsets (`.20`, `.45`, etc.) were rejected
+by the installed native SVG `percentToFloat` parser and became zero, putting the
+96%-opaque stop at the top. The web SVG renderer accepted them, hiding the defect
+in web-only QA. All seven offsets now use explicit percentages (`0%`…`100%`).
+A regression test executes the installed native parser against the real screen
+stops and verifies their exact ordered positions with no warnings. The emulator's
+cached JS and installed APK were inspected: neither used the removed greeting demo.
+
 Current correction validation: 125 mobile tests passed, TypeScript and Expo config
 passed; web/Android/iOS exports passed without either greeting demo asset bundled.
 Android `assembleDebug` passed: 986 tasks (84 executed, 902 up-to-date). The real

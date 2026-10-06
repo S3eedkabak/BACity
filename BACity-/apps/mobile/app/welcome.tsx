@@ -27,13 +27,13 @@ function CinematicScrim() {
   return <View pointerEvents="none" style={StyleSheet.absoluteFill} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
     <Svg width="100%" height="100%">
       <Defs><LinearGradient id="onboarding-scrim" x1="0%" y1="0%" x2="0%" y2="100%">
-        <Stop offset="0" stopColor="#100E12" stopOpacity=".12" />
-        <Stop offset=".20" stopColor="#100E12" stopOpacity=".06" />
-        <Stop offset=".45" stopColor="#100E12" stopOpacity=".10" />
-        <Stop offset=".60" stopColor="#100E12" stopOpacity=".32" />
-        <Stop offset=".75" stopColor="#100E12" stopOpacity=".72" />
-        <Stop offset=".90" stopColor="#100E12" stopOpacity=".96" />
-        <Stop offset="1" stopColor="#2A0F20" stopOpacity="1" />
+        <Stop offset="0%" stopColor="#100E12" stopOpacity=".12" />
+        <Stop offset="20%" stopColor="#100E12" stopOpacity=".06" />
+        <Stop offset="45%" stopColor="#100E12" stopOpacity=".10" />
+        <Stop offset="60%" stopColor="#100E12" stopOpacity=".32" />
+        <Stop offset="75%" stopColor="#100E12" stopOpacity=".72" />
+        <Stop offset="90%" stopColor="#100E12" stopOpacity=".96" />
+        <Stop offset="100%" stopColor="#2A0F20" stopOpacity="1" />
       </LinearGradient></Defs>
       <Rect width="100%" height="100%" fill="url(#onboarding-scrim)" />
     </Svg>
