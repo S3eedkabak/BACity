@@ -2,6 +2,16 @@ require File.join(File.dirname(`node --print "require.resolve('expo/package.json
 require File.join(File.dirname(`node --print "require.resolve('react-native/package.json')"`), "scripts/react_native_pods")
 
 require 'json'
+
+# Expo SDK 51 dev-menu uses a C macro no longer imported by modern Swift.
+# Preserve its simulator/device behavior without upgrading the native dependency.
+dev_menu_path = File.join(__dir__, '../node_modules/expo-dev-menu/ios/DevMenuViewController.swift')
+dev_menu_source = File.read(dev_menu_path)
+legacy_simulator_check = '    let isSimulator = TARGET_IPHONE_SIMULATOR > 0'
+if dev_menu_source.include?(legacy_simulator_check)
+  swift_simulator_check = "    #if targetEnvironment(simulator)\n    let isSimulator = true\n    #else\n    let isSimulator = false\n    #endif"
+  File.write(dev_menu_path, dev_menu_source.sub(legacy_simulator_check, swift_simulator_check))
+end
 podfile_properties = JSON.parse(File.read(File.join(__dir__, 'Podfile.properties.json'))) rescue {}
 
 ENV['RCT_NEW_ARCH_ENABLED'] = podfile_properties['newArchEnabled'] == 'true' ? '1' : '0'
@@ -55,6 +65,9 @@ target 'BratislavaEvents' do
       :mac_catalyst_enabled => false,
       :ccache_enabled => podfile_properties['apple.ccacheEnabled'] == 'true',
     )
+
+    # Link the native MapLibre Swift package used by the installed RN module.
+    $MLRN.post_install(installer)
 
     installer.target_installation_results.pod_target_installation_results
       .each do |pod_name, target_installation_result|

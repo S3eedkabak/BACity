@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgis/postgis:16-3.4
+    platform: linux/amd64
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-events}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-events}
@@ -11,7 +12,7 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 5s
       timeout: 5s
       retries: 10
