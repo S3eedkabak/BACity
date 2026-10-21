@@ -46,7 +46,14 @@ def find_canonical_event(db, payload):
         # Conservative match: near-identical title + same place and nearby time.
         # A shared venue alone never merges two different performances.
         candidates = db.query(Event).options(selectinload(Event.venue)).filter(Event.start_time.between(payload.start_time - timedelta(minutes=15), payload.start_time + timedelta(minutes=15))).order_by(Event.start_time, Event.id).limit(500).all()
+        publisher = (urlsplit(payload.original_source_url or payload.source_url).hostname or '').removeprefix('www.')
         for candidate in candidates:
+            # A publisher explicitly listing two start times is occurrence
+            # evidence. Fuzzy cross-source matching must not collapse them.
+            candidate_publishers = {(urlsplit(candidate.source_url).hostname or '').removeprefix('www.')}
+            candidate_publishers.update((urlsplit(ref.original_source_url or ref.source_url).hostname or '').removeprefix('www.') for ref in candidate.sources)
+            if publisher and publisher in candidate_publishers and candidate.start_time != payload.start_time:
+                continue
             title_score = SequenceMatcher(None, normalize(payload.title), normalize(candidate.title)).ratio()
             same_place = bool(payload.address and normalize(payload.address) == normalize(candidate.address)) or bool(
                 payload.venue_name and candidate.venue and normalize(payload.venue_name) == normalize(candidate.venue.name))
@@ -69,8 +76,11 @@ def ingest(db, payload):
                                         'source_url': canonical_url(payload.source_url)})
     existing, evidence, score = find_canonical_event(db, payload)
     now = datetime.utcnow()
-    domain = urlsplit(payload.source_url).hostname
-    source = db.query(Source).filter(Source.domain == domain).first()
+    # Attribute observations to the crawled publisher, not a ticketing link
+    # embedded in its calendar. Keep legacy www rows readable without a data
+    # rewrite; new observations prefer the normalized registry identity.
+    domain = urlsplit(payload.original_source_url or payload.source_url).hostname.removeprefix('www.')
+    source = db.query(Source).filter(Source.domain.in_((domain, 'www.'+domain))).order_by((Source.domain == domain).desc()).first()
     if source is None:
         source = Source(name=payload.source_name or domain, domain=domain,
                         base_url=f'{urlsplit(payload.source_url).scheme}://{domain}',
@@ -111,6 +121,10 @@ def ingest(db, payload):
         same_source = payload.source_url == existing.source_url
         if (preferred or same_source) and payload.previous_start_time and payload.start_time != existing.start_time and payload.end_time is None:
             existing.end_time = None
+            existing.end_date = None
+        if same_source and payload.end_date and not payload.end_time and payload.temporal_evidence=='date_range':
+            if any(fact.get('best_end',{}).get('method')==payload.extraction_method for fact in old_facts):
+                existing.end_time=None  # Correct this publisher's previous midnight placeholder.
         for field, value in values.items():
             if field == 'end_time':
                 if value is not None and (existing.end_time is None or incoming_end_key >= old_end_key):
@@ -144,6 +158,7 @@ def ingest(db, payload):
     human_contribution = bool((evidence.facts or {}).get('human_contribution'))
     evidence.facts = {'human_contribution': human_contribution, 'start_time': payload.start_time.isoformat(),
                       'end_time': payload.end_time.isoformat() if payload.end_time else None,
+                      'end_date':payload.end_date.isoformat() if payload.end_date else None,
                       'end_rank': temporal_rank, 'temporal_evidence': payload.temporal_evidence,
                       'method': payload.extraction_method, 'confidence': payload.extraction_confidence,
                       'organizer': payload.organizer_name, 'observed_at': now.isoformat(), 'best_end': best_end}
@@ -158,7 +173,8 @@ def ingest(db, payload):
 def expire_events(db):
     now = datetime.utcnow()
     db.query(Event).filter(Event.status.in_([EventStatus.fresh, EventStatus.stale]),
-                          func.coalesce(Event.end_time, Event.start_time) < now - timedelta(days=1)).update(
+                          func.coalesce(Event.end_time, Event.start_time) < now - timedelta(days=1),
+                          or_(Event.end_date.is_(None), Event.end_date < now.date()-timedelta(days=1))).update(
                               {Event.status: EventStatus.expired}, synchronize_session=False)
     db.query(Event).filter(Event.status == EventStatus.fresh, Event.last_verified_at < now - timedelta(days=3)).update(
         {Event.status: EventStatus.stale}, synchronize_session=False)

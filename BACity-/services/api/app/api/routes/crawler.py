@@ -18,7 +18,7 @@ from app.core.community import require_moderator
 from app.config import get_settings
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import Literal
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, and_, case
 import os
 import math
 
@@ -59,6 +59,11 @@ def report_run(payload: CrawlRunReport, db: Session = Depends(get_db)):
         db.add(source)
         db.flush()
     source.name = payload.name
+    source.base_url = payload.base_url
+    source.event_url = payload.event_url
+    source.parser = payload.parser
+    source.language = payload.language
+    source.requires_js = payload.requires_js
     source.last_attempt_at = payload.finished_at.replace(tzinfo=None)
     source.last_crawled = source.last_attempt_at
     source.crawl_status = payload.status
@@ -294,7 +299,41 @@ def data_quality(db:Session=Depends(get_db),_=Depends(require_admin)):
     for source_id,started,finished in db.query(CrawlerRun.source_id,CrawlerRun.started_at,CrawlerRun.finished_at).order_by(CrawlerRun.finished_at.desc()).limit(12500):
         bucket=durations.setdefault(str(source_id),[])
         bucket.append(max(0,(finished-started).total_seconds()))
-    return {'future_events':total,'total_events':db.query(Event).count(),
+    visible=Event.status.in_((EventStatus.fresh,EventStatus.stale))
+    located=and_(Event.latitude.isnot(None),Event.longitude.isnot(None))
+    conditions={'total':True,'future':Event.start_time>=now,'fresh':Event.status==EventStatus.fresh,
+                'stale':Event.status==EventStatus.stale,'cancelled':Event.status==EventStatus.cancelled,
+                'location_known':or_(located,Event.venue_id.isnot(None),Event.address.isnot(None)),
+                'location_complete':and_(located,or_(Event.venue_id.isnot(None),Event.address.isnot(None))),
+                'postponed':Event.status==EventStatus.postponed,
+                'end_date_known':Event.end_date.isnot(None),'explore_eligible':visible,'map_eligible':and_(visible,located),
+                'future_discovery_eligible':and_(visible,Event.start_time>=now),
+                'future_map_eligible':and_(visible,located,Event.start_time>=now),
+                'home_candidate_eligible':and_(visible,Event.start_time>=now,Event.start_time<now+timedelta(days=90)),
+                'ongoing':and_(visible,Event.start_time<now,or_(Event.end_time>now,Event.end_date>=now.date()))}
+    counts=db.query(*(func.count(case((condition,1))).label(key) for key,condition in conditions.items())).one()._asdict()
+    counts['unmapped_explore_eligible']=counts['explore_eligible']-counts['map_eligible']
+    diagnostics=[]
+    for source in db.query(Source).limit(250):
+        if source.consecutive_failures:
+            diagnostics.append({'domain':source.domain,'issue':'source_failure','failures':source.consecutive_failures})
+        elif source.last_attempt_at and not source.accepted_events:
+            diagnostics.append({'domain':source.domain,'issue':'empty_extraction'})
+        metrics=source.quality_metrics or {}
+        if metrics.get('geocoding/errors',0):
+            diagnostics.append({'domain':source.domain,'issue':'geocoding_failure','count':metrics['geocoding/errors']})
+        if metrics.get('ingestion/pending',0):
+            diagnostics.append({'domain':source.domain,'issue':'outbox_pending_at_last_run','count':metrics['ingestion/pending']})
+        missing=(source.last_skip_reasons or {}).get('missing_location',0)
+        if missing and missing/max(source.accepted_events+source.rejected_events,1)>=.25:
+            diagnostics.append({'domain':source.domain,'issue':'location_rejection_spike','count':missing})
+    for candidate in db.query(CandidateSource).filter(CandidateSource.status.in_(('inspected','probation'))).limit(250):
+        if candidate.reason=='unsupported_extraction' or (candidate.attempts>=3 and not candidate.good_runs):
+            diagnostics.append({'domain':candidate.domain,'issue':candidate.reason or 'candidate_stagnation'})
+    return {'reconciliation':{'as_of_utc':now.isoformat()+'Z','counts':counts,
+                             'definition':'Explore/map use published fresh/stale status; future and Home use UTC starts; Home adds 90-day horizon. Viewports, limits and user filters further reduce displayed results.'},
+            'diagnostics':diagnostics,
+            'future_events':total,'total_events':db.query(Event).count(),
             'total_with_end_datetime':db.query(Event).filter(Event.end_time.isnot(None)).count(),'coverage':fields,
             'multi_source_future_events':eligible.filter(Event.id.in_(db.query(multi.c.event_id))).count(),
             'candidate_states':dict(db.query(CandidateSource.status,func.count()).group_by(CandidateSource.status).all()),

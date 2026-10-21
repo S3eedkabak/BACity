@@ -1,5 +1,6 @@
 """Bounded, recurring event discovery from trusted sites to new public domains."""
 import os
+import re
 from urllib.parse import urlsplit
 
 import scrapy
@@ -21,6 +22,10 @@ def allowed_url(url):
         return False
     if parsed.port not in (None, 80, 443):
         return False
+    if re.search(r'\.(?:jpe?g|png|gif|svg|webp|ico|pdf|zip|mp[34]|woff2?)$',parsed.path,re.I):
+        return False
+    if host in ('google.com','www.google.com','calendar.google.com') and not parsed.path.startswith('/calendar/ical/'):
+        return False  # Add-to-calendar templates and search are not event sources.
     blocked = ['facebook.com', 'fb.com', 'instagram.com', 'tiktok.com', 'twitter.com', 'x.com', 'youtube.com', 'youtu.be']
     blocked += os.getenv('CRAWLER_BLOCK_DOMAINS', '').split(',')
     allowed = [d.strip() for d in os.getenv('CRAWLER_ALLOW_DOMAINS', '').split(',') if d.strip()]
@@ -63,13 +68,16 @@ class DiscoverySpider(BratislavaSourcesSpider):
         source = response.meta['source']
         depth = response.meta.get('crawl_depth', 0)
         yield from self._extract(response, source)
-        if source.parser == 'karlova_ves_api' or response.selector.type == 'json':
-            return  # Structured endpoints are data, not HTML link graphs.
-        if depth >= self.max_crawl_depth:
+        if not response.text.lstrip().startswith('<'):
             return
+        if source.parser == 'karlova_ves_api' or response.selector.type in ('json','xml'):
+            return  # Structured endpoints are data, not HTML link graphs.
         followed = 0
         seen = {response.url}
-        for anchor in response.css('a[href], link[rel="next"], link[rel="alternate"], [data-next-url], [data-load-more-url]'):
+        anchors = list(response.css('a[href], link[rel="next"], link[rel="alternate"], [data-next-url], [data-load-more-url]'))
+        # Feeds and rel=next precede repeated navigation/category links.
+        anchors.sort(key=lambda a: (a.attrib.get('rel') != 'next', a.attrib.get('type') not in ('application/rss+xml','application/atom+xml','text/calendar')))
+        for anchor in anchors:
             href = anchor.attrib.get('href') or anchor.attrib.get('data-next-url') or anchor.attrib.get('data-load-more-url')
             label = anchor.xpath('string(.)').get('')
             url = response.urljoin(href).split('#', 1)[0]
@@ -84,16 +92,28 @@ class DiscoverySpider(BratislavaSourcesSpider):
             hint = (url + ' ' + label).lower()
             pagination = anchor.attrib.get('rel') == 'next' or any(x in hint for x in ('page=', '/page/', 'load more', 'ďalšie', 'next')) or 'data-next-url' in anchor.attrib or 'data-load-more-url' in anchor.attrib
             structured_feed = anchor.attrib.get('type') in ('application/rss+xml', 'application/atom+xml', 'text/calendar') or any(x in hint for x in ('.ics', '/rss', '/feed', '/ical'))
+            if structured_feed and any(word in (anchor.attrib.get('title','')+' '+label).lower() for word in ('news','aktuality')):
+                continue
             if not pagination and not structured_feed and not any(word in hint for word in EVENT_LINK_HINTS):
                 continue
             host = urlsplit(url).hostname.lower()
-            if domain_matches(host, source.domain) and source.domain == 'visitbratislava.com' and not urlsplit(url).path.startswith('/events/'):
-                continue
+            if domain_matches(host, source.domain):
+                from crawler.navigation import navigation_url, is_detail
+                try:
+                    url = navigation_url(url, source.domain)
+                except ValueError:
+                    continue
+                if not url or (source.domain in ('visitbratislava.com','novacvernovka.eu','sng.sk','staratrznica.sk') and is_detail(response.url, source.domain) and not structured_feed):
+                    continue
+                if depth >= self.max_crawl_depth and not pagination:
+                    continue
             if not domain_matches(host, source.domain):
                 if self.discovered >= min(20,max(0,int(os.getenv('CRAWLER_MAX_NEW_SOURCES', '20')))):
                     continue
                 # Only expand one trust hop. Newly found sources must first prove useful;
                 # they can be promoted to trusted seeds explicitly after inspection.
+                if depth > self.max_crawl_depth:
+                    continue
                 from crawler.sources import ACTIVE_SOURCES
                 if source.domain not in {s.domain for s in ACTIVE_SOURCES}:
                     continue
@@ -109,8 +129,8 @@ class DiscoverySpider(BratislavaSourcesSpider):
                 self.discovered += 1
                 self.crawler.stats.inc_value('discovery/sources')
                 continue
-            yield scrapy.Request(url, callback=self.parse, errback=self.errback_source,
-                                 meta={'source': source, 'crawl_depth': depth + 1})
+            yield scrapy.Request(url, priority=20 if is_detail(url,source.domain) else 15 if structured_feed else 10 if pagination else 0, callback=self.parse, errback=self.errback_source,
+                                 meta={'source': source, 'crawl_depth': depth if pagination else depth + 1, 'optional_feed': structured_feed})
             followed += 1
             if followed >= self.max_links_per_page:
                 break

@@ -1,6 +1,9 @@
 # Crawler V2: architecture and operator runbook
 
-Starting checkpoint: `b4494e8e30917835d715f4128bc1e8ff8c67c526`, branch `crawler-v2`.
+Current development branch: `FINAL-UX`. See [coverage recovery](crawler-coverage-recovery.md)
+for the latest repairs, measurements and migration procedure.
+
+Historical starting checkpoint: `b4494e8e30917835d715f4128bc1e8ff8c67c526`, branch `crawler-v2`.
 This extends the existing worker, Scrapy subprocesses, SQLite scheduler/outbox,
 canonical ingestion, EventSource provenance and role-protected crawler API.
 No new service, dependency, billing feature, planner rule or mobile UI.
@@ -28,24 +31,28 @@ Registry crawl → relevant public event/calendar/feed links → CandidateSource
 
 Worker SQLite is the durable scheduling authority. PostgreSQL mirrors candidate
 state/metrics and owns admin enable/disable controls. Normalized domain identity
-ignores `www`; tracking parameters/fragments are removed. Only one URL is retained
-per domain, with a hard capacity of 250 candidates. Repeated evidence does not
-create another candidate. Registry domains are not re-registered as candidates.
+ignores `www`; tracking parameters/fragments are removed. One host-level candidate
+controls up to eight evidenced endpoints, with a hard capacity of 250 hosts.
+At most four entry points rotate through a bounded host inspection. Repeated
+evidence does not create another candidate. Registry domains are not re-registered as candidates.
 Legacy discovered seeds are quarantined into this queue on startup.
 
 Only registered sources may discover external domains: no recursive expansion
 from candidate domains, including trusted candidates. This deliberate one-hop
-boundary avoids unrestricted crawling. Candidates use static structured extraction;
-they cannot select code, endpoints, browser settings or an extraction implementation.
+boundary avoids unrestricted crawling. Candidates use structured extraction and
+reviewed static adapters for observed A4/BKIS markup. Evidence supplies URLs,
+never executable code, browser settings or an extraction implementation.
 
 Every inspection records a reason and transitions deterministically:
 
 - No validated events: inspected; rejected after three attempts.
-- Robots exclusion or HTTP 403: blocked, without automatic retries.
+- Robots exclusion or HTTP 403 with no accessible validated event yield: blocked,
+  without automatic retries. Each restricted URL remains excluded even when
+  another public endpoint on the host works.
 - Three consecutive failed attempts: rejected.
 - Positive yield: probation.
 - Three consecutive successful runs with mean completeness ≥60/100 and
-  validated/(validated+rejected) ≥80%: trusted.
+  validated/(validated+rejected) ≥80%, including positive future yield: trusted.
 - Degrading quality immediately returns a trusted candidate to probation;
   its qualifying-run streak resets. Repeated failure rejects it.
 - Admin disable wins over stale worker snapshots. Re-enable restarts inspection,
@@ -63,7 +70,10 @@ Structured start/end dates remain preferred. JSON-LD additionally accepts explic
 ISO durations, organizer name and `previousStartDate` reschedule evidence.
 Community adapters retain structured ends; Cvernovka clock ranges are preserved
 instead of replaced with midnight. Visit Bratislava no longer invents `23:59`
-when a multi-day listing supplies only an end date, not an end clock.
+when a multi-day listing supplies only an end date, not an end clock. Explicit
+inclusive `end_date` is stored separately; it does not provide a planner closing
+time. ICS exclusive date-only DTEND converts to an inclusive date, not a clock.
+Explicit postponements are withheld until a dated reschedule.
 
 Intervals support explicit same-day/multi-day datetimes, ISO durations up to
 31 days, Slovak clock ranges and midnight crossing. Clock-only ends use the
@@ -94,7 +104,8 @@ field-level conflict resolution, not a new general-purpose history database.
   expansion are rejected. Custom VTIMEZONE and RECURRENCE-ID overrides are
   intentionally unsupported rather than silently interpreted incorrectly.
 - No universal arbitrary-HTML event guessing is enabled for candidates.
-  Existing registered source-specific/static fallbacks remain unchanged.
+  Reviewed source-specific/static adapters cover registered sources and the
+  observed A4/BKIS candidate formats; unsupported markup remains visible.
 
 Feeds are capped at 2 MiB. XML DTD/entity declarations are rejected. Structured
 JSON endpoints are never traversed with HTML selectors.

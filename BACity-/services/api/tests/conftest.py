@@ -3,6 +3,8 @@ import sys
 import uuid
 import base64
 import json
+import tempfile
+from pathlib import Path
 from datetime import datetime, timedelta
 
 import pytest
@@ -17,9 +19,17 @@ from app.models.venue import Venue
 from app.main import app
 from fastapi.testclient import TestClient
 
-TEST_DB_URL = "sqlite:///./test.db"
+_test_storage = tempfile.TemporaryDirectory(prefix='bacity-api-tests-')
+TEST_DB_URL = 'sqlite:///' + str(Path(_test_storage.name) / 'test.db')
 engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+@pytest.fixture(scope='session',autouse=True)
+def isolated_database_cleanup():
+    yield
+    engine.dispose()
+    _test_storage.cleanup()
 
 
 @pytest.fixture(autouse=True)

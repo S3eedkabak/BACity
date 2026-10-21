@@ -27,6 +27,7 @@ class RawEvent:
     duration_raw: Optional[str] = None
     previous_start_raw: Optional[str] = None
     organizer_name: Optional[str] = None
+    end_date_raw: Optional[str] = None
 
 
 @dataclass
@@ -56,3 +57,4 @@ class NormalizedEvent:
     previous_start_time: Optional[str] = None
     extraction_method: str = 'unknown'
     organizer_name: Optional[str] = None
+    end_date: Optional[str] = None

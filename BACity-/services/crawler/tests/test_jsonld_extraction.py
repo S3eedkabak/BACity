@@ -41,9 +41,9 @@ def test_malformed_jsonld_does_not_crash():
     assert events == []
 
 
-def test_postponed_event_is_stale_not_removed():
+def test_postponed_event_is_withheld_until_rescheduled():
     html = '''<script type="application/ld+json">{
       "@type":"Event", "name":"Talk", "startDate":"2026-11-01T18:00:00+01:00",
       "eventStatus":"https://schema.org/EventPostponed"
     }</script>'''
-    assert extract_jsonld_events(html, "https://example.com/talk")[0].event_status == "stale"
+    assert extract_jsonld_events(html, "https://example.com/talk")[0].event_status == "postponed"

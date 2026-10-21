@@ -3,6 +3,7 @@ import argparse
 import json
 from pathlib import Path
 from scrapy.crawler import CrawlerProcess
+from scrapy import signals
 from scrapy.utils.project import get_project_settings
 from crawler.sources import SourceSeed
 from crawler.spiders.discovery import DiscoverySpider
@@ -14,7 +15,16 @@ def successful(stats, errors):
         and stats.get('response_received_count',0)>0
         and not stats.get('source/request_errors',0)
         and not stats.get('extraction/errors',0)
+        and not stats.get('item_error_count',0)
+        and not stats.get('log_count/ERROR',0)
         and not any(value for key,value in stats.items() if key.startswith('spider_exceptions/')))
+
+
+def track_pipeline_errors(crawler,errors):
+    def failed(failure):
+        crawler.stats.inc_value('item_error_count')
+        errors.append('item_pipeline_failure:'+type(failure.value).__name__)
+    crawler.signals.connect(failed,signal=signals.item_error,weak=False)
 
 
 def main():
@@ -23,8 +33,15 @@ def main():
     parser.add_argument("--stats", required=True)
     parser.add_argument('--inspection', action='store_true')
     parser.add_argument('--audit', action='store_true', help='Validate live extraction without geocoding or ingestion')
+    parser.add_argument('--output', help='Export validated audit records as JSON lines (requires --audit)')
     args = parser.parse_args()
+    if args.output and not args.audit:
+        parser.error('--output requires --audit')
+    source=SourceSeed(**json.loads(args.source))
     settings = get_project_settings()
+    settings.set('CLOSESPIDER_PAGECOUNT',min(300,max(1,source.max_pages)),priority='cmdline')
+    if args.output:
+        settings.set('FEEDS', {Path(args.output).resolve().as_uri(): {'format':'jsonlines','overwrite':True}}, priority='cmdline')
     if args.audit:
         settings.set('ITEM_PIPELINES', {
             'crawler.pipelines.NormalizePipeline':100,
@@ -42,10 +59,12 @@ def main():
     process = CrawlerProcess(settings)
     crawler = process.create_crawler(DiscoverySpider)
     errors = []
-    deferred = process.crawl(crawler, source=SourceSeed(**json.loads(args.source)))
+    track_pipeline_errors(crawler,errors)
+    deferred = process.crawl(crawler, source=source)
     deferred.addErrback(lambda failure: errors.append(str(failure.value)))
     process.start()
     stats = crawler.stats.get_stats()
+    stats['audit'] = args.audit
     # A reachable source with zero current events is a valid crawl, not an outage.
     stats['success'] = successful(stats,errors)
     if errors:

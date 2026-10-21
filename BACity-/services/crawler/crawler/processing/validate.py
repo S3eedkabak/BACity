@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import math
-from datetime import datetime, timedelta, timezone as dt_timezone
+from datetime import date, datetime, timedelta, timezone as dt_timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from crawler.items import NormalizedEvent
 
@@ -39,7 +40,18 @@ def validate_event(event: NormalizedEvent) -> ValidationResult:
                 return ValidationResult(False, False, "invalid end_time")
         except ValueError:
             return ValidationResult(False, False, "invalid end_time")
-    if end < now - timedelta(days=1):
+    date_current = False
+    if event.end_date:
+        try:
+            end_day = date.fromisoformat(event.end_date)
+            zone = ZoneInfo(event.timezone)
+            if end_day < start.astimezone(zone).date():
+                return ValidationResult(False,False,'invalid end_date')
+            date_current = end_day >= now.astimezone(zone).date()-timedelta(days=1)
+        except (ValueError,ZoneInfoNotFoundError):
+            return ValidationResult(False,False,'invalid end_date')
+    lifecycle_update = event.event_status in ('cancelled','postponed') and event.extraction_confidence>=.85
+    if end < now - timedelta(days=1) and not date_current and not lifecycle_update:
         return ValidationResult(False, False, "start date already in the past")
     if start > now + timedelta(days=365 * MAX_FUTURE_YEARS):
         return ValidationResult(False, False, "start date implausibly far in the future")

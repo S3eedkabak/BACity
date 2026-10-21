@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
-    Column, String, Float, DateTime, ForeignKey, Text, Enum, JSON, Boolean
+    Column, String, Float, Date, DateTime, ForeignKey, Text, Enum, JSON, Boolean
 )
 from sqlalchemy.orm import relationship
 
@@ -45,6 +45,7 @@ class EventStatus(str, enum.Enum):
     expired = "expired"
     removed = "removed"
     cancelled = "cancelled"
+    postponed = "postponed"
 
 
 class Event(Base):
@@ -57,6 +58,7 @@ class Event(Base):
 
     start_time = Column(DateTime, nullable=False, index=True)  # stored UTC
     end_time = Column(DateTime, nullable=True)
+    end_date = Column(Date, nullable=True)  # Inclusive publisher date; closing clock unknown.
     timezone = Column(String, nullable=False, default="Europe/Bratislava")
 
     venue_id = Column(GUID(), ForeignKey("venues.id"), nullable=True)

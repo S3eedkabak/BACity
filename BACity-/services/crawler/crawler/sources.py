@@ -21,6 +21,8 @@ class SourceSeed:
     language: str = "sk"
     tags: list[str] = field(default_factory=list)
     parser: str | None = None
+    entry_urls: list[str] = field(default_factory=list)
+    max_pages: int = 150
 
 
 ACTIVE_SOURCES: tuple[SourceSeed, ...] = (
@@ -33,6 +35,7 @@ ACTIVE_SOURCES: tuple[SourceSeed, ...] = (
         0.90,
         crawl_frequency_minutes=360,
         language="en",
+        max_pages=260,  # Observed 12-page calendar plus bounded event details.
     ),
     SourceSeed(
         "Stará Tržnica",

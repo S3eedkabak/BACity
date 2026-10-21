@@ -1,3 +1,4 @@
+import re
 from typing import Optional
 from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode, urljoin
 from bs4 import BeautifulSoup
@@ -57,7 +58,10 @@ def normalize_event(
     raw: RawEvent, *, default_timezone: str = "Europe/Bratislava"
 ) -> Optional[NormalizedEvent]:
     from crawler.extraction.temporal import interval
-    start_dt, end_dt, temporal_evidence = interval(raw.start_raw, raw.end_raw, raw.duration_raw)
+    date_end = raw.end_date_raw or (raw.end_raw if re.fullmatch(r'\d{4}-\d{2}-\d{2}', raw.end_raw or '') else None)
+    start_dt, end_dt, temporal_evidence = interval(raw.start_raw, None if date_end else raw.end_raw, raw.duration_raw)
+    if date_end and end_dt is None:
+        temporal_evidence = 'date_range'
     if start_dt is None:
         return None
 
@@ -89,4 +93,5 @@ def normalize_event(
         temporal_evidence=temporal_evidence, extraction_method=raw.extraction_method,
         organizer_name=clean_text(raw.organizer_name),
         previous_start_time=previous.isoformat() if previous else None,
+        end_date=date_end,
     )

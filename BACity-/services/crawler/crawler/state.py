@@ -35,6 +35,10 @@ class State:
                 good_runs INTEGER NOT NULL DEFAULT 0, failures INTEGER NOT NULL DEFAULT 0,
                 reason TEXT, metrics TEXT NOT NULL DEFAULT '{}',
                 CHECK(status IN ('discovered','inspected','probation','trusted','rejected','blocked','disabled')));
+            CREATE TABLE IF NOT EXISTS candidate_endpoints (
+                url TEXT PRIMARY KEY, domain TEXT NOT NULL, discovered REAL NOT NULL,
+                inspected REAL NOT NULL DEFAULT 0);
+            CREATE INDEX IF NOT EXISTS ix_candidate_endpoints_host ON candidate_endpoints(domain,inspected);
             CREATE INDEX IF NOT EXISTS ix_candidates_due ON candidates(status,next_inspection);
         """)
         columns = {row[1] for row in self.db.execute('PRAGMA table_info(outbox)')}
@@ -46,6 +50,10 @@ class State:
                 self.db.execute("ALTER TABLE outbox ADD COLUMN next_try REAL NOT NULL DEFAULT 0")
             if 'enabled' not in source_columns:
                 self.db.execute("ALTER TABLE sources ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1")
+        with self.db:
+            self.db.execute('CREATE INDEX IF NOT EXISTS ix_outbox_due ON outbox(status,next_try,created)')
+            self.db.execute('CREATE INDEX IF NOT EXISTS ix_runs_domain ON runs(domain,id)')
+            self.db.execute('INSERT OR IGNORE INTO candidate_endpoints(url,domain,discovered) SELECT url,domain,discovered FROM candidates c WHERE NOT EXISTS (SELECT 1 FROM candidate_endpoints e WHERE e.domain=c.domain)')
         from crawler.sources import ACTIVE_SOURCES
         known = {s.domain for s in ACTIVE_SOURCES}
         for row in self.db.execute('SELECT seed,discovered_from FROM sources WHERE discovered_from IS NOT NULL LIMIT 250').fetchall():
@@ -94,7 +102,8 @@ class State:
         now = time.time()
         row = self.db.execute("SELECT failures FROM sources WHERE domain=?", (seed.domain,)).fetchone()
         failures = 0 if success else row[0] + 1
-        delay = seed.crawl_frequency_minutes * 60 if success and stats.get('item_scraped_count', 0) else max(seed.crawl_frequency_minutes * 60, min(86400, 300 * 2 ** min(failures, 8)))
+        delay = seed.crawl_frequency_minutes * 60 if success else min(3600, 300 * 2 ** min(max(failures-1,0), 4))
+        delay = max(delay, stats.get('source/retry_after_until', 0)-now)
         with self.db:
             self.db.execute("UPDATE runs SET finished=?,success=?,stats=?,error=? WHERE id=?",
                             (now, int(success), json.dumps(stats, default=str), error, run_id))
@@ -107,8 +116,11 @@ class State:
         import hashlib
         key = hashlib.sha256(json.dumps([payload['source_url'], payload['title'], payload['start_time']]).encode()).hexdigest()
         with self.db:
-            self.db.execute("INSERT INTO outbox(key,payload,created) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload,status='pending',next_try=0",
+            existed=self.db.execute('SELECT 1 FROM outbox WHERE key=?',(key,)).fetchone() is not None
+            self.db.execute("INSERT INTO outbox(key,payload,created) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET status=CASE WHEN payload!=excluded.payload THEN 'pending' ELSE status END,next_try=CASE WHEN payload!=excluded.payload THEN 0 ELSE next_try END,attempts=CASE WHEN payload!=excluded.payload THEN 0 ELSE attempts END,error=CASE WHEN payload!=excluded.payload THEN NULL ELSE error END,payload=excluded.payload",
                             (key, json.dumps(payload), time.time()))
+            for metric,value in (('outbox_observations',1),('outbox_new_records',int(not existed))):
+                self.db.execute('INSERT INTO metadata(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=CAST(value AS INTEGER)+CAST(excluded.value AS INTEGER)',(metric,str(value)))
         return key
 
     def close(self):
@@ -127,8 +139,27 @@ class State:
             existing = self.db.execute('SELECT domain FROM candidates WHERE domain=?', (domain,)).fetchone()
             if not existing and self.db.execute('SELECT count(*) FROM candidates').fetchone()[0] >= 250:
                 return False
-            self.db.execute("INSERT INTO candidates(domain,url,origin,discovered) VALUES(?,?,?,?) ON CONFLICT(domain) DO UPDATE SET evidence_count=min(evidence_count+1,10000)", (domain,url,origin,time.time()))
-        return True
+            self.db.execute("INSERT INTO candidates(domain,url,origin,discovered) VALUES(?,?,?,?) ON CONFLICT(domain) DO NOTHING", (domain,url,origin,time.time()))
+            # Keep independently evidenced endpoints without multiplying the
+            # host's trust state, controls, concurrency or scheduling quota.
+            from crawler.discovery import endpoint_rank
+            added = 0
+            endpoints = self.db.execute('SELECT url FROM candidate_endpoints WHERE domain=?',(domain,)).fetchall()
+            if len(endpoints) >= 8 and url not in {r[0] for r in endpoints}:
+                weakest = min(endpoints,key=lambda r:endpoint_rank(r[0]))[0]
+                if endpoint_rank(url) > endpoint_rank(weakest):
+                    self.db.execute('DELETE FROM candidate_endpoints WHERE url=?',(weakest,))
+                    endpoints = endpoints[:-1]
+            if len(endpoints) < 8:
+                added=self.db.execute('INSERT OR IGNORE INTO candidate_endpoints(url,domain,discovered) VALUES(?,?,?)',(url,domain,time.time())).rowcount
+                if existing and added:
+                    self.db.execute('UPDATE candidates SET evidence_count=min(evidence_count+1,10000) WHERE domain=?',(domain,))
+        return bool(added)
+
+    def inspection_urls(self, domain):
+        from crawler.discovery import endpoint_rank
+        rows=self.db.execute('SELECT url,inspected,discovered FROM candidate_endpoints WHERE domain=?',(domain,)).fetchall()
+        return [r['url'] for r in sorted(rows,key=lambda r:(r['inspected'],-endpoint_rank(r['url']),r['discovered']))[:4]]
 
     def inspect_due(self):
         return self.db.execute("SELECT * FROM candidates WHERE status IN ('discovered','inspected','probation','trusted') AND next_inspection<=? ORDER BY next_inspection,domain LIMIT 5", (time.time(),)).fetchall()
@@ -143,14 +174,24 @@ class State:
         accepted = stats.get('quality/events', 0)
         valid_ratio = accepted / max(accepted + stats.get('validation/rejected', 0), 1)
         mean_quality = stats.get('quality/score_total', 0) / max(accepted, 1)
-        good = row['good_runs'] + 1 if success and accepted and valid_ratio >= .8 and mean_quality >= 60 else 0
-        blocked = bool(stats.get('robotstxt/forbidden') or stats.get('downloader/response_status_count/403'))
+        good = row['good_runs'] + 1 if success and accepted and stats.get('quality/future_events',accepted)>0 and valid_ratio >= .8 and mean_quality >= 60 else 0
+        blocked = not accepted and bool(stats.get('robotstxt/forbidden') or stats.get('downloader/response_status_count/403'))
         status, reason = assess(attempts, good, failures, stats, blocked)
         metrics = {k: v for k,v in stats.items() if (k.startswith('quality/') or k.startswith('validation/')) and isinstance(v,(int,float))}
-        metrics = dict(list(metrics.items())[:30])
+        metrics = dict(list(metrics.items())[:24])
+        for key in ('extraction/unsupported_pages','extraction/raw','ingestion/queued','ingestion/delivered','ingestion/pending','elapsed_time_seconds'):
+            if isinstance(stats.get(key),(int,float)):
+                metrics[key] = stats[key]
+        if not accepted and stats.get('extraction/unsupported_pages'):
+            reason = 'unsupported_extraction'
+        if not success and not blocked and failures < 3:
+            status, reason = ('probation' if row['status'] in ('probation','trusted') else 'inspected'), 'temporary_failure'
         delay = 21600 if status == 'trusted' else min(86400, 3600 * 2 ** min(failures, 4))
+        delay=max(delay,stats.get('source/retry_after_until',0)-time.time())
         with self.db:
             self.db.execute('UPDATE candidates SET status=?,reason=?,attempts=?,good_runs=?,failures=?,inspected=?,next_inspection=?,metrics=? WHERE domain=?',
                 (status,reason,attempts,good,failures,time.time(),time.time()+delay,json.dumps(metrics),domain))
+            for url in stats.get('inspection/urls', [row['url']])[:4]:
+                self.db.execute('UPDATE candidate_endpoints SET inspected=? WHERE domain=? AND url=?',(time.time(),domain,url))
             # Discovered sources stay exclusively in this queue, never becoming
             # unrestricted trusted seeds or opening further discovery hops.

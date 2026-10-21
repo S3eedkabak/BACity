@@ -34,14 +34,14 @@ class BratislavaSourcesSpider(scrapy.Spider):
             if source.domain == "goout.net":
                 yield scrapy.Request(
                     "https://goout.net/services/feeder/v1/events.json"
-                    "?source=goout&city=bratislava&language=en"
+                    "?source=goout&locality=30&language=en"
                     "&unapproved=false&clearDomain=true",
                     callback=self.parse_goout,
                     errback=self.errback_source,
                     meta={"source": source, "crawl_depth": 0},
                 )
                 continue
-            seed_urls = [source.event_url]
+            seed_urls = list(dict.fromkeys([source.event_url, *source.entry_urls]))[:4]
             if source.domain == "snd.sk":
                 seed_urls = [
                     source.base_url,
@@ -122,9 +122,19 @@ class BratislavaSourcesSpider(scrapy.Spider):
                 break
 
     def _extract(self, response, source: SourceSeed):
-        if source.parser == 'structured':
+        content_type = response.headers.get('Content-Type',b'').decode('ascii','ignore').lower()
+        if any(t in content_type for t in ('rss+xml','atom+xml','text/calendar')):
+            from crawler.extraction.feeds import extract_feed
+            events = extract_feed(response.text,response.url)
+        elif source.parser == 'structured':
             from crawler.extraction.feeds import extract_feed
             events = extract_feed(response.text, response.url)
+            if not events:
+                from crawler.extraction.source_html import extract_source_html
+                from crawler.extraction.microdata_extractor import extract_microdata_events
+                events = extract_source_html(response.text, response.url) or extract_microdata_events(response.text, response.url)
+            if not events:
+                self.crawler.stats.inc_value('extraction/unsupported_pages')
         elif source.parser == "karlova_ves_api":
             try:
                 events = extract_karlova_ves_events(response.json(), response.url)
@@ -137,18 +147,25 @@ class BratislavaSourcesSpider(scrapy.Spider):
         elif source.domain == "snd.sk":
             events = extract_snd_events(response.text, response.url, datetime.now().year)
         else:
-            events = extract_jsonld_events(response.text, response.url)
+            from crawler.extraction.source_html import extract_source_html
+            events = extract_jsonld_events(response.text, response.url) or extract_source_html(response.text, response.url)
             if not events and source.domain == 'visitbratislava.com':
                 from crawler.extraction.visit_extractor import extract_visit_events
                 events = extract_visit_events(response.text, response.url)
             if not events:
                 from crawler.extraction.microdata_extractor import extract_microdata_events
                 events = extract_microdata_events(response.text, response.url)
+            if not events and source.domain in ('visitbratislava.com', 'sng.sk', 'bratislava.sk','staratrznica.sk'):
+                # Listing cards are discovery evidence; incomplete cards must not
+                # compete with authoritative detail dates and locations.
+                return
             if not events:
                 events = extract_event_cards(response.text, response.url)
             if not events:
                 events = extract_best_effort(response.text, response.url)
 
+        if getattr(self, 'crawler', None):
+            self.crawler.stats.inc_value('extraction/raw', len(events))
         self.source_counts[source.name] += len(events)
         for event in events:
             event.source_name = source.name
@@ -186,7 +203,10 @@ class BratislavaSourcesSpider(scrapy.Spider):
         response = getattr(failure.value, "response", None)
         url = response.url if response is not None else failure.request.url
         self.logger.warning("Source request failed: %s", url)
-        self.crawler.stats.inc_value("source/request_errors")
+        optional = failure.request.meta.get('optional_feed') and response is not None and response.status in (404,410)
+        self.crawler.stats.inc_value('source/optional_feed_errors' if optional else 'source/request_errors')
+        if not optional:
+            self.crawler.stats.set_value('source/last_error',type(failure.value).__name__+': '+url.split('?',1)[0][:1000])
 
     def parse_goout(self, response):
         source: SourceSeed = response.meta["source"]
@@ -194,12 +214,27 @@ class BratislavaSourcesSpider(scrapy.Spider):
             data = response.json()
         except ValueError:
             self.logger.warning("GoOut feeder returned non-JSON response")
+            self.crawler.stats.inc_value("extraction/errors")
             return
 
         events = extract_goout_events(data, response.url)
+        if getattr(self, 'crawler', None):
+            self.crawler.stats.inc_value('extraction/raw', len(events))
         self.source_counts[source.name] += len(events)
         for event in events:
             event.source_name = source.name
             event.source_reliability = source.reliability_score
             event.language = source.language
             yield event
+        # Fixed host, fixed endpoint, monotonic page; never follow arbitrary
+        # feeder-provided next URLs. Five pages cap this source at 500 shows.
+        page = response.meta.get('feeder_page', 1)
+        if data.get('hasNext') and page < 5:
+            from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
+            p = urlsplit(response.url)
+            query = dict(parse_qsl(p.query)); query['page'] = str(page + 1)
+            yield scrapy.Request(urlunsplit((p.scheme,p.netloc,p.path,urlencode(query),'')),
+                callback=self.parse_goout,errback=self.errback_source,
+                meta={'source':source,'feeder_page':page+1})
+        elif data.get('hasNext'):
+            self.crawler.stats.inc_value('resource/page_limit')

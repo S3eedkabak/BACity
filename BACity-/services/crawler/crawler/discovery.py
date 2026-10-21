@@ -40,6 +40,16 @@ def assess(attempts, good_runs, failures, metrics, blocked=False):
     if accepted / max(accepted + rejected, 1) < .8:
         return 'probation', 'low_valid_yield'
     mean_quality = metrics.get('quality/score_total', 0) / accepted
-    if good_runs >= 3 and mean_quality >= 60:
+    if good_runs >= 3 and mean_quality >= 60 and metrics.get('quality/future_events',accepted)>0:
         return 'trusted', 'three_valid_runs_quality_60'
     return 'probation', 'collecting_quality_evidence'
+
+
+def endpoint_rank(url):
+    """Rank only URL evidence already linked by a public event source."""
+    path = urlsplit(url).path.lower().rstrip('/')
+    if path.endswith(('.ics','.rss','.atom')) or any(x in path for x in ('/feed','/rss','/ical')):
+        return 100
+    if path.split('/')[-1] in ('events','event','program','calendar','podujatia','agenda'):
+        return 80
+    return 40

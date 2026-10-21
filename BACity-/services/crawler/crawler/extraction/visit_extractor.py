@@ -19,12 +19,13 @@ def extract_visit_events(html, source_url):
     end_date = soup.select_one('.event-date .end-date')
     end_clock = soup.select_one('.event-date .end-time')
     end = None
+    end_day = None
     if end_date:
         end_day = (end_date.get('content') or '')[:10]
         if re.fullmatch(r'\d{4}-\d{2}-\d{2}', end_day) and end_clock:
             end = end_day + 'T' + end_clock.get_text(strip=True)
-        elif re.match(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}', end_date.get('content') or ''):
-            end = end_date.get('content')
+        elif not re.fullmatch(r'\d{4}-\d{2}-\d{2}', end_day):
+            end_day = None
     place = soup.select_one('li.address .value')
     desc = soup.select_one('[itemprop="description"] .content, [itemprop="description"]')
     price = soup.select_one('.price .value, li.price')
@@ -41,7 +42,7 @@ def extract_visit_events(html, source_url):
         match = re.search(r'url\([\s\"\']?([^\)\"\']+)', poster.get('style', ''))
         if match:
             image = urljoin(source_url, match.group(1))
-    return [RawEvent(title=title.get_text(' ', strip=True), start_raw=start, end_raw=end,
+    return [RawEvent(title=title.get_text(' ', strip=True), start_raw=start, end_raw=end, end_date_raw=end_day if not end else None,
                      venue_name=place.get_text(' ', strip=True) if place else None,
                      address=geo.get('data-address') or None if geo else None,
                      latitude=lat, longitude=lng, description=desc.get_text(' ', strip=True) if desc else None,

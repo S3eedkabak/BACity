@@ -82,6 +82,8 @@ def _ical(text, url, now):
             fields[parts[0]] = (value.strip(), params)
         try:
             start = _ical_date(*fields['DTSTART'])
+            start_date_only=fields['DTSTART'][1].get('VALUE')=='DATE' or len(fields['DTSTART'][0])==8
+            end_date_only='DTEND' in fields and (fields['DTEND'][1].get('VALUE')=='DATE' or len(fields['DTEND'][0])==8)
             end = _ical_date(*fields['DTEND']) if 'DTEND' in fields else None
             summary = fields['SUMMARY'][0]
             raw = RawEvent(title=summary, start_raw=start.isoformat(), end_raw=end.isoformat() if end else None,
@@ -125,7 +127,9 @@ def _ical(text, url, now):
                 if end:
                     wall_end = end.replace(tzinfo=None) + (occurrence.replace(tzinfo=None) - start.replace(tzinfo=None))
                     shifted_end = pytz.timezone(str(end.tzinfo)).localize(wall_end, is_dst=None) if hasattr(end.tzinfo, 'localize') else wall_end.replace(tzinfo=end.tzinfo)
-                events.append(replace(raw, start_raw=occurrence.isoformat(), end_raw=shifted_end.isoformat() if shifted_end else None))
+                events.append(replace(raw, start_raw=occurrence.date().isoformat() if start_date_only else occurrence.isoformat(),
+                    end_raw=shifted_end.isoformat() if shifted_end and not end_date_only else None,
+                    end_date_raw=(shifted_end.date()-timedelta(days=1)).isoformat() if shifted_end and end_date_only else None))
                 if len(events) >= MAX_EVENTS:
                     return events
         except (KeyError, ValueError, TypeError, pytz.InvalidTimeError, pytz.UnknownTimeZoneError):

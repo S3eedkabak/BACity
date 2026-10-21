@@ -22,20 +22,27 @@ log = logging.getLogger(__name__)
 stop = threading.Event()
 
 
-def deliver(state, api_url, token="", limit=500):
+def deliver(state, api_url, token="", limit=500, budget_seconds=30):
     """Keep failed submissions on disk, including across process restarts."""
     delivered = 0
+    deadline = time.monotonic() + budget_seconds
     headers = {"X-Ingestion-Key": token} if token else {}
     for row in state.db.execute("SELECT * FROM outbox WHERE status='pending' AND next_try<=? ORDER BY created LIMIT ?", (time.time(), limit)).fetchall():
+        if time.monotonic() >= deadline:
+            break
         try:
-            response = requests.post(f"{api_url.rstrip('/')}/events", json=json.loads(row['payload']), headers=headers, timeout=20)
+            response = requests.post(f"{api_url.rstrip('/')}/events", json=json.loads(row['payload']), headers=headers, timeout=max(.1,min(20,deadline-time.monotonic())))
             response.raise_for_status()
         except requests.RequestException as exc:
             status = exc.response.status_code if exc.response is not None else 0
             permanent = status in (400, 404, 413, 422)
+            from crawler.retry import retry_after
+            wait=min(3600, 30 * 2 ** min(row['attempts'],7))
+            if status in (429,503):
+                wait=max(wait,retry_after(exc.response.headers.get('Retry-After')))
             with state.db:
                 state.db.execute("UPDATE outbox SET attempts=attempts+1,error=?,status=?,next_try=? WHERE key=?",
-                                 (str(exc), 'rejected' if permanent else 'pending', time.time() + min(3600, 30 * 2 ** min(row['attempts'], 7)), row['key']))
+                                 (str(exc), 'rejected' if permanent else 'pending', time.time() + wait, row['key']))
             log.error("Event delivery failed: %s", exc)
             if permanent:
                 continue
@@ -44,6 +51,7 @@ def deliver(state, api_url, token="", limit=500):
         else:
             with state.db:
                 state.db.execute("DELETE FROM outbox WHERE key=?", (row['key'],))
+                state.db.execute("INSERT INTO metadata(key,value) VALUES('outbox_delivered','1') ON CONFLICT(key) DO UPDATE SET value=CAST(value AS INTEGER)+1")
             delivered += 1
     return delivered
 
@@ -54,14 +62,14 @@ def _safe_stats(stats):
     pages = int(stats.get('response_received_count', 0))
     items = int(stats.get('item_scraped_count', 0))
     rejected = int(stats.get('validation/rejected', 0))
-    errors = int(stats.get('extraction/errors', 0)) + int(stats.get('source/request_errors', 0))
-    return pages, items, items, rejected, errors, dict(list(reasons.items())[:20])
+    errors = int(stats.get('extraction/errors', 0)) + int(stats.get('source/request_errors', 0)) + int(stats.get('item_error_count',0))
+    return pages, int(stats.get('extraction/raw', items + rejected)), items, rejected, errors, dict(list(reasons.items())[:20])
 
 
 def report_run(api_url, token, seed, started, finished, success, stats, error):
     pages, items, accepted, rejected, extraction_errors, reasons = _safe_stats(stats)
     status = 'healthy' if success and accepted else 'empty' if success else 'timed_out' if error and 'timeout' in error else 'failed'
-    if success and (stats.get('finish_reason','finished') != 'finished' or stats.get('resource/item_limit')):
+    if success and (stats.get('finish_reason','finished') != 'finished' or stats.get('resource/item_limit') or stats.get('resource/page_limit')):
         status = 'partial'  # A quota-limited scan cannot establish upstream absence.
     body = {'name': seed.name, 'domain': seed.domain, 'base_url': seed.base_url, 'event_url': seed.event_url,
             'source_type': seed.source_type, 'language': seed.language, 'parser': seed.parser,
@@ -73,7 +81,8 @@ def report_run(api_url, token, seed, started, finished, success, stats, error):
             'accepted_events': accepted, 'rejected_events': rejected, 'extraction_errors': extraction_errors,
             'skip_reasons': reasons, 'error': (error or '')[:2000] or None,
             'quality_metrics': {**{k.removeprefix('quality/'):float(v) for k,v in stats.items() if k.startswith('quality/') and isinstance(v,(int,float))},
-                                'crawl_duration_seconds':max(0,finished-started)}}
+                                'crawl_duration_seconds':max(0,finished-started),
+                                **{k:float(stats.get(k,0)) for k in ('extraction/raw','ingestion/queued','ingestion/delivered','ingestion/pending','extraction/unsupported_pages','source/request_errors','geocoding/requests','geocoding/errors','geocoding/cache_hit','geocoding/deferred')}}}
     response = requests.post(f"{api_url.rstrip('/')}/crawler/runs", json=body,
                              headers={'X-Ingestion-Key': token} if token else {}, timeout=20)
     response.raise_for_status()
@@ -100,7 +109,12 @@ def run_source(state, seed, api_url=None, token="", inspection=False):
     stats = {}
     process = subprocess.Popen(command)
     deadline = time.monotonic() + (120 if inspection else int(os.getenv("CRAWLER_JOB_TIMEOUT", "900")))
+    heartbeat_due = 0
     while process.poll() is None:
+        if time.monotonic() >= heartbeat_due:
+            with state.db:
+                state.db.execute("INSERT OR REPLACE INTO metadata VALUES('heartbeat',?)", (str(time.time()),))
+            heartbeat_due = time.monotonic() + 30
         if stop.wait(1) or time.monotonic() > deadline:
             process.terminate()
             try:
@@ -111,24 +125,32 @@ def run_source(state, seed, api_url=None, token="", inspection=False):
             error = "interrupted or job timeout"
             break
     if stats_path.exists():
-        stats = json.loads(stats_path.read_text(encoding="utf-8"))
-        stats_path.unlink()
+        try:
+            stats = json.loads(stats_path.read_text(encoding="utf-8"))
+            if not isinstance(stats,dict):
+                raise ValueError('stats must be an object')
+        except (ValueError,OSError) as exc:
+            error = 'invalid or interrupted crawl statistics: ' + type(exc).__name__
+            stats = {}
+        finally:
+            stats_path.unlink(missing_ok=True)
     success = process.returncode == 0 and stats.get("success", False)
-    failures = state.finish(run_id, seed, success, stats, error or stats.get("error"))
+    failures = state.finish(run_id, seed, success, stats, error or stats.get("error") or stats.get("source/last_error"))
     if inspection:
+        stats['inspection/urls'] = [seed.event_url, *seed.entry_urls]
         state.candidate_result(seed.domain, stats, success)
     log.info("CRAWL_RESULT source=%s success=%s stats=%s", seed.domain, success, stats)
     if failures >= 3:
         log.error("CRAWLER_ALERT repeated_failure source=%s failures=%s", seed.domain, failures)
     if api_url:
         try:
-            report_run(api_url, token, seed, started, time.time(), success, stats, error or stats.get("error"))
+            report_run(api_url, token, seed, started, time.time(), success, stats, error or stats.get("error") or stats.get("source/last_error"))
         except requests.RequestException as exc:
             log.warning("Could not publish source health for %s: %s", seed.domain, exc)
     return success
 
 
-def discovery_cycle(state, api_url, token):
+def discovery_cycle(state, api_url, token, limit=5):
     if not token:
         log.warning('Source-learning synchronization requires an ingestion key')
         return
@@ -155,11 +177,12 @@ def discovery_cycle(state, api_url, token):
     except (requests.RequestException, ValueError, TypeError):
         # Retain local, already validated queue on API failure.
         log.warning('Candidate controls unavailable; retaining local state')
-    for row in state.inspect_due():
+    for row in state.inspect_due()[:limit]:
         if stop.is_set():
             break
-        seed = SourceSeed(row['domain'], row['domain'], row['url'], row['url'], 'event_platform',
-                          .6 if row['status'] != 'trusted' else .75, parser='structured', crawl_frequency_minutes=360)
+        urls = state.inspection_urls(row['domain']) or [row['url']]
+        seed = SourceSeed(row['domain'], row['domain'], urls[0], urls[0], 'event_platform',
+                          .6 if row['status'] != 'trusted' else .75, parser='structured', crawl_frequency_minutes=360, entry_urls=urls[1:])
         state.seed(seed, row['origin'])
         run_source(state, seed, api_url, token, inspection=True)
     rows = []
@@ -185,7 +208,10 @@ def main():
         state = State(state_path)
         print(json.dumps({'sources': [dict(r) for r in state.db.execute('SELECT domain,enabled,next_run,failures,last_success,discovered_from FROM sources')],
                           'runs': [dict(r) for r in state.db.execute('SELECT * FROM runs ORDER BY id DESC LIMIT 20')],
-                          'delivery': [dict(r) for r in state.db.execute('SELECT status,count(*) AS count FROM outbox GROUP BY status')]}, indent=2))
+                          'delivery': [dict(r) for r in state.db.execute('SELECT status,count(*) AS count,min(created) AS oldest,max(attempts) AS max_attempts FROM outbox GROUP BY status')],
+                          'candidates': [dict(r) for r in state.db.execute('SELECT domain,status,reason,next_inspection,good_runs,metrics FROM candidates')],
+                          'endpoint_count': state.db.execute('SELECT count(*) FROM candidate_endpoints').fetchone()[0],
+                          'delivery_totals': dict(state.db.execute("SELECT key,value FROM metadata WHERE key LIKE 'outbox_%'"))}, indent=2))
         state.close()
         return
     if args.health:
@@ -213,13 +239,18 @@ def main():
                         state.db.execute("INSERT OR REPLACE INTO metadata VALUES('heartbeat',?)", (str(time.time()),))
                     deliver(state, api_url, ingestion_token)
                     sync_runtime_config(state, api_url, ingestion_token)
-                    discovery_cycle(state, api_url, ingestion_token)
-                    for row in state.due():
+                    discovery_cycle(state, api_url, ingestion_token, limit=1)
+                    # --once holds a finite snapshot even when early failures
+                    # become due again during later, slower source jobs.
+                    due_sources = state.due()
+                    for row in (due_sources if args.once else due_sources[:1]):
                         if stop.is_set():
                             break
                         run_source(state, SourceSeed(**json.loads(row['seed'])), api_url, ingestion_token)
                         with state.db:
                             state.db.execute("INSERT OR REPLACE INTO metadata VALUES('heartbeat',?)", (str(time.time()),))
+                        if args.once:
+                            discovery_cycle(state, api_url, ingestion_token, limit=1)
                     deliver(state, api_url, ingestion_token)
                     try:
                         response = requests.post(api_url.rstrip('/') + '/events/maintenance',

@@ -1,4 +1,5 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from typing import Optional
 from uuid import UUID
 
@@ -22,6 +23,7 @@ class EventBase(BaseModel):
     description: Optional[str] = None
     start_time: datetime
     end_time: Optional[datetime] = None
+    end_date: Optional[date] = None
     timezone: str = "Europe/Bratislava"
     address: Optional[str] = None
     latitude: Optional[float] = None
@@ -45,7 +47,7 @@ class EventCreate(EventBase):
     source_name: Optional[str] = None
     extraction_confidence: float = Field(default=0.5, ge=0.5, le=1)
     source_reliability: float = Field(default=0.5, ge=0, le=1)
-    temporal_evidence: str = Field(default='unknown', pattern='^(unknown|explicit_end|explicit_duration|text_range|invalid_end|invalid_local_time)$')
+    temporal_evidence: str = Field(default='unknown', pattern='^(unknown|date_range|explicit_end|explicit_duration|text_range|invalid_end|invalid_local_time)$')
     extraction_method: str = Field(default='unknown', max_length=80)
     organizer_name: str | None = Field(default=None, max_length=200)
     previous_start_time: datetime | None = None
@@ -56,11 +58,21 @@ class EventCreate(EventBase):
         return self.validate_event_fields()
 
     def validate_source(self):
-        url = urlsplit(self.source_url)
-        if url.scheme not in ('http', 'https') or not url.hostname or url.username:
-            raise ValueError('source_url must be a public HTTP(S) URL')
+        for value in (self.source_url,self.original_source_url):
+            if value is None:
+                continue
+            url = urlsplit(value)
+            if url.scheme not in ('http', 'https') or not url.hostname or url.username:
+                raise ValueError('source URLs must be public HTTP(S) URLs')
 
     def validate_event_fields(self):
+        if self.end_date:
+            try:
+                start=self.start_time.replace(tzinfo=timezone.utc) if self.start_time.tzinfo is None else self.start_time
+                if self.end_date < start.astimezone(ZoneInfo(self.timezone)).date():
+                    raise ValueError('end_date precedes start date')
+            except ZoneInfoNotFoundError:
+                raise ValueError('Unknown event timezone')
         if self.end_time:
             start = self.start_time.replace(tzinfo=timezone.utc) if self.start_time.tzinfo is None else self.start_time
             end = self.end_time.replace(tzinfo=timezone.utc) if self.end_time.tzinfo is None else self.end_time

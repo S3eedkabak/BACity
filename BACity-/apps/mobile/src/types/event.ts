@@ -6,7 +6,7 @@ export type EventCategory =
   | "Family" | "Markets" | "Festivals" | "Student" | "Technology"
   | "Comedy" | "Exhibitions" | "Other";
 
-export type EventStatus = "fresh" | "stale" | "expired" | "removed" | "cancelled";
+export type EventStatus = "fresh" | "stale" | "expired" | "removed" | "cancelled" | "postponed";
 
 export interface VenueSummary {
   id: string;
@@ -22,6 +22,7 @@ export interface EventOut {
   description: string | null;
   start_time: string; // ISO 8601
   end_time: string | null;
+  end_date?: string | null;
   timezone: string;
   address: string | null;
   latitude: number | null;

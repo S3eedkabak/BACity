@@ -27,7 +27,7 @@ class CrawlRunReport(BaseModel):
     extraction_errors: int = Field(ge=0)
     skip_reasons: dict[str, int] = Field(default_factory=dict)
     error: str | None = Field(default=None, max_length=2000)
-    quality_metrics: dict[str, float] = Field(default_factory=dict, max_length=10)
+    quality_metrics: dict[str, float] = Field(default_factory=dict, max_length=24)
 
 
 class SourceAdminUpdate(BaseModel):

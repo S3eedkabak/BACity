@@ -1,11 +1,14 @@
 # Scheduled event ingestion
 
+See [coverage recovery](crawler-coverage-recovery.md) for current source health,
+endpoint rotation, date precision, measured validation and safe Mac migration.
+
 For the current candidate lifecycle, temporal evidence, security limits and
 operator runbook, see [Crawler V2](crawler-v2.md). Its rules supersede the
 original discovery/scheduling defaults below.
 
 The worker is a long-running service. It crawls due sources on startup, checks
-the schedule every 30 seconds, and keeps its schedule, discovered sources,
+the schedule between bounded jobs, waiting 30 seconds when running continuously, and keeps its schedule, discovered sources,
 crawl history, geocoding cache and delivery queue in the `crawlerdata` volume.
 The application reads the canonical PostgreSQL events through the existing
 `/events` endpoints; `/v1/events` is an equivalent versioned route.
@@ -33,8 +36,9 @@ back up both volumes. No external search service or paid API key is needed.
 
 ## Scheduling and discovery
 
-Defaults: GoOut every 2 hours, Visit Bratislava every 6 hours, other trusted
-sources every 12 hours, discovered domains every 24 hours. Set
+Defaults: GoOut every 2 hours, Visit Bratislava/Cvernovka/Karlova Ves every
+6 hours and the other registered sources every 12 hours. Candidate inspection
+uses its qualification/backoff schedule; trusted candidates recur every 6 hours. Set
 `CRAWLER_INTERVAL_MINUTES` to override the trusted-source intervals (minimum
 15 minutes), then recreate the worker. `0` keeps individual source schedules.
 Changing an interval affects the next completed crawl; existing due times are
@@ -54,8 +58,9 @@ again without being promoted into the trusted registry. This prevents unlimited
 off-topic crawling. Defaults bound each job to 150 pages, depth 3, 50 links per
 page and 20 discovered domains, with 250 sources overall. Adjust
 `CRAWLER_MAX_DEPTH`, `CRAWLER_MAX_LINKS`, `CRAWLER_MAX_NEW_SOURCES` and
-`CRAWLER_MAX_SOURCES` as needed. A bounded crawl is marked successful only if it
-processed at least one validated event and had no parser exceptions.
+`CRAWLER_MAX_SOURCES` as needed. A reachable complete crawl can be empty; empty extraction remains visible.
+Request, parser and pipeline errors fail a run. Quota-limited collection is
+reported as partial and cannot establish upstream event absence.
 
 `CRAWLER_ALLOW_DOMAINS` optionally limits destinations; `CRAWLER_BLOCK_DOMAINS`
 excludes domains and subdomains. Private-network destinations and non-web URLs

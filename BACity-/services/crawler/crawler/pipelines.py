@@ -2,6 +2,7 @@ import logging
 import time
 import os
 import re
+import math
 from datetime import datetime, timezone
 
 import requests
@@ -29,8 +30,17 @@ _KNOWN_ADDRESSES = {
 }
 
 
-class NormalizePipeline:
-    def process_item(self, item: RawEvent, spider):
+class CrawlerPipeline:
+    @classmethod
+    def from_crawler(cls, crawler):
+        instance = cls()
+        instance.crawler = crawler
+        return instance
+
+
+class NormalizePipeline(CrawlerPipeline):
+    def process_item(self, item: RawEvent, spider=None):
+        spider = spider or self.crawler.spider
         normalized = normalize_event(item)
         if normalized is None:
             logger.info("Dropped unparseable event: %r", item.title)
@@ -40,22 +50,31 @@ class NormalizePipeline:
         return normalized
 
 
-class GeocodePipeline:
+class GeocodePipeline(CrawlerPipeline):
     """Resolve event addresses to coordinates before validation/submission.
 
     A small known-venue cache covers the prototype's fixed institutions.
     Everything else uses Nominatim and is cached for the duration of the crawl.
     """
 
-    def open_spider(self, spider):
+    def open_spider(self, spider=None):
+        spider = spider or self.crawler.spider
         self.cache = {}
         from crawler.state import State
         self.state = State()
         self.last_request = 0
+        row=self.state.db.execute("SELECT value FROM metadata WHERE key='geocoder_retry_after'").fetchone()
+        self.blocked_until=float(row[0]) if row else 0
         self.url = spider.settings.get("GEOCODER_URL")
         self.user_agent = spider.settings.get("GEOCODER_USER_AGENT")
 
-    def process_item(self, item, spider):
+    @staticmethod
+    def count(spider,key):
+        if getattr(spider,'crawler',None):
+            spider.crawler.stats.inc_value('geocoding/'+key)
+
+    def process_item(self, item, spider=None):
+        spider = spider or self.crawler.spider
         if item.venue_name:
             known = _KNOWN_VENUES.get(item.venue_name.strip().lower())
             if known:
@@ -70,27 +89,33 @@ class GeocodePipeline:
                 item.latitude, item.longitude = known_coords
 
         if item.latitude is not None and item.longitude is not None:
+            self.count(spider,'coordinates_available')
             return item
 
         query = item.address or item.venue_name
         if not query:
+            self.count(spider,'missing_query')
             return item
 
         cache_key = query.strip().lower()
         cached = self.state.db.execute("SELECT latitude,longitude FROM geocache WHERE query=? AND (expires IS NULL OR expires>?)", (cache_key, time.time())).fetchone()
         if cached:
+            self.count(spider,'cache_hit')
             item.latitude, item.longitude = cached
             return item
         if cache_key in self.cache:
+            self.count(spider,'cache_hit')
             item.latitude, item.longitude = self.cache[cache_key]
             return item
 
-        if not self.url:
+        if not self.url or time.time()<self.blocked_until:
+            self.count(spider,'deferred')
             return item
 
         try:
             time.sleep(max(0, 1.1 - (time.monotonic() - self.last_request)))
             self.last_request = time.monotonic()
+            self.count(spider,'requests')
             response = requests.get(
                 self.url,
                 params={
@@ -105,31 +130,44 @@ class GeocodePipeline:
                 timeout=8,
                 allow_redirects=False,
             )
+            if response.status_code in (429,503,403):
+                from crawler.retry import retry_after
+                self.blocked_until=time.time()+retry_after(response.headers.get('Retry-After'),default=86400 if response.status_code==403 else 60)
+                with self.state.db:
+                    self.state.db.execute("INSERT OR REPLACE INTO metadata VALUES('geocoder_retry_after',?)",(str(self.blocked_until),))
             response.raise_for_status()
             if 300 <= response.status_code < 400:
                 raise requests.HTTPError('Geocoder redirects are not permitted')
             results = response.json()
             if results:
                 coords = (float(results[0]["lat"]), float(results[0]["lon"]))
-                if 48.0 <= coords[0] <= 48.35 and 16.9 <= coords[1] <= 17.35:
+                if (all(math.isfinite(c) for c in coords) and 48.0 <= coords[0] <= 48.35 and 16.9 <= coords[1] <= 17.35
+                        and results[0].get('addresstype') not in ('city','municipality','suburb','country','state')):
                     self.cache[cache_key] = coords
                     item.latitude, item.longitude = coords
                     with self.state.db:
                         self.state.db.execute("INSERT OR REPLACE INTO geocache VALUES(?,?,?,NULL)", (cache_key, *coords))
-            else:
+            if cache_key not in self.cache:
+                self.count(spider,'unresolved')
+                self.cache[cache_key] = (None, None)
                 with self.state.db:
                     self.state.db.execute("INSERT OR REPLACE INTO geocache VALUES(?,NULL,NULL,?)", (cache_key, time.time() + 86400))
-        except (requests.RequestException, ValueError, KeyError, TypeError) as exc:
+        except (requests.RequestException, ValueError, KeyError, TypeError, OverflowError) as exc:
+            # A provider outage must not trigger the same call for every item.
+            self.count(spider,'errors')
+            self.cache[cache_key] = (None, None)
             logger.debug("Geocoding failed for %r: %s", query, exc)
 
         return item
 
-    def close_spider(self, spider):
+    def close_spider(self, spider=None):
+        spider = spider or self.crawler.spider
         self.state.close()
 
 
-class PreValidatePipeline:
-    def process_item(self, item, spider):
+class PreValidatePipeline(CrawlerPipeline):
+    def process_item(self, item, spider=None):
+        spider = spider or self.crawler.spider
         result = validate_event(item)
         if not result.accepted or result.needs_advanced_extraction:
             spider.crawler.stats.inc_value('validation/rejected')
@@ -140,8 +178,9 @@ class PreValidatePipeline:
         return item
 
 
-class ValidatePipeline:
-    def process_item(self, item, spider):
+class ValidatePipeline(CrawlerPipeline):
+    def process_item(self, item, spider=None):
+        spider = spider or self.crawler.spider
         result = validate_event(item)
         if not result.accepted:
             logger.info("Rejected event %r: %s", item.title, result.reason)
@@ -167,13 +206,15 @@ class ValidatePipeline:
         return item
 
 
-class ApiSubmitPipeline:
-    def open_spider(self, spider):
+class ApiSubmitPipeline(CrawlerPipeline):
+    def open_spider(self, spider=None):
+        spider = spider or self.crawler.spider
         self.api_base_url = spider.settings.get("API_BASE_URL")
         self.submitted = 0
         self.failed = 0
 
-    def process_item(self, item, spider):
+    def process_item(self, item, spider=None):
+        spider = spider or self.crawler.spider
         try:
             response = requests.post(
                 f"{self.api_base_url}/events",
@@ -192,16 +233,18 @@ class ApiSubmitPipeline:
             logger.warning("Failed to submit event %r: %s", item.title, exc)
         return item
 
-    def close_spider(self, spider):
+    def close_spider(self, spider=None):
+        spider = spider or self.crawler.spider
         logger.info("Submitted %d events, %d failed", self.submitted, self.failed)
 
 
-class QualityAuditPipeline:
+class QualityAuditPipeline(CrawlerPipeline):
     """Non-writing live audit: same validation/completeness, no API or geocoder."""
-    def process_item(self, item, spider):
+    def process_item(self, item, spider=None):
+        spider = spider or self.crawler.spider
         from crawler.quality import quality
         limit = 100 if any(s.parser == 'structured' for s in getattr(spider, 'sources', [])) else 1000
-        if spider.crawler.stats.get_value('ingestion/queued', 0) >= limit:
+        if spider.crawler.stats.get_value('quality/events', 0) >= limit:
             spider.crawler.stats.inc_value('resource/item_limit')
             raise DropItem('run_item_limit')
         spider.crawler.stats.inc_value('quality/events')
@@ -212,28 +255,31 @@ class QualityAuditPipeline:
             spider.crawler.stats.inc_value('quality/with_coordinates')
         for key,present in {'with_venue':bool(item.venue_name),'with_category':item.category not in ('','Other'),
                             'with_organizer':bool(item.organizer_name),
-                            'future_events':datetime.fromisoformat(item.start_time)>datetime.now(timezone.utc)}.items():
+                            'future_events':item.event_status=='fresh' and datetime.fromisoformat(item.start_time)>datetime.now(timezone.utc)}.items():
             if present:
                 spider.crawler.stats.inc_value('quality/'+key)
-        spider.crawler.stats.inc_value("ingestion/queued")
         return item
 
 
 class DurableSubmitPipeline(QualityAuditPipeline):
-    def open_spider(self, spider):
+    def open_spider(self, spider=None):
+        spider = spider or self.crawler.spider
         from crawler.state import State
         self.state = State()
 
-    def process_item(self, item, spider):
+    def process_item(self, item, spider=None):
+        spider = spider or self.crawler.spider
         super().process_item(item, spider)
         self.state.enqueue(_to_event_create_payload(item))
+        spider.crawler.stats.inc_value("ingestion/queued")
         return item
 
-    def close_spider(self, spider):
+    def close_spider(self, spider=None):
+        spider = spider or self.crawler.spider
         from crawler.worker import deliver
-        count = deliver(self.state, spider.settings.get("API_BASE_URL"), os.getenv("INGESTION_API_KEY", ""))
+        count = deliver(self.state, spider.settings.get("API_BASE_URL"), os.getenv("INGESTION_API_KEY", ""), limit=50, budget_seconds=10)
         spider.crawler.stats.set_value("ingestion/delivered", count)
-        spider.crawler.stats.set_value("ingestion/pending", self.state.db.execute("SELECT count(*) FROM outbox").fetchone()[0])
+        spider.crawler.stats.set_value("ingestion/pending", self.state.db.execute("SELECT count(*) FROM outbox WHERE status='pending'").fetchone()[0])
         self.state.close()
 
 
@@ -243,6 +289,7 @@ def _to_event_create_payload(item) -> dict:
         "description": item.description,
         "start_time": item.start_time,
         "end_time": item.end_time,
+        "end_date": item.end_date,
         "timezone": item.timezone,
         "venue_name": item.venue_name,
         "address": item.address,

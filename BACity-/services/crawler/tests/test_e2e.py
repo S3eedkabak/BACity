@@ -11,9 +11,11 @@ from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import requests
+import pytest
 
 
-def test_full_ingestion_roundtrip(tmp_path):
+@pytest.mark.parametrize('candidate',[False,True])
+def test_full_ingestion_roundtrip(tmp_path,candidate):
     root = Path(__file__).resolve().parents[1]
     api_dir = root.parent / 'api'
     start = (datetime.now(timezone.utc) + timedelta(days=3)).replace(microsecond=0).isoformat()
@@ -36,6 +38,7 @@ def test_full_ingestion_roundtrip(tmp_path):
             elif self.path in ('/events/jazz', '/events/duplicate'):
                 event = {'@type': 'MusicEvent', 'name': 'Integration Jazz Concert', 'startDate': start,
                          'url': 'https://venue.example' + self.path, 'eventStatus': 'https://schema.org/EventCancelled' if cancelled else 'https://schema.org/EventScheduled',
+                         'description':'Fixture concert with explicit public event evidence.',
                          'location': {'name': 'Test Jazz Venue', 'address': 'Test Street, Bratislava', 'geo': {'latitude': 48.15, 'longitude': 17.12}}}
                 body = '<script type="application/ld+json">' + json.dumps(event) + '</script>'
             else:
@@ -58,7 +61,7 @@ def test_full_ingestion_roundtrip(tmp_path):
         api_port = sock.getsockname()[1]
     api_url = f'http://127.0.0.1:{api_port}'
     env = {**os.environ, 'DATABASE_URL': 'sqlite:///' + (tmp_path / 'events.db').as_posix(),
-           'API_BASE_URL': api_url, 'INGESTION_API_KEY': 'test-ingestion-key',
+           'API_BASE_URL': api_url, 'INGESTION_API_KEY': 'test-ingestion-key', 'MEDIA_ROOT':str(tmp_path/'media'),
            'CRAWLER_STATE_PATH': str(tmp_path / 'state.db'), 'NO_PROXY': '127.0.0.1,localhost'}
     with (tmp_path / 'api.log').open('w') as log:
         api = subprocess.Popen([sys.executable, '-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', str(api_port)],
@@ -73,11 +76,23 @@ def test_full_ingestion_roundtrip(tmp_path):
                 time.sleep(.1)
             else:
                 raise AssertionError('API did not start: ' + (tmp_path / 'api.log').read_text())
-            for iteration in range(3):
-                cancelled = iteration == 2
-                result = subprocess.run([sys.executable, '-m', 'tests.fixture_crawl', f'http://127.0.0.1:{server.server_port}'],
+            from crawler.state import State
+            candidate_state=State(str(tmp_path/'candidate-state.db'))
+            if candidate:
+                candidate_state.discover('https://venue.example/events','https://city.example/events')
+            for iteration in range(4):
+                cancelled = iteration == 3
+                result = subprocess.run([sys.executable, '-m', 'tests.fixture_crawl', f'http://127.0.0.1:{server.server_port}', *(['candidate'] if candidate else [])],
                                         cwd=root, env=env, capture_output=True, text=True, timeout=60)
                 assert result.returncode == 0, result.stdout + result.stderr
+                if candidate and not cancelled:
+                    stats=json.loads(result.stdout.strip().splitlines()[-1])
+                    candidate_state.candidate_result('venue.example',stats,True)
+                    row=candidate_state.db.execute('SELECT * FROM candidates').fetchone()
+                    assert row['status']==('trusted' if iteration==2 else 'probation')
+                    assert row['next_inspection']>time.time()
+                    candidate_state.close()
+                    candidate_state=State(str(tmp_path/'candidate-state.db'))
                 events = requests.get(api_url + '/events', timeout=5).json()
                 if cancelled:
                     assert events['total'] == 0
@@ -87,6 +102,7 @@ def test_full_ingestion_roundtrip(tmp_path):
                 assert events['items'][0]['start_time'].endswith('+00:00')
                 nearby = requests.get(api_url + '/events/nearby', params={'lat': 48.15, 'lng': 17.12}, timeout=5).json()
                 assert len(nearby) == 1
+            candidate_state.close()
             assert hits.get('/events/blocked', 0) == 0
             assert hits['/events/jazz'] >= 4  # includes transient 503 retry
         finally:
