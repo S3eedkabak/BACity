@@ -1,5 +1,8 @@
+import { eventCoordinates } from '../map/eventLocation';
+import { useViewOnMap } from '../map/eventTarget';
+import { availabilityLabel } from '../map/eventAvailability';
 import { AppIcon } from "./AppIcon";
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { AnimatedPressable as Pressable } from './motion/Motion';
 import { EventOut } from '../types/event';
 import { colors } from '../theme/colors';
@@ -15,25 +18,37 @@ export function EventCard({ event, explanation, saved, saving = false, onToggleS
 }) {
   const [initialDelay] = useState(entranceDelay);
   const openEvent = useEventNavigation();
+  const viewOnMap = useViewOnMap();
   const compact = ['compact', 'map', 'planner'].includes(variant);
   const premium = variant === 'premium';
-  const date = new Date(event.start_time);
   const card = <Pressable accessibilityRole="button" accessibilityLabel={`Open ${event.title}`} onPress={() => openEvent(event.id)}
     style={({ pressed }) => [styles.card, compact && styles.compact, variant === 'horizontal' && styles.rail, premium && styles.premium, pressed && styles.pressed]}>
     <View style={[styles.mediaWrap, variant === 'hero' && styles.heroMedia, variant === 'horizontal' && styles.railMedia, variant === 'saved' && styles.savedMedia, variant === 'organizer' && styles.organizerMedia, compact && styles.compactMedia]}>
       <EventMedia uri={event.image_url} category={event.category} style={StyleSheet.absoluteFill} />
       {!compact && <View style={styles.mediaMeta}><Text style={styles.tag}>{event.category}</Text><Text style={styles.tag}>{event.price === 0 ? 'Free' : event.price == null ? 'Price unknown' : `${event.price} ${event.currency || 'EUR'}`}</Text></View>}
-      {onToggleSave && <Pressable accessibilityRole="button" accessibilityLabel={saved ? 'Remove from saved events' : 'Save event'} accessibilityState={{ checked: !!saved, disabled: saving }} disabled={saving}
+      {onToggleSave && Platform.OS !== 'web' && <Pressable accessibilityRole="button" accessibilityLabel={saved ? 'Remove from saved events' : 'Save event'} accessibilityState={{ checked: !!saved, disabled: saving }} disabled={saving}
         onPress={press => { press.stopPropagation(); onToggleSave(); }} style={styles.save}><AppIcon name={saved ? 'bookmark' : 'bookmark-outline'} size={22} color={colors.text} /></Pressable>}
     </View>
     <View style={styles.body}>
       {explanation && <Text style={[styles.reason, premium && styles.premiumReason]} numberOfLines={2}>{explanation}</Text>}
-      <Text style={[styles.when, premium && styles.light]}>{date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })} · {date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</Text>
+      <Text style={[styles.when, premium && styles.light]}>{availabilityLabel(event)}</Text>
       <Text style={[styles.title, compact && styles.compactTitle, premium && styles.light]} numberOfLines={2}>{event.title}</Text>
       <View style={styles.location}><AppIcon name="location-outline" size={16} color={premium ? tokens.premium.muted : colors.textMuted} /><Text style={[styles.venue, premium && styles.light]} numberOfLines={1}>{event.venue?.name || event.address || 'Bratislava'}</Text></View>
     </View>
   </Pressable>;
-  return initialDelay == null ? card : <Reveal delay={initialDelay}>{card}</Reveal>;
+  // Web buttons cannot contain another button. Keep the same save position
+  // as a sibling overlay; native retains its original nested touch handling.
+  const locate = variant !== 'map' && eventCoordinates(event);
+  const content = <View style={variant === 'horizontal' ? { width: styles.rail.width + styles.rail.marginRight } : undefined}>
+    {card}
+    {Platform.OS === 'web' && onToggleSave && <Pressable accessibilityRole="button" accessibilityLabel={saved ? 'Remove from saved events' : 'Save event'} accessibilityState={{ checked: !!saved, disabled: saving }} disabled={saving}
+      onPress={press => { press.stopPropagation(); onToggleSave(); }} style={[styles.save,compact&&{right:undefined,left:44}]}><AppIcon name={saved ? 'bookmark' : 'bookmark-outline'} size={22} color={colors.text}/></Pressable>}
+    {locate && <Pressable accessibilityRole="button" accessibilityLabel={`View ${event.title} on Map`} onPress={()=>viewOnMap(event)}
+      style={{position:'absolute',top:12,left:12,width:36,height:36,borderRadius:18,alignItems:'center',justifyContent:'center',backgroundColor:colors.surface}}>
+      <AppIcon name="map-outline" size={18} color={colors.primary}/>
+    </Pressable>}
+  </View>;
+  return initialDelay == null ? content : <Reveal delay={initialDelay}>{content}</Reveal>;
 }
 const styles = StyleSheet.create({
   card: { marginBottom: 24, borderRadius: tokens.radius.lg, backgroundColor: colors.surface, overflow: 'hidden' },

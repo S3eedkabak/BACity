@@ -39,3 +39,21 @@ export function unsaveEvent(id: string): Promise<{ event_id: string; saved: bool
 export function getSavedEvents(): Promise<EventOut[]> {
   return apiRequest<EventOut[]>("/users/me/saved-events", { auth: true });
 }
+
+export function mapClusters(bounds: EventViewportBounds, zoom: number, filters: import('../map/area').MapFilters = {}, signal?: AbortSignal) {
+  return apiRequest<import('../map/area').ClusterData>('/events/map/clusters', {params:{...bounds,zoom,...filters},signal});
+}
+export interface AreaPage {name:string;total:number;items:EventOut[];has_more:boolean;next_cursor:string|null;refreshed:boolean;}
+export function areaEvents(area_token:string, filters:import('../map/area').MapFilters, cursor?:string, signal?:AbortSignal) {
+  return apiRequest<AreaPage>('/events/map/area',{params:{area_token,...filters,override_filters:true,cursor,limit:30},signal});
+}
+
+export interface DistrictData extends GeoJSON.FeatureCollection<GeoJSON.Polygon|GeoJSON.MultiPolygon,{id:string;name:string;count:number;area_token:string;label_coordinates:[number,number]}> {source:string;outside_districts:number;}
+export function mapDistricts(filters:import('../map/area').MapFilters={},signal?:AbortSignal) {
+  return apiRequest<DistrictData>('/events/map/districts',{params:{...filters},signal});
+}
+
+export interface OccurrencePage {total:number;next_offset:number|null;items:{id:string;source_url:string;start_time:string;end_time:string|null;status:string;start_precision:'date'|'time'}[];}
+export function eventOccurrences(id:string,offset=0,signal?:AbortSignal) {
+  return apiRequest<OccurrencePage>(`/events/${id}/occurrences`,{params:{offset,limit:10},signal});
+}

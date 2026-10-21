@@ -41,37 +41,28 @@ def find_canonical_event(db, payload):
         previous = db.query(EventSource).filter_by(source_url=payload.source_url,
             start_time=utc(payload.previous_start_time),title_key=title_key).first()
         existing = previous.event if previous else None
+    if existing is not None and existing.merged_into_id:
+        from app.crud.event import get_event
+        existing = get_event(db,existing.id)
     score = 1.0
     if existing is None:
-        # Conservative match: near-identical title + same place and nearby time.
-        # A shared venue alone never merges two different performances.
-        candidates = db.query(Event).options(selectinload(Event.venue)).filter(Event.start_time.between(payload.start_time - timedelta(minutes=15), payload.start_time + timedelta(minutes=15))).order_by(Event.start_time, Event.id).limit(500).all()
-        publisher = (urlsplit(payload.original_source_url or payload.source_url).hostname or '').removeprefix('www.')
-        for candidate in candidates:
-            # A publisher explicitly listing two start times is occurrence
-            # evidence. Fuzzy cross-source matching must not collapse them.
-            candidate_publishers = {(urlsplit(candidate.source_url).hostname or '').removeprefix('www.')}
-            candidate_publishers.update((urlsplit(ref.original_source_url or ref.source_url).hostname or '').removeprefix('www.') for ref in candidate.sources)
-            if publisher and publisher in candidate_publishers and candidate.start_time != payload.start_time:
-                continue
-            title_score = SequenceMatcher(None, normalize(payload.title), normalize(candidate.title)).ratio()
-            same_place = bool(payload.address and normalize(payload.address) == normalize(candidate.address)) or bool(
-                payload.venue_name and candidate.venue and normalize(payload.venue_name) == normalize(candidate.venue.name))
-            if (not same_place and payload.latitude is not None and payload.longitude is not None
-                    and candidate.latitude is not None and candidate.longitude is not None):
-                # ~150 m in Bratislava; enough for formatting/address variation,
-                # too small to collapse different venues across a neighborhood.
-                same_place = abs(payload.latitude - candidate.latitude) <= .00135 and abs(payload.longitude - candidate.longitude) <= .002
-            if payload.venue_name and candidate.venue and SequenceMatcher(None,normalize(payload.venue_name),normalize(candidate.venue.name)).ratio() < .8:
-                same_place = False
-            same_time = abs((candidate.start_time - payload.start_time).total_seconds()) <= 900
-            if same_place and title_score >= .90 and same_time:
-                existing, score = candidate, .8 * title_score + .2
-                break
+        from app.crud.event_identity import find_identity
+        existing, reason = find_identity(db, payload)
+        if reason:
+            score = reason[1]
+            if reason[0] in ('publisher_recurring_market_place','publisher_series_place','recurring_exhibition_content_place','recurring_market_schedule_place_title'):existing.identity_kind='recurring'
     return existing, evidence, score
 
 
 def ingest(db, payload):
+    from app.crud.event_identity import imprecise_location,standalone_offer,implausible_listing_range
+    observed_coordinates={'latitude':payload.latitude,'longitude':payload.longitude}
+    observed_schedule={'start_time':payload.start_time.isoformat(),'end_time':payload.end_time.isoformat() if payload.end_time else None,'end_date':str(payload.end_date) if payload.end_date else None}
+    if implausible_listing_range(payload.start_time,payload.end_time,payload.end_date):
+        payload=payload.model_copy(update={'end_time':None,'end_date':None,'temporal_evidence':'unknown'})
+    if imprecise_location(payload):
+        payload=payload.model_copy(update={'latitude':None,'longitude':None})
+    if standalone_offer(payload):payload=payload.model_copy(update={'identity_kind':'offer'})
     payload = payload.model_copy(update={'start_time': utc(payload.start_time), 'end_time': utc(payload.end_time),
                                         'source_url': canonical_url(payload.source_url)})
     existing, evidence, score = find_canonical_event(db, payload)
@@ -104,7 +95,7 @@ def ingest(db, payload):
             # Event-source trust does not confer ownership of a shared venue.
             # Established coordinates may only be corrected through moderation.
             venue.latitude, venue.longitude = payload.latitude, payload.longitude
-    values = payload.model_dump(exclude={'venue_name', 'source_name', 'venue_id', 'source_id', 'original_source_url', 'temporal_evidence', 'extraction_method', 'organizer_name','previous_start_time'})
+    values = payload.model_dump(exclude={'venue_name', 'source_name', 'venue_id', 'source_id', 'original_source_url', 'temporal_evidence', 'extraction_method', 'organizer_name','previous_start_time','publisher_event_id','identity_kind','start_precision','recurrence_rule'})
     temporal_rank = {'explicit_end': 3, 'explicit_duration': 2, 'text_range': 1}.get(payload.temporal_evidence, 0)
     old_facts = [item.facts for item in db.query(EventSource).filter_by(event_id=existing.id).limit(50)] if existing else []
     old_end_key = max(((fact.get('best_end', {}).get('rank', 0), fact.get('best_end', {}).get('quality', 0))
@@ -112,7 +103,11 @@ def ingest(db, payload):
     incoming_end_key = (temporal_rank, payload.source_reliability * payload.extraction_confidence)
     outcome = 'created' if existing is None else 'updated' if evidence is not None else 'merged'
     if existing is None:
-        existing = Event(**values, venue_id=venue.id if venue else None, source_id=source.id)
+        existing = Event(**values, identity_kind=payload.identity_kind, venue_id=venue.id if venue else None, source_id=source.id)
+        from app.crud.event_identity import is_offer, exhibition,canonical_title
+        if is_offer(payload):
+            existing.title=canonical_title(payload)
+            existing.identity_kind='recurring' if exhibition(payload) else 'single';existing.price=None
         db.add(existing)
         db.flush()
     elif not existing.is_manual_override:
@@ -125,7 +120,14 @@ def ingest(db, payload):
         if same_source and payload.end_date and not payload.end_time and payload.temporal_evidence=='date_range':
             if any(fact.get('best_end',{}).get('method')==payload.extraction_method for fact in old_facts):
                 existing.end_time=None  # Correct this publisher's previous midnight placeholder.
+        from app.crud.event_identity import is_offer,documented_exhibition_span
         for field, value in values.items():
+            if is_offer(payload) and field in ("title","start_time","end_time","end_date","price","source_url"):continue
+            if existing.identity_kind=='recurring' and field in ('title','start_time','end_time','end_date','price','source_url','status'):
+                continue
+            if documented_exhibition_span(existing) and field in ('start_time','end_time','end_date'):
+                continue
+            if field=='start_time' and payload.start_precision=='date' and any(fact.get('start_precision')=='time' for fact in old_facts):continue
             if field == 'end_time':
                 if value is not None and (existing.end_time is None or incoming_end_key >= old_end_key):
                     existing.end_time = value
@@ -156,12 +158,18 @@ def ingest(db, payload):
         best_end = {'value': payload.end_time.isoformat(), 'rank': temporal_rank,
                     'quality': incoming_end_key[1], 'method': payload.extraction_method, 'observed_at': now.isoformat()}
     human_contribution = bool((evidence.facts or {}).get('human_contribution'))
-    evidence.facts = {'human_contribution': human_contribution, 'start_time': payload.start_time.isoformat(),
+    evidence.facts = {**(evidence.facts or {}), 'human_contribution': human_contribution, 'start_time': payload.start_time.isoformat(),
                       'end_time': payload.end_time.isoformat() if payload.end_time else None,
                       'end_date':payload.end_date.isoformat() if payload.end_date else None,
                       'end_rank': temporal_rank, 'temporal_evidence': payload.temporal_evidence,
                       'method': payload.extraction_method, 'confidence': payload.extraction_confidence,
-                      'organizer': payload.organizer_name, 'observed_at': now.isoformat(), 'best_end': best_end}
+                      'observed_schedule':observed_schedule,'observed_coordinates':observed_coordinates, 'recurrence_rule':payload.recurrence_rule, 'organizer': payload.organizer_name, 'source_title':payload.title, 'publisher_event_id':payload.publisher_event_id, 'identity_kind':payload.identity_kind, 'start_precision':payload.start_precision, 'observed_at': now.isoformat(), 'best_end': best_end}
+    from app.crud.event_identity import record_listing, refresh_identity,documented_exhibition_span
+    record_listing(db,existing,payload)
+    span=documented_exhibition_span(existing)
+    if span:
+        existing.identity_kind='single';existing.start_time,existing.end_date=span;existing.end_time=None
+    elif existing.identity_kind=='recurring':refresh_identity(db,existing)
     metrics = dict(source.quality_metrics or {})
     metrics['ingestion_'+outcome] = metrics.get('ingestion_'+outcome,0) + 1
     source.quality_metrics = metrics
@@ -170,23 +178,50 @@ def ingest(db, payload):
     return existing
 
 
-def expire_events(db):
-    now = datetime.utcnow()
-    db.query(Event).filter(Event.status.in_([EventStatus.fresh, EventStatus.stale]),
-                          func.coalesce(Event.end_time, Event.start_time) < now - timedelta(days=1),
-                          or_(Event.end_date.is_(None), Event.end_date < now.date()-timedelta(days=1))).update(
-                              {Event.status: EventStatus.expired}, synchronize_session=False)
+def expire_events(db, now=None, commit=True):
+    """Expire only after verified availability ends; never infer removal from a failed crawl."""
+    from datetime import timezone
+    from zoneinfo import ZoneInfo
+    from app.models.event_identity import EventOccurrence
+    now = now or datetime.utcnow()
+    local_day = now.replace(tzinfo=timezone.utc).astimezone(ZoneInfo('Europe/Bratislava')).date()
+    active_session = db.query(EventOccurrence.id).filter(
+        EventOccurrence.event_id == Event.id,
+        EventOccurrence.status.in_(['fresh', 'stale']),
+        func.coalesce(EventOccurrence.end_time, EventOccurrence.start_time) >= now,
+    ).exists()
+    completed = or_(
+        (Event.end_date.isnot(None)) & (Event.end_date < local_day),
+        (Event.end_date.is_(None)) & (func.coalesce(Event.end_time, Event.start_time) < now),
+    )
+    expired = db.query(Event).filter(Event.merged_into_id.is_(None),
+        Event.status.in_([EventStatus.fresh, EventStatus.stale]),
+        or_((Event.identity_kind == 'recurring') & ~active_session,
+            (Event.identity_kind != 'recurring') & completed)).update(
+                {Event.status: EventStatus.expired}, synchronize_session=False)
+    expired_occurrences = db.query(EventOccurrence).filter(
+        EventOccurrence.status.in_(['fresh', 'stale']),
+        func.coalesce(EventOccurrence.end_time, EventOccurrence.start_time) < now,
+    ).update({EventOccurrence.status: 'expired'}, synchronize_session=False)
     db.query(Event).filter(Event.status == EventStatus.fresh, Event.last_verified_at < now - timedelta(days=3)).update(
         {Event.status: EventStatus.stale}, synchronize_session=False)
     # Removal requires positive evidence from a non-failing source. Merely aging
     # while every publisher is unavailable must never look like upstream removal.
     evidence = db.query(EventSource.id).filter(EventSource.event_id == Event.id).exists()
+    from app.models.source import CrawlerRun
+    healthy_scans = db.query(func.count(CrawlerRun.id)).filter(
+        CrawlerRun.source_id == EventSource.source_id,
+        CrawlerRun.success.is_(True), CrawlerRun.status == 'healthy',
+        CrawlerRun.finished_at > EventSource.last_seen_at,
+    ).correlate(EventSource).scalar_subquery()
     uncertain = db.query(EventSource.id).outerjoin(Source,EventSource.source_id == Source.id).filter(
         EventSource.event_id == Event.id,
         or_(EventSource.source_id.is_(None), Source.status != SourceStatus.active, Source.crawl_status != 'healthy',
-            Source.last_success_at.is_(None), Source.last_success_at <= EventSource.last_seen_at),
+            Source.last_success_at.is_(None), Source.last_success_at <= EventSource.last_seen_at,
+            healthy_scans < 2),
     ).exists()
     db.query(Event).filter(Event.status == EventStatus.stale,
         Event.last_verified_at < now - timedelta(days=14), evidence, ~uncertain).update(
             {Event.status: EventStatus.removed}, synchronize_session=False)
-    db.commit()
+    if commit:db.commit()
+    return {'expired_events':expired,'expired_occurrences':expired_occurrences}

@@ -128,5 +128,7 @@ def _scheduled_events(data, source_url):
             latitude=lat, longitude=lng, source_url=urljoin(source_url, show['url']),
             original_source_url=source_url, image_url=image, category_hint=(event.get('category') or {}).get('name') if isinstance(event.get('category'),dict) else event.get('category'),
             event_status='cancelled' if show.get('cancelled') else 'fresh',
+            publisher_event_id=str(show.get('eventId')),
+            identity_kind='recurring' if any(word in str(event.get('category','')).casefold() for word in ('exhibition','výstav','vystav','market')) else 'single',
             extraction_method='goout_schedule', extraction_confidence=.95, language='en'))
     return results

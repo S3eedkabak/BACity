@@ -18,9 +18,9 @@ CATEGORY_KEYWORDS = {
     "Markets": ["market", "trh", "trhy"],
     "Workshops": ["workshop", "dielňa", "dielna", "seminar"],
     "Food & Drink": ["food", "wine", "beer", "tasting", "degustácia", "degustacia"],
-    "Culture": ["kultúra", "kultura", "culture", "exhibition", "výstava", "vystava"],
+    "Culture": ["kultúra", "kultura", "culture", "exhibition", "výstava", "vystava", "film", "cinema", "premietanie", "documentary"],
     "Music": ["concert", "jazz", "rock", "metal", "gig", "band", "koncert"],
-    "Nightlife": ["techno", "house", "club", "party", "night", "dj"],
+    "Nightlife": ["techno", "house music", "house party", "party", "nightclub", "dj", "clubbing", "rave", "clubnight"],
 }
 
 
@@ -47,11 +47,27 @@ def clean_url(value):
 
 
 def guess_category(title: str, description: Optional[str], hint: Optional[str]) -> str:
-    haystack = " ".join(filter(None, [title, description, hint])).lower()
-    for category, keywords in CATEGORY_KEYWORDS.items():
-        if any(keyword in haystack for keyword in keywords):
-            return category
-    return "Other"
+    # Publisher taxonomy and title outrank prose; venues never supply taxonomy.
+    canonical={name.casefold():name for name in [*CATEGORY_KEYWORDS,'Arts','Exhibitions','Education','Networking','Technology','Other']}
+    if (hint or '').strip().casefold() in canonical:
+        return canonical[hint.strip().casefold()]
+    def matching(value):
+        value = (value or '').casefold()
+        for category, keywords in CATEGORY_KEYWORDS.items():
+            if any(re.search(r'(?<!\w)' + re.escape(keyword) + r'\w*', value) for keyword in keywords):
+                return category
+    exhibition = r'(?<!\w)(exhibition|výstav|vystav|expozíci|expozici)\w*'
+    for value in (hint, title):
+        if re.search(r'(?<!\w)(workshop|dielňa|dielna|seminar)\w*',(value or '').casefold()):
+            return 'Workshops'
+        if re.search(exhibition, (value or '').casefold()):
+            return 'Exhibitions'
+        result = matching(value)
+        if result:
+            return result
+    if re.search(exhibition, (description or '').casefold()):
+        return 'Exhibitions'
+    return matching(description) or 'Other'
 
 
 def normalize_event(
@@ -64,10 +80,17 @@ def normalize_event(
         temporal_evidence = 'date_range'
     if start_dt is None:
         return None
+    if end_dt and end_dt.year==2038 and end_dt.month==end_dt.day==1 and start_dt.year in (2000,2016):
+        end_dt=None;temporal_evidence='unknown'
+
+
+    if start_dt.year in (2000,2016) and start_dt.month==start_dt.day==1 and ((end_dt and end_dt.year>=2030) or (date_end and date_end[:4]>='2030')):
+        end_dt=None;date_end=None;temporal_evidence='unknown'
 
     price, currency = parse_price(raw.price_raw)
     previous = parse_event_datetime(raw.previous_start_raw) if raw.previous_start_raw else None
 
+    category=guess_category(raw.title,raw.description,raw.category_hint)
     return NormalizedEvent(
         title=clean_text(raw.title) or '',
         start_time=start_dt.isoformat(),
@@ -81,17 +104,19 @@ def normalize_event(
         price=price,
         currency=currency,
         image_url=clean_url(urljoin(raw.source_url, raw.image_url)) if raw.image_url else None,
-        category=guess_category(raw.title, raw.description, ' '.join(filter(None, [raw.category_hint, raw.venue_name]))),
-        tags=list(dict.fromkeys(raw.tags + [category.lower() for category, words in CATEGORY_KEYWORDS.items() if any(word in ' '.join(filter(None, [raw.title, raw.description, raw.venue_name, raw.category_hint])).lower() for word in words)])),
+        category=category,
+        tags=list(dict.fromkeys(raw.tags+[category.casefold()])),
         language=raw.language,
         source_url=clean_url(raw.source_url),
         source_name=raw.source_name,
         source_reliability=raw.source_reliability,
         extraction_confidence=raw.extraction_confidence,
-        event_status=raw.event_status,
+        event_status='cancelled' if re.match(r'^(cancelled|canceled|zrušené|zrusene)\s*(?://|:|[-–])',raw.title,re.I) else raw.event_status,
         original_source_url=raw.original_source_url or raw.source_url,
         temporal_evidence=temporal_evidence, extraction_method=raw.extraction_method,
         organizer_name=clean_text(raw.organizer_name),
         previous_start_time=previous.isoformat() if previous else None,
         end_date=date_end,
+        publisher_event_id=raw.publisher_event_id, identity_kind=raw.identity_kind, recurrence_rule=raw.recurrence_rule,
+        start_precision="date" if re.fullmatch(r"\d{4}-\d{2}-\d{2}",raw.start_raw or "") else "time",
     )

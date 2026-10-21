@@ -1,3 +1,6 @@
+import { availabilityLabel } from '../../src/map/eventAvailability';
+import { eventCoordinates } from '../../src/map/eventLocation';
+import { useViewOnMap } from '../../src/map/eventTarget';
 import { AppIcon } from "../../src/components/AppIcon";
 import { router } from "expo-router";
 import { useMemo, useRef } from "react";
@@ -36,9 +39,9 @@ function preferredExplanation(reasons: string[]) {
 function dateParts(iso: string) {
   const date = new Date(iso);
   return {
-    day: date.toLocaleDateString(undefined, { weekday: "short" }).toUpperCase(),
-    date: date.toLocaleDateString(undefined, { day: "numeric", month: "short" }),
-    time: date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }),
+    day: date.toLocaleDateString(undefined, { timeZone:"Europe/Bratislava", weekday: "short" }).toUpperCase(),
+    date: date.toLocaleDateString(undefined, { timeZone:"Europe/Bratislava", day: "numeric", month: "short" }),
+    time: date.toLocaleTimeString(undefined, { timeZone:"Europe/Bratislava", hour: "2-digit", minute: "2-digit" }),
   };
 }
 
@@ -50,8 +53,10 @@ function priceLabel(event: EventOut) {
 
 function FeaturedEvent({ event }: { event: EventOut }) {
   const openEvent = useEventNavigation();
-  const date = dateParts(event.start_time);
+  const date = dateParts(event.next_occurrence_start??event.start_time);
+  const viewOnMap=useViewOnMap();
   return (
+    <View>
     <Pressable
       onPress={() => openEvent(event.id)}
       style={({ pressed }) => [styles.featured, pressed && styles.pressed]}
@@ -71,6 +76,7 @@ function FeaturedEvent({ event }: { event: EventOut }) {
         <View style={styles.categoryBadge}>
           <Text style={styles.categoryText}>{event.category}</Text>
         </View>
+        <Text style={styles.metaText}>{availabilityLabel(event)}</Text>
         <Text style={styles.featuredTitle} numberOfLines={2}>
           {event.title}
         </Text>
@@ -79,11 +85,12 @@ function FeaturedEvent({ event }: { event: EventOut }) {
           <Text style={styles.metaText} numberOfLines={1}>
             {event.venue?.name ?? event.address ?? "Bratislava"}
           </Text>
-          <View style={styles.metaDot} />
-          <Text style={styles.metaText}>{date.time}</Text>
+
         </View>
       </View>
     </Pressable>
+    {eventCoordinates(event)&&<View style={{position:'absolute',top:75,right:24}}><IconButton icon="map-outline" label={`View ${event.title} on Map`} onPress={()=>viewOnMap(event)}/></View>}
+    </View>
   );
 }
 

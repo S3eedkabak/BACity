@@ -2,7 +2,7 @@
 import ipaddress
 from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 
-STATES = ('discovered', 'inspected', 'probation', 'trusted', 'rejected', 'blocked', 'disabled')
+STATES = ('discovered', 'inspected', 'probation', 'trusted', 'degraded', 'rejected', 'blocked', 'disabled')
 
 
 def candidate_url(value):
@@ -26,23 +26,6 @@ def candidate_url(value):
         if not key.lower().startswith('utm_') and key.lower() not in ('fbclid', 'gclid'):
             query.append((key, val))
     return host.removeprefix('www.'), urlunsplit((url.scheme.lower(), host, url.path or '/', urlencode(sorted(query)), ''))
-
-
-def assess(attempts, good_runs, failures, metrics, blocked=False):
-    if blocked:
-        return 'blocked', 'robots_or_policy'
-    if failures >= 3:
-        return 'rejected', 'consecutive_failures'
-    accepted = metrics.get('quality/events', 0)
-    rejected = metrics.get('validation/rejected', 0)
-    if not accepted:
-        return ('rejected' if attempts >= 3 else 'inspected'), 'no_valid_events'
-    if accepted / max(accepted + rejected, 1) < .8:
-        return 'probation', 'low_valid_yield'
-    mean_quality = metrics.get('quality/score_total', 0) / accepted
-    if good_runs >= 3 and mean_quality >= 60 and metrics.get('quality/future_events',accepted)>0:
-        return 'trusted', 'three_valid_runs_quality_60'
-    return 'probation', 'collecting_quality_evidence'
 
 
 def endpoint_rank(url):

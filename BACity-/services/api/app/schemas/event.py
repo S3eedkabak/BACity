@@ -51,6 +51,10 @@ class EventCreate(EventBase):
     extraction_method: str = Field(default='unknown', max_length=80)
     organizer_name: str | None = Field(default=None, max_length=200)
     previous_start_time: datetime | None = None
+    recurrence_rule: str | None = Field(default=None, max_length=512)
+    publisher_event_id: str | None = Field(default=None, max_length=200)
+    start_precision: str = Field(default="time",pattern="^(date|time)$")
+    identity_kind: str = Field(default="single", pattern="^(single|recurring|offer)$")
 
     @model_validator(mode='after')
     def validate_ingestion(self):
@@ -94,6 +98,29 @@ class EventSourceOut(BaseModel):
     last_seen_at: datetime
 
 
+class OccurrenceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    source_url: str
+    start_time: datetime
+    end_time: datetime | None = None
+    status: str
+    start_precision: str = "time"
+    @field_serializer('start_time', 'end_time')
+    def serialize_utc(self, value):
+        return value.replace(tzinfo=timezone.utc).isoformat() if value else None
+
+
+class OfferOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    source_url: str
+    label: str
+    price: float | None = None
+    currency: str | None = None
+    valid_from: datetime | None = None
+    valid_until: datetime | None = None
+
+
 class EventOut(EventBase):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
@@ -104,6 +131,11 @@ class EventOut(EventBase):
     created_at: datetime
     updated_at: datetime
     sources: list[EventSourceOut] = []
+    identity_kind: str = "single"
+    start_precision: str = "time"
+    recurrence_label: str | None = None
+    next_occurrence_start: datetime | None = None
+    offers: list[OfferOut] = []
     last_seen_at: Optional[datetime] = None
     trust_level: str = 'Unverified'
     contributor_id: Optional[UUID] = None
@@ -117,7 +149,7 @@ class EventOut(EventBase):
         # Internal moderation, blocking and own exports still use the ORM value.
         return None
 
-    @field_serializer('start_time', 'end_time', 'created_at', 'updated_at', 'last_seen_at')
+    @field_serializer('start_time', 'end_time', 'created_at', 'updated_at', 'last_seen_at', 'next_occurrence_start')
     def serialize_utc(self, value):
         if value is None:
             return None
@@ -125,6 +157,7 @@ class EventOut(EventBase):
 
 
 class EventListResponse(BaseModel):
+    count_semantics: str = "distinct_discoverable_events"
     total: int
     items: list[EventOut]
 

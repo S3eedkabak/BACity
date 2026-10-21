@@ -18,3 +18,6 @@ __all__ = [
     "GroupMatchRound", "GroupCandidate", "GroupVote",
     "AreaWatch", "PrivacyRequest",
 ]
+
+from app.models.event_identity import EventOccurrence, EventOffer, EventReconciliation
+from app.models.event_maintenance import EventMaintenanceRun, EventMaintenanceArchive

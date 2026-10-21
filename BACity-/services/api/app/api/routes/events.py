@@ -44,9 +44,8 @@ def create_event(
 
 @router.post("/maintenance", dependencies=[Depends(require_ingestion_key)])
 def maintenance(db: Session = Depends(get_db)):
-    from app.crud.ingestion import expire_events
-    expire_events(db)
-    return {"status": "ok"}
+    from app.operations.event_maintenance import run_maintenance
+    return run_maintenance(db)
 
 
 @router.get("", response_model=EventListResponse, dependencies=[Depends(public_read_budget)])
@@ -148,3 +147,16 @@ def unsave_event(
 ):
     saved_event_crud.unsave_event(db, user_id=current_user.id, event_id=event_id)
     return SaveEventResponse(event_id=event_id, saved=False)
+
+
+@router.get("/{event_id}/occurrences")
+def occurrences(event_id: UUID, limit: int = Query(30, ge=1, le=100), offset: int = Query(0, ge=0), db: Session = Depends(get_db)):
+    from sqlalchemy import select, func
+    from app.models.event_identity import EventOccurrence
+    from app.schemas.event import OccurrenceOut
+    event=event_crud.get_event(db,event_id)
+    if event is None:raise HTTPException(404,'Event not found')
+    condition=(EventOccurrence.event_id==event.id,EventOccurrence.status.in_(['fresh','stale']),func.coalesce(EventOccurrence.end_time,EventOccurrence.start_time)>=datetime.utcnow())
+    total=db.scalar(select(func.count()).select_from(EventOccurrence).where(*condition))
+    rows=db.scalars(select(EventOccurrence).where(*condition).order_by(EventOccurrence.start_time,EventOccurrence.id).offset(offset).limit(limit))
+    return {'total':total,'items':[OccurrenceOut.model_validate(row) for row in rows],'count_semantics':'upcoming_or_active_occurrences','next_offset':offset+limit if offset+limit<total else None}

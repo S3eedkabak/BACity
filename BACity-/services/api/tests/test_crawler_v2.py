@@ -102,3 +102,36 @@ def test_candidate_admin_disable_wins_over_snapshot_and_quality_visible(client,d
     assert client.patch('/crawler/admin/candidates/hall.example',json={'enabled':True},headers=admin).status_code == 200
     assert client.patch('/crawler/admin/sources/'+source,json={'enabled':False},headers=admin).status_code == 200
     assert client.get('/crawler/candidates/runtime',headers=worker).json()[0]['enabled'] is False
+
+
+def test_candidate_degradation_diagnostics_and_canonical_contribution(client,db_session,monkeypatch):
+    created=client.post('/events',json=payload()).json()
+    from app.models.candidate_source import CandidateSource
+    candidate=CandidateSource(domain='venue.example',url='https://venue.example/events',origin='https://city.example/program',
+        discovered=1,status='degraded',metrics={'qualification/blocker/integrity_defects':1,'discovery/graph_depth':2,'schedule/next':123})
+    db_session.add(candidate);db_session.commit()
+    assert client.get('/crawler/admin/candidates').status_code==401
+    headers=admin_headers(db_session)
+    response=client.get('/crawler/admin/candidates',headers=headers)
+    assert response.status_code==200,response.text
+    row=response.json()[0]
+    assert row['status']=='degraded'
+    assert row['qualification']['blockers']==['integrity_defects']
+    assert row['contribution']['canonical_events']==1
+    assert row['qualification']['graph_depth']==2
+
+
+def test_source_yield_counts_shared_identities_once_and_separates_offers(client,db_session):
+    from app.api.routes.crawler import identity_contributions,data_quality
+    client.post('/events',json=payload())
+    client.post('/events',json=payload(source_url='https://calendar.example/jazz'))
+    client.post('/events',json=payload(title='Another concert',source_url='https://venue.example/another'))
+    client.post('/events',json=payload(title='Annual pass',source_url='https://venue.example/pass'))
+    metrics=identity_contributions(db_session)
+    assert metrics['venue.example']['canonical_events']==2
+    assert metrics['venue.example']['exclusive_discoverable_events']==1
+    assert metrics['calendar.example']['exclusive_discoverable_events']==0
+    assert metrics['venue.example']['source_observations']==3
+    counts=data_quality(db_session,None)['identity_counts']
+    assert counts['physical_rows']==3 and counts['event_identities']==2
+    assert counts['discoverable_events']==2 and counts['ticket_offers']==1

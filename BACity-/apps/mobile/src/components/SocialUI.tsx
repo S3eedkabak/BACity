@@ -73,8 +73,8 @@ export function OverflowMenu({ visible, title = "More", onClose, children }: Pro
   const insets = useSafeAreaInsets();
   return <Modal visible={visible} transparent animationType={reduced ? 'none' : 'slide'} onRequestClose={onClose}>
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-    <Pressable style={styles.overlay} onPress={onClose}>
-      <Pressable style={[styles.sheet, { paddingBottom: Math.max(tokens.space.lg, insets.bottom) }]} onPress={event => event.stopPropagation()}>
+    <Pressable accessible={false} style={styles.overlay} onPress={onClose}>
+      <Pressable accessible={false} style={[styles.sheet, { paddingBottom: Math.max(tokens.space.lg, insets.bottom) }]} onPress={event => event.stopPropagation()}>
         <View style={styles.sheetHandle} /><View style={styles.sheetTitleRow}><Text style={styles.sheetTitle}>{title}</Text><IconButton icon="close" label="Close menu" onPress={onClose} /></View>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.sheetContent}>{children}</ScrollView>
       </Pressable>

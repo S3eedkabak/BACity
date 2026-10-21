@@ -6,7 +6,7 @@ from app.database import Base
 class CandidateSource(Base):
     __tablename__ = 'candidate_sources'
     __table_args__ = (
-        CheckConstraint("status IN ('discovered','inspected','probation','trusted','rejected','blocked','disabled')", name='ck_candidate_status'),
+        CheckConstraint("status IN ('discovered','inspected','probation','trusted','degraded','rejected','blocked','disabled')", name='ck_candidate_status'),
         Index('ix_candidate_status_inspected', 'status', 'inspected'),
     )
     domain = Column(String(255), primary_key=True)

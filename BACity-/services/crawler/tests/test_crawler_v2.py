@@ -8,7 +8,7 @@ import pytest
 from scrapy import Request
 from scrapy.exceptions import IgnoreRequest
 
-from crawler.discovery import candidate_url, assess
+from crawler.discovery import candidate_url
 from crawler.extraction.temporal import interval
 from crawler.extraction.feeds import extract_feed
 from crawler.processing.normalize import normalize_event
@@ -79,11 +79,11 @@ def test_candidates_dedupe_probation_trust_demotion_and_bounds(tmp_path):
     state.discover('https://www.hall.example/events?utm_source=test','https://city.example/events')
     state.discover('https://hall.example/calendar','https://city.example/events')
     assert state.db.execute('SELECT count(*) FROM candidates').fetchone()[0] == 1
-    stats={'quality/events':5,'quality/score_total':400,'validation/rejected':0}
-    for expected in ('probation','probation','trusted'):
-        state.candidate_result('hall.example',stats,True)
+    from tests.test_autonomy import scheduled, STATS
+    for expected in ('probation','trusted'):
+        scheduled(state)
         assert state.db.execute('SELECT status FROM candidates').fetchone()[0] == expected
-    state.candidate_result('hall.example',{'quality/events':5,'quality/score_total':50},True)
+    scheduled(state, {**STATS,'quality/score_total':20})
     assert state.db.execute('SELECT status FROM candidates').fetchone()[0] == 'probation'
     state.candidate_result('hall.example',{'robotstxt/forbidden':1},False)
     assert state.db.execute('SELECT status FROM candidates').fetchone()[0] == 'blocked'
@@ -96,9 +96,14 @@ def test_candidates_dedupe_probation_trust_demotion_and_bounds(tmp_path):
     state.close()
 
 
-def test_failure_qualification():
-    assert assess(3,0,3,{}) == ('rejected','consecutive_failures')
-    assert assess(3,0,0,{}) == ('rejected','no_valid_events')
+def test_failure_qualification(tmp_path):
+    state=State(str(tmp_path/'state.db'))
+    state.discover('https://hall.example/program','https://city.example/events')
+    for _ in range(3):state.candidate_result('hall.example',{},False)
+    row=state.db.execute('SELECT * FROM candidates').fetchone()
+    assert row['status']=='inspected' and row['failures']==3
+    assert row['next_inspection']>row['inspected']
+    state.close()
 
 
 def test_visit_date_only_end_does_not_invent_closing_time():
@@ -167,3 +172,14 @@ def test_direct_jsonld_and_failed_source_are_not_false_success():
     assert successful(stats,[])
     assert not successful({**stats,'source/request_errors':1},[])
     assert not successful({**stats,'extraction/errors':1},[])
+
+
+def test_ical_recurrence_identity_and_rule_survive_normalization():
+    text='BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:weekly-hall-1\nSUMMARY:Weekly jazz\nLOCATION:Concert Hall\nDTSTART;TZID=Europe/Bratislava:20270101T200000\nDTEND;TZID=Europe/Bratislava:20270101T220000\nRRULE:FREQ=WEEKLY;BYDAY=FR;COUNT=4\nEND:VEVENT\nEND:VCALENDAR'
+    listings=extract_feed(text,'https://hall.example/events.ics',datetime(2026,12,31,tzinfo=timezone.utc))
+    assert len(listings)==4
+    for raw in listings:
+        event=normalize_event(raw)
+        assert event.identity_kind=='recurring'
+        assert event.publisher_event_id=='weekly-hall-1'
+        assert event.recurrence_rule=='FREQ=WEEKLY;BYDAY=FR;COUNT=4'

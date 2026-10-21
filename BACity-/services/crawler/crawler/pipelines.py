@@ -41,12 +41,14 @@ class CrawlerPipeline:
 class NormalizePipeline(CrawlerPipeline):
     def process_item(self, item: RawEvent, spider=None):
         spider = spider or self.crawler.spider
+        spider.crawler.stats.inc_value("pipeline/raw_listings")
         normalized = normalize_event(item)
         if normalized is None:
             logger.info("Dropped unparseable event: %r", item.title)
             spider.crawler.stats.inc_value("validation/rejected")
             spider.crawler.stats.inc_value("validation/rejected/normalization")
             raise DropItem(f"Could not normalize: {item.title}")
+        spider.crawler.stats.inc_value("pipeline/normalized_listings")
         return normalized
 
 
@@ -247,6 +249,17 @@ class QualityAuditPipeline(CrawlerPipeline):
         if spider.crawler.stats.get_value('quality/events', 0) >= limit:
             spider.crawler.stats.inc_value('resource/item_limit')
             raise DropItem('run_item_limit')
+        place = (round(item.latitude,5),round(item.longitude,5)) if item.latitude is not None and item.longitude is not None else (item.address or item.venue_name or '').casefold().strip()
+        identity = (' '.join(item.title.casefold().split()), item.start_time, place)
+        seen = getattr(self, '_quality_seen', None)
+        if seen is None:
+            self._quality_seen = seen = set()
+        if identity not in seen:
+            seen.add(identity)
+            spider.crawler.stats.inc_value('quality/unique_events')
+            if item.event_status == 'fresh' and datetime.fromisoformat(item.start_time) > datetime.now(timezone.utc):
+                spider.crawler.stats.inc_value('quality/unique_future_events')
+        spider.crawler.stats.inc_value('quality/confidence_total', item.extraction_confidence)
         spider.crawler.stats.inc_value('quality/events')
         spider.crawler.stats.inc_value('quality/score_total', quality(item)['score'])
         if item.end_time:
@@ -311,6 +324,10 @@ def _to_event_create_payload(item) -> dict:
         "extraction_method": item.extraction_method,
         "organizer_name": item.organizer_name,
         "previous_start_time": item.previous_start_time,
+        "publisher_event_id": item.publisher_event_id,
+        "recurrence_rule": item.recurrence_rule,
+        "identity_kind": item.identity_kind,
+        "start_precision": item.start_precision,
     }
 
 

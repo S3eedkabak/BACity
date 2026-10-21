@@ -15,7 +15,7 @@ def extract_visit_events(html, source_url):
     if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', start_day):
         return []
     clock = soup.select_one('.event-date .start-time')
-    start = start_day + 'T' + (clock.get_text(strip=True) if clock else '00:00')
+    start = start_day + 'T' + clock.get_text(strip=True) if clock else start_day
     end_date = soup.select_one('.event-date .end-date')
     end_clock = soup.select_one('.event-date .end-time')
     end = None

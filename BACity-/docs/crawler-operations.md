@@ -1,5 +1,8 @@
 # Scheduled event ingestion
 
+Current policy, live source progression, complete map APIs and migration evidence:
+[Level 2 autonomy and map scaling](level2-autonomy-and-map-scaling.md).
+
 See [coverage recovery](crawler-coverage-recovery.md) for current source health,
 endpoint rotation, date precision, measured validation and safe Mac migration.
 
@@ -52,9 +55,9 @@ sharing the same state volume from overlapping. This is a single-worker
 deployment; do not deploy replicas with separate state volumes.
 
 Discovery scans event/program/calendar links and next-page/load-more URLs.
-Trusted sources can add new public domains automatically, with the parent URL
-recorded. Newly discovered domains are not allowed to expand the trust graph
-again without being promoted into the trusted registry. This prevents unlimited
+Registered sources can discover first-hop hosts. Productive probation/trusted
+Level 2 hosts can add one additional evidenced host hop, with the parent URL
+recorded. Depth-two hosts cannot expand further. This prevents unlimited
 off-topic crawling. Defaults bound each job to 150 pages, depth 3, 50 links per
 page and 20 discovered domains, with 250 sources overall. Adjust
 `CRAWLER_MAX_DEPTH`, `CRAWLER_MAX_LINKS`, `CRAWLER_MAX_NEW_SOURCES` and

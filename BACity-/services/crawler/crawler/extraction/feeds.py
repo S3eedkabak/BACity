@@ -93,6 +93,7 @@ def _ical(text, url, now):
                 source_url=urljoin(url, fields.get('URL', (url, {}))[0]), original_source_url=url,
                 event_status='cancelled' if fields.get('STATUS', ('', {}))[0] == 'CANCELLED' else 'fresh',
                 extraction_method='icalendar', extraction_confidence=.95)
+            raw.publisher_event_id=fields.get('UID',(None,{}))[0]
             starts = [start]
             if 'RRULE' in fields:
                 rule_text = fields['RRULE'][0]
@@ -106,6 +107,8 @@ def _ical(text, url, now):
                     continue
                 if 'COUNT=' in rule_text and int(re.search(r'COUNT=(\d+)', rule_text)[1]) > 366:
                     continue
+                raw.identity_kind='recurring'
+                raw.recurrence_rule=rule_text
                 rule = rrulestr(rule_text, dtstart=start)
                 lower = max(start, now - timedelta(days=1))
                 starts = []

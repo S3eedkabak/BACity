@@ -53,6 +53,11 @@ class Event(Base):
 
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
 
+    merged_into_id = Column(GUID(), ForeignKey("events.id"), nullable=True, index=True)
+    identity_kind = Column(String, nullable=False, default="single")
+    occurrences = relationship("EventOccurrence", back_populates="event", lazy="select", foreign_keys="EventOccurrence.event_id")
+    offers = relationship("EventOffer", back_populates="event", lazy="selectin", foreign_keys="EventOffer.event_id")
+
     title = Column(String, nullable=False, index=True)
     description = Column(Text, nullable=True)
 
@@ -94,6 +99,37 @@ class Event(Base):
 
     venue = relationship("Venue", back_populates="events")
     sources = relationship("EventSource", back_populates="event", cascade="all, delete-orphan", lazy="selectin")
+
+    @property
+    def start_precision(self):
+        start=getattr(self,'next_occurrence_start',None) or self.start_time
+        matching=[source for source in self.sources if source.start_time==start]
+        if any((source.facts or {}).get('start_precision')=='time' for source in matching):
+            return 'time'
+        if any((source.facts or {}).get('start_precision')=='date' for source in matching):
+            return 'date'
+        from datetime import timezone
+        from zoneinfo import ZoneInfo
+        local=start.replace(tzinfo=timezone.utc).astimezone(ZoneInfo('Europe/Bratislava'))
+        if local.hour==local.minute==0 and any((source.facts or {}).get('method')=='event_card' for source in matching):
+            return 'date'
+        return 'time'
+
+    @property
+    def recurrence_label(self):
+        if self.identity_kind != 'recurring':
+            return None
+        rules = {(source.facts or {}).get('recurrence_rule') for source in self.sources}
+        rules.discard(None)
+        if len(rules) == 1:
+            parts = dict(part.split('=', 1) for part in rules.pop().split(';') if '=' in part)
+            if parts.get('FREQ') == 'WEEKLY' and parts.get('INTERVAL', '1') == '1':
+                days = {'MO':'Monday','TU':'Tuesday','WE':'Wednesday','TH':'Thursday','FR':'Friday','SA':'Saturday','SU':'Sunday'}
+                if parts.get('BYDAY') in days:
+                    return 'Every ' + days[parts['BYDAY']]
+                if not parts.get('BYDAY'):
+                    return 'Weekly'
+        return 'Selected dates'
 
     @property
     def last_seen_at(self):

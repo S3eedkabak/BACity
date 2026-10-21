@@ -28,6 +28,10 @@ class RawEvent:
     previous_start_raw: Optional[str] = None
     organizer_name: Optional[str] = None
     end_date_raw: Optional[str] = None
+    recurrence_rule: Optional[str] = None
+    publisher_event_id: Optional[str] = None
+    identity_kind: str = "single"
+    start_precision: str = "time"
 
 
 @dataclass
@@ -58,3 +62,7 @@ class NormalizedEvent:
     extraction_method: str = 'unknown'
     organizer_name: Optional[str] = None
     end_date: Optional[str] = None
+    recurrence_rule: Optional[str] = None
+    publisher_event_id: Optional[str] = None
+    identity_kind: str = "single"
+    start_precision: str = "time"

@@ -22,6 +22,7 @@ export class ApiError extends Error {
 }
 
 interface RequestOptions {
+  signal?: AbortSignal;
   method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
   auth?: boolean;
@@ -52,6 +53,9 @@ export async function apiRequest<T>(
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
+  const abort = () => controller.abort();
+  options.signal?.addEventListener("abort", abort);
+  if (options.signal?.aborted) controller.abort();
   let res: Response;
   try {
     res = await fetch(`${API_URL}${path}${buildQuery(params)}`, {
@@ -62,6 +66,7 @@ export async function apiRequest<T>(
     });
   } finally {
     clearTimeout(timeout);
+    options.signal?.removeEventListener("abort", abort);
   }
 
   if (auth && sessionRevision !== getSessionRevision()) {

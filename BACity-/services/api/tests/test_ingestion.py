@@ -66,9 +66,18 @@ def test_freshness_and_expiration(client, db_session):
     db_session.commit()
     assert client.post('/events/maintenance').status_code == 200
     assert client.get('/events/' + item['id']).json()['status'] == 'stale'
-    from app.models.source import Source
+    from app.models.source import Source, CrawlerRun
+    from app.models.event_source import EventSource
     source=db_session.query(Source).first()
+    observed=db_session.query(EventSource).one();observed.last_seen_at=datetime.utcnow()-timedelta(days=15)
     source.last_success_at=datetime.utcnow(); source.crawl_status='healthy'
+    db_session.add(CrawlerRun(source_id=source.id,started_at=datetime.utcnow()-timedelta(days=1),
+        finished_at=datetime.utcnow()-timedelta(days=1),success=True,status='healthy'))
+    db_session.commit()
+    client.post('/events/maintenance')
+    assert client.get('/events').json()['total'] == 1
+    db_session.add(CrawlerRun(source_id=source.id,started_at=datetime.utcnow(),finished_at=datetime.utcnow(),
+        success=True,status='healthy'))
     db_session.commit()
     client.post('/events/maintenance')
     assert client.get('/events').json()['total'] == 0

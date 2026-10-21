@@ -404,7 +404,7 @@ def publish(db, item, trust):
         payload = payload.model_copy(update={'start_time': utc(payload.start_time), 'end_time': utc(payload.end_time),
             'source_url': canonical_url(payload.source_url) if payload.source_url else '', 'previous_start_time': None})
         obj, evidence, _ = find_canonical_event(db, payload)
-        data = payload.model_dump(exclude={'public_source_url', 'organizer_name', 'venue_name', 'source_name', 'original_source_url', 'source_id', 'venue_id', 'status', 'extraction_confidence', 'source_reliability', 'temporal_evidence', 'extraction_method', 'previous_start_time'})
+        data = payload.model_dump(exclude={'public_source_url', 'organizer_name', 'venue_name', 'source_name', 'original_source_url', 'source_id', 'venue_id', 'status', 'extraction_confidence', 'source_reliability', 'temporal_evidence', 'extraction_method', 'previous_start_time', 'publisher_event_id', 'start_precision', 'recurrence_rule'})
         if obj is None:
             obj = Event(**data, contributor_id=item.user_id, trust_level=trust, is_manual_override=True,
                         extraction_confidence=1, source_reliability=0.7, status=EventStatus.fresh)
@@ -416,7 +416,7 @@ def publish(db, item, trust):
                     original_source_url=payload.source_url, start_time=payload.start_time,
                     title_key=normalize(payload.title), reliability=.7, dedup_confidence=1)
                 db.add(evidence)
-            evidence.facts = {**(evidence.facts or {}), 'human_contribution': True}
+            evidence.facts = {**(evidence.facts or {}), 'human_contribution': True, 'recurrence_rule':payload.recurrence_rule}
         # Snapshot only explicit public fields; no contributor identity or raw text.
         queue_public_evidence(item, [payload.public_source_url, payload.source_url, obj.venue.website if obj.venue else None])
     elif item.kind in ('place', 'utility'):

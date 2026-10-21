@@ -3,6 +3,9 @@
  * these rather than calling the API module directly, so caching/refetch/
  * invalidation stay consistent across Home/Explore/Saved.
  */
+import { useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as eventsApi from "../api/events";
 import { EventListParams, EventListResponse } from "../types/event";
@@ -10,11 +13,15 @@ import { useAuthStore } from "../store/authStore";
 import { withLoadingTestDelay } from '../loading/development';
 
 export function useEvents(params: EventListParams = {}) {
-  return useQuery({
+  const focused=useIsFocused();
+  const query=useQuery({
     queryKey: ["events", params],
     queryFn: () => eventsApi.listEvents(params),
     staleTime: 60_000,
+    refetchInterval:focused?60_000:false,
   });
+  useFocusEffect(useCallback(()=>{void query.refetch();},[query.refetch]));
+  return query;
 }
 
 export function useEvent(id: string | undefined) {

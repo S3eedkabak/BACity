@@ -75,6 +75,10 @@ class DiscoverySpider(BratislavaSourcesSpider):
         followed = 0
         seen = {response.url}
         anchors = list(response.css('a[href], link[rel="next"], link[rel="alternate"], [data-next-url], [data-load-more-url]'))
+        from crawler.extraction.discovery_links import structured_source_links
+        from html import escape
+        for url,label in structured_source_links(response):
+            anchors.insert(0,scrapy.Selector(text=f'<a href="{escape(url,quote=True)}">{label}</a>').css('a')[0])
         # Feeds and rel=next precede repeated navigation/category links.
         anchors.sort(key=lambda a: (a.attrib.get('rel') != 'next', a.attrib.get('type') not in ('application/rss+xml','application/atom+xml','text/calendar')))
         for anchor in anchors:
@@ -94,7 +98,11 @@ class DiscoverySpider(BratislavaSourcesSpider):
             structured_feed = anchor.attrib.get('type') in ('application/rss+xml', 'application/atom+xml', 'text/calendar') or any(x in hint for x in ('.ics', '/rss', '/feed', '/ical'))
             if structured_feed and any(word in (anchor.attrib.get('title','')+' '+label).lower() for word in ('news','aktuality')):
                 continue
-            if not pagination and not structured_feed and not any(word in hint for word in EVENT_LINK_HINTS):
+            role = (label + ' ' + anchor.attrib.get('rel','')).lower()
+            if any(word in role for word in ('advertisement','advertising','sponsored','reklama')):
+                continue
+            role_hint = any(x in role for x in ('organizer','venue','program','calendar','podujatia'))
+            if not pagination and not structured_feed and not role_hint and not any(word in hint for word in EVENT_LINK_HINTS):
                 continue
             host = urlsplit(url).hostname.lower()
             if domain_matches(host, source.domain):
@@ -110,13 +118,24 @@ class DiscoverySpider(BratislavaSourcesSpider):
             if not domain_matches(host, source.domain):
                 if self.discovered >= min(20,max(0,int(os.getenv('CRAWLER_MAX_NEW_SOURCES', '20')))):
                     continue
-                # Only expand one trust hop. Newly found sources must first prove useful;
-                # they can be promoted to trusted seeds explicitly after inspection.
+                # Registry -> productive candidate -> one further evidenced host.
+                # Graph depth is independent of within-host navigation depth.
                 if depth > self.max_crawl_depth:
                     continue
                 from crawler.sources import ACTIVE_SOURCES
                 if source.domain not in {s.domain for s in ACTIVE_SOURCES}:
-                    continue
+                    if self.state is None:
+                        self.state = State()
+                    parent = self.state.db.execute('SELECT status,graph_depth FROM candidates WHERE domain=?',(source.domain,)).fetchone()
+                    from crawler.qualification import POLICY
+                    if not parent or parent['status'] not in ('probation','trusted') or parent['graph_depth'] >= POLICY.max_graph_depth:
+                        continue
+                    from crawler.extraction.jsonld_extractor import extract_jsonld_events
+                    from crawler.extraction.source_html import extract_source_html
+                    detail_evidence = bool(any(event.title and event.start_raw for event in extract_jsonld_events(response.text,response.url)) or extract_source_html(response.text,response.url) or response.css('[itemtype*="schema.org/Event"] [itemprop="startDate"]'))
+                    from crawler.discovery import endpoint_rank
+                    if not structured_feed and not (detail_evidence and (endpoint_rank(url)>=80 or any(x in role for x in ('organizer','venue','program','calendar','podujatia')))):
+                        continue
                 if self.state is None:
                     self.state = State()
                 if self.state.db.execute('SELECT count(*) FROM sources').fetchone()[0] >= int(os.getenv('CRAWLER_MAX_SOURCES', '250')):

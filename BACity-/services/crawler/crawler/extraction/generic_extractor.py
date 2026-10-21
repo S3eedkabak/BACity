@@ -1,6 +1,6 @@
 """Fallback extraction for pages without usable JSON-LD."""
 import re
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 from typing import Optional
 
 from bs4 import BeautifulSoup
@@ -159,11 +159,13 @@ def extract_event_cards(html: str, source_url: str) -> list[RawEvent]:
         if not date_text:
             continue
 
-        title_tag = node.find(["h1", "h2", "h3", "h4", "a"])
+        title_tag = node.find(["h1", "h2", "h3", "h4"]) or node.select_one("[itemprop=name], .event-title, .event-name")
+        if title_tag is None and "staratrznica.sk" in source_url:title_tag=node.find("strong")
+        title_tag = title_tag or node.find("a")
         detail_link = title_tag if title_tag and title_tag.name == 'a' else (title_tag.find('a', href=True) if title_tag else None)
         detail_link = detail_link or (title_tag.find_parent('a', href=True) if title_tag else None) or node.find('a', href=True)
         title = title_tag.get_text(" ", strip=True) if title_tag else ""
-        if not title or title.lower() in {"program", "events", "event", "more", "viac"}:
+        if not title or title.startswith("#") or title.lower() in {"program", "events", "event", "more", "viac", "viac info", "more info", "vstupenky", "tickets", "share", "zdieľať"}:
             continue
 
         key = (title.lower(), date_text)
@@ -193,7 +195,7 @@ def extract_event_cards(html: str, source_url: str) -> list[RawEvent]:
                     if node.find("img") and node.find("img").get("src")
                     else None
                 ),
-                source_url=urljoin(source_url, detail_link.get('href', '')) if detail_link else source_url,
+                source_url=(urljoin(source_url,detail_link.get('href','')) if detail_link and urlsplit(urljoin(source_url,detail_link.get('href',''))).hostname==urlsplit(source_url).hostname else source_url),
                 original_source_url=source_url,
                 extraction_method="event_card",
                 extraction_confidence=0.55 if venue_name else 0.45,

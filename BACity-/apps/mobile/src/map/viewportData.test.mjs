@@ -30,9 +30,9 @@ test("a capped viewport response never erases cached events that may be beyond t
 });
 
 test("native and web maps use bounded viewport APIs instead of the first event page", async () => {
-  for (const relative of ["../../app/(tabs)/map.tsx", "../../app/(tabs)/map.web.tsx"]) {
+  for (const relative of ["./MapScreen.tsx"]) {
     const source = await readFile(join(here, relative), "utf8");
-    assert.match(source, /eventsInViewport/);
+    assert.match(source, /mapClusters/);
     assert.doesNotMatch(source, /useEvents\s*\(\s*\{\s*limit\s*:\s*100/);
   }
 });

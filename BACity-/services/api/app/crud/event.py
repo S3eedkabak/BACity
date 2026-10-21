@@ -17,10 +17,16 @@ from sqlalchemy.orm import Session
 
 from app.models.event import Event, EventStatus
 from app.core.planning import haversine_km
+from app.crud.event_identity import discoverable,date_window
 
 
 def get_event(db: Session, event_id: UUID) -> Optional[Event]:
-    return db.get(Event, event_id)
+    event = db.get(Event, event_id)
+    seen=set()
+    while event and event.merged_into_id:
+        if event.id in seen:return None
+        seen.add(event.id);event=db.get(Event,event.merged_into_id)
+    return event
 
 
 def create_event(db: Session, event: Event) -> Event:
@@ -41,15 +47,13 @@ def list_events(
     limit: int = 20,
     offset: int = 0,
 ) -> tuple[int, list[Event]]:
-    stmt = select(Event).where(Event.status.in_([EventStatus.fresh, EventStatus.stale]))
+    stmt = select(Event).where(discoverable())
     if category:
         stmt = stmt.where(Event.category == category)
     if free_only:
         stmt = stmt.where(Event.price == 0)
-    if starts_after:
-        stmt = stmt.where(Event.start_time >= starts_after)
-    if starts_before:
-        stmt = stmt.where(Event.start_time <= starts_before)
+    if starts_after or starts_before:
+        stmt = stmt.where(date_window(starts_after,starts_before))
 
     total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
 
@@ -59,7 +63,8 @@ def list_events(
     if tag:
         items = [e for e in items if tag in (e.tags or [])]
 
-    return total, items
+    from app.crud.event_identity import annotate_availability
+    return total, annotate_availability(db,items,starts_after,starts_before)
 
 
 def search_events(db: Session, query: str, limit: int = 20) -> list[Event]:
@@ -72,7 +77,7 @@ def search_events(db: Session, query: str, limit: int = 20) -> list[Event]:
     like = f"%{query.lower()}%"
     stmt = (
         select(Event)
-        .where(Event.status.in_([EventStatus.fresh, EventStatus.stale]))
+        .where(discoverable())
         .where(func.lower(Event.title).like(like) | func.lower(Event.description).like(like))
         .order_by(Event.start_time.asc())
         .limit(limit)
@@ -95,7 +100,7 @@ def nearby_events(
         stmt = (
             select(Event)
             .where(Event.latitude.isnot(None), Event.longitude.isnot(None))
-            .where(Event.status.in_([EventStatus.fresh, EventStatus.stale]))
+            .where(discoverable())
             .where(distance <= radius_km * 1000)
             .order_by(distance.asc())
             .limit(limit)
@@ -107,7 +112,7 @@ def nearby_events(
     stmt = (
         select(Event)
         .where(Event.latitude.isnot(None), Event.longitude.isnot(None))
-        .where(Event.status.in_([EventStatus.fresh, EventStatus.stale]))
+        .where(discoverable())
         .where(Event.latitude.between(lat - deg_pad, lat + deg_pad))
         .where(Event.longitude.between(lng - deg_pad, lng + deg_pad))
     )
@@ -135,7 +140,7 @@ def viewport_events(
     stmt = (
         select(Event)
         .where(Event.latitude.isnot(None), Event.longitude.isnot(None))
-        .where(Event.status.in_([EventStatus.fresh, EventStatus.stale]))
+        .where(discoverable())
         .where(Event.latitude.between(min_lat, max_lat))
         .where(Event.longitude.between(min_lng, max_lng))
         .order_by(Event.start_time.asc())

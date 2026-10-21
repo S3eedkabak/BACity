@@ -9,6 +9,9 @@ from app.models.event import Event, EventStatus
 
 
 def save_event(db: Session, *, user_id: UUID, event_id: UUID) -> SavedEvent:
+    from app.crud.event import get_event
+    event=get_event(db,event_id)
+    if event:event_id=event.id
     existing = db.scalar(
         select(SavedEvent).where(SavedEvent.user_id == user_id, SavedEvent.event_id == event_id)
     )
@@ -22,6 +25,9 @@ def save_event(db: Session, *, user_id: UUID, event_id: UUID) -> SavedEvent:
 
 
 def unsave_event(db: Session, *, user_id: UUID, event_id: UUID) -> bool:
+    from app.crud.event import get_event
+    event=get_event(db,event_id)
+    if event:event_id=event.id
     existing = db.scalar(
         select(SavedEvent).where(SavedEvent.user_id == user_id, SavedEvent.event_id == event_id)
     )
@@ -44,6 +50,9 @@ def list_saved_events(db: Session, *, user_id: UUID) -> list[Event]:
 
 
 def is_event_saved(db: Session, *, user_id: UUID, event_id: UUID) -> bool:
+    from app.crud.event import get_event
+    event=get_event(db,event_id)
+    if event:event_id=event.id
     existing = db.scalar(
         select(SavedEvent).where(SavedEvent.user_id == user_id, SavedEvent.event_id == event_id)
     )

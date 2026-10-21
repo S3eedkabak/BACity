@@ -1,3 +1,6 @@
+import { availabilityLabel } from '../../src/map/eventAvailability';
+import { eventCoordinates } from '../../src/map/eventLocation';
+import { useViewOnMap } from '../../src/map/eventTarget';
 import { Button } from "../../src/components/CommunityUI";
 import { EventMedia } from '../../src/components/EventMedia';
 import { MediaScrim } from '../../src/components/MediaScrim';
@@ -5,6 +8,8 @@ import { Discussion } from "../../src/components/Discussion";
 import { ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { AnimatedPressable as Pressable } from '../../src/components/motion/Motion';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { eventOccurrences } from '../../src/api/events';
 import { useState } from 'react';
 import { IconButton, ListItem, OverflowMenu } from '../../src/components/SocialUI';
 import { externalLinking as Linking } from "../../src/api/externalLinking";
@@ -22,6 +27,7 @@ import { useMeaningfulLoading } from '../../src/components/loading/LoadingExperi
 
 function formatWhen(iso: string) {
   return new Date(iso).toLocaleString(undefined, {
+    timeZone: "Europe/Bratislava",
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -32,13 +38,17 @@ function formatWhen(iso: string) {
 
 export default function EventDetailScreen() {
   const [menu, setMenu] = useState(false);
+  const viewOnMap=useViewOnMap();
   const { id } = useLocalSearchParams<{ id: string }>();
   const token = useAuthStore((s) => s.token);
   const { data: event, isLoading, isError, refetch } = useEvent(id);
   useMeaningfulLoading('event-details', isLoading && !event);
   const { data: savedEvents } = useSavedEvents();
   const toggleSave = useToggleSaveEvent();
-  const isSaved = !!savedEvents?.some((e) => e.id === id);
+  const isSaved = !!savedEvents?.some((e) => e.id === (event?.id??id));
+  const availability=useInfiniteQuery({queryKey:['event-availability',event?.id],
+    queryFn:({pageParam,signal})=>eventOccurrences(event!.id,pageParam,signal),initialPageParam:0,
+    getNextPageParam:page=>page.next_offset??undefined,enabled:event?.identity_kind==='recurring',staleTime:30000});
 
   if (isLoading) return <LoadingState variant="detail" />;
   if (!event) return <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -96,7 +106,7 @@ export default function EventDetailScreen() {
             <AppIcon name="calendar-outline" size={18} color={colors.primary} />
           </View>
           <Text style={styles.label}>WHEN</Text>
-          <Text style={styles.value}>{formatWhen(event.start_time)}</Text>
+          <Text style={styles.value}>{availabilityLabel(event)}</Text>
         </View>
 
         <View style={styles.infoCard}>
@@ -108,6 +118,16 @@ export default function EventDetailScreen() {
         </View>
       </View>
 
+      {event.identity_kind==='recurring'&&<View style={styles.section}>
+        <Text style={styles.sectionTitle}>Upcoming availability</Text>
+        {availability.isPending&&<Text style={styles.value}>Loading times…</Text>}
+        {availability.isError&&<Pressable accessibilityRole="button" onPress={()=>void availability.refetch()}><Text style={styles.value}>Couldn’t load times · Retry</Text></Pressable>}
+        {availability.data?.pages.flatMap(page=>page.items).map(item=><Text key={item.id} style={styles.value}>{item.start_precision==='date'?new Date(item.start_time).toLocaleDateString(undefined,{timeZone:'Europe/Bratislava'}):formatWhen(item.start_time)}</Text>)}
+        {availability.data?.pages[0]?.total===0&&<Text style={styles.value}>No confirmed upcoming sessions.</Text>}
+        {availability.hasNextPage&&<Pressable accessibilityRole="button" onPress={()=>void availability.fetchNextPage()}><Text style={styles.sourceText}>{availability.isFetchingNextPage?'Loading…':'More times'}</Text></Pressable>}
+        {!!event.offers?.length&&<Text style={styles.sectionTitle}>Ticket options</Text>}
+        {event.offers?.map(offer=><Pressable key={offer.source_url} accessibilityRole="button" onPress={()=>void Linking.openURL(offer.source_url)}><Text style={styles.sourceText}>{offer.label}{offer.price!=null?` · ${offer.price} ${offer.currency??'EUR'}`:''}</Text></Pressable>)}
+      </View>}
       {event.description && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>About this event</Text>
@@ -157,6 +177,7 @@ export default function EventDetailScreen() {
       <Discussion id={id} kind="event" />
     </ScrollView>
     <OverflowMenu visible={menu} title="Event actions" onClose={() => setMenu(false)}>
+      {eventCoordinates(event) ? <ListItem icon="map-outline" title="View on Map" onPress={()=>{setMenu(false);viewOnMap(event);}}/> : <Text style={styles.value}>Exact map location unavailable</Text>}
       <ListItem icon="share-outline" title="Share event" onPress={() => { setMenu(false); void Share.share({ title: event.title, message: event.title + (event.source_url ? '\n' + event.source_url : '') }); }} />
       <ListItem icon="albums-outline" title="Add to a collection" onPress={() => { setMenu(false); router.push({ pathname: '/collection', params: { type: 'event', id } }); }} />
       <ListItem icon="create-outline" title="Suggest a correction" onPress={() => { setMenu(false); router.push({ pathname: '/correction', params: { type: 'event', id } }); }} />

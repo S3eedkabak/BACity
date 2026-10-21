@@ -1,6 +1,6 @@
 # Crawler V2: architecture and operator runbook
 
-Current development branch: `FINAL-UX`. See [coverage recovery](crawler-coverage-recovery.md)
+Current development branch: `FINAL-UX`. Current qualification, discovery graph and map behavior are documented in [Level 2 autonomy and map scaling](level2-autonomy-and-map-scaling.md). See [coverage recovery](crawler-coverage-recovery.md)
 for the latest repairs, measurements and migration procedure.
 
 Historical starting checkpoint: `b4494e8e30917835d715f4128bc1e8ff8c67c526`, branch `crawler-v2`.
@@ -37,26 +37,31 @@ At most four entry points rotate through a bounded host inspection. Repeated
 evidence does not create another candidate. Registry domains are not re-registered as candidates.
 Legacy discovered seeds are quarantined into this queue on startup.
 
-Only registered sources may discover external domains: no recursive expansion
-from candidate domains, including trusted candidates. This deliberate one-hop
-boundary avoids unrestricted crawling. Candidates use structured extraction and
-reviewed static adapters for observed A4/BKIS markup. Evidence supplies URLs,
-never executable code, browser settings or an extraction implementation.
+Registered sources discover first-hop candidates. Productive probation/trusted
+candidates may discover one further host using publisher Event organizer/venue
+URLs, declared feeds or evidenced event-detail calendar links. Second-hop hosts
+cannot expand again. Host/network/request budgets remain independent of trust.
+Candidates retain structured extraction and reviewed static adapters.
 
-Every inspection records a reason and transitions deterministically:
+Every inspection records an auditable decision on the persistent scheduler:
 
-- No validated events: inspected; rejected after three attempts.
-- Robots exclusion or HTTP 403 with no accessible validated event yield: blocked,
-  without automatic retries. Each restricted URL remains excluded even when
-  another public endpoint on the host works.
-- Three consecutive failed attempts: rejected.
-- Positive yield: probation.
-- Three consecutive successful runs with mean completeness ≥60/100 and
-  validated/(validated+rejected) ≥80%, including positive future yield: trusted.
-- Degrading quality immediately returns a trusted candidate to probation;
-  its qualifying-run streak resets. Repeated failure rejects it.
-- Admin disable wins over stale worker snapshots. Re-enable restarts inspection,
-  not trust, and can retry a blocked/rejected candidate only as an explicit action.
+- Empty/unsupported content remains inspected and can recur after a day.
+- Positive validated relevant yield permits productive probation immediately.
+- Trust requires two genuinely due independent productive runs, at least one hour
+  apart, and at least three distinct future observations across those runs; a
+  one-event venue can qualify through three independent productive runs.
+- Mean completeness floor is 45 and extraction confidence 0.65; past/out-of-city
+  exclusions are neutral. Genuine defects must stay at or below 35%. The raw
+  80% acceptance gate is removed. Duplicate URLs do not multiply an occurrence.
+- Repeated real operational/integrity failure produces degraded, with backoff and
+  recovery. Missing optional fields do not count as serious integrity failures.
+- Robots/403 exclusions and administrator disable remain authoritative safety and
+  access states. Trust never bypasses per-event validation or locality checks.
+- Audits, immediate retries and replayed run reports cannot inflate qualifying
+  evidence. Completion and assessment commit together; restart retains evidence.
+
+Policy defaults and measured live progression are in the focused report linked
+above. Historical test totals later in this document remain historical snapshots.
 
 Counts describe crawler validation acceptance, not an assertion of API delivery.
 Queued, delivered and pending outbox counters remain distinct. API outages retain

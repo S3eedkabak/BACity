@@ -8,7 +8,7 @@ from app.database import SessionLocal
 from app.models.community import MailOutbox, Message, ActionToken, RateBucket
 from app.models.community import CityUtility
 from app.core.mail import deliver_pending_mail
-from app.crud.ingestion import expire_events
+from app.operations.event_maintenance import run_maintenance
 from app.core.utilities import OFFICIAL_TOILET_SOURCE
 from app.utility_import import sync_bratislava_toilets
 
@@ -28,7 +28,8 @@ def tick():
         db.query(MailOutbox).filter(MailOutbox.created_at < now-timedelta(days=7)).delete()
         db.query(RateBucket).filter(RateBucket.window < int(time.time()) - 172800).delete()
         db.commit()
-        expire_events(db)
+        result = run_maintenance(db)
+        log.info('Event maintenance: %s', result)
         if s.utility_sync_enabled:
             last_sync = db.query(CityUtility.updated_at).filter(
                 CityUtility.source_url.startswith(OFFICIAL_TOILET_SOURCE)

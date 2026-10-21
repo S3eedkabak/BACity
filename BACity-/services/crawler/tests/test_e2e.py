@@ -87,7 +87,15 @@ def test_full_ingestion_roundtrip(tmp_path,candidate):
                 assert result.returncode == 0, result.stdout + result.stderr
                 if candidate and not cancelled:
                     stats=json.loads(result.stdout.strip().splitlines()[-1])
-                    candidate_state.candidate_result('venue.example',stats,True)
+                    from unittest.mock import patch
+                    from crawler.sources import SourceSeed
+                    due=candidate_state.db.execute('SELECT next_inspection FROM candidates').fetchone()[0]
+                    seed=SourceSeed('Fixture','venue.example','https://venue.example','https://venue.example/events','venue',.6,parser='structured')
+                    with patch('crawler.state.time.time',return_value=max(time.time(),due)+1):
+                        candidate_state.seed(seed)
+                        run=candidate_state.begin(seed.domain)
+                        candidate_state.finish(run,seed,True,stats)
+                        candidate_state.candidate_result(seed.domain,stats,True,run_id=run)
                     row=candidate_state.db.execute('SELECT * FROM candidates').fetchone()
                     assert row['status']==('trusted' if iteration==2 else 'probation')
                     assert row['next_inspection']>time.time()

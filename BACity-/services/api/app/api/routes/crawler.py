@@ -12,6 +12,8 @@ from app.schemas.crawler import CrawlRunReport, SourceAdminUpdate
 from app.models.candidate_source import CandidateSource
 from app.models.event import Event, EventStatus
 from app.models.event_source import EventSource
+from app.models.event_identity import EventOccurrence,EventOffer,EventReconciliation
+from app.crud.event_identity import discoverable
 from app.core.source_learning import learn_public_event, public_source_url, process_public_evidence, candidate_lock, LEARNING_KEY
 from app.models.community import Submission
 from app.core.community import require_moderator
@@ -161,14 +163,14 @@ class CandidateReport(BaseModel):
     domain: str = Field(max_length=255)
     url: str = Field(max_length=2048)
     origin: str = Field(max_length=2048)
-    status: Literal['discovered','inspected','probation','trusted','rejected','blocked','disabled']
+    status: Literal['discovered','inspected','probation','trusted','degraded','rejected','blocked','disabled']
     discovered: float = Field(ge=0)
     inspected: float | None = Field(default=None,ge=0)
     attempts: int = Field(ge=0)
     good_runs: int = Field(ge=0)
     failures: int = Field(ge=0)
     reason: str | None = Field(default=None,max_length=100)
-    metrics: dict[str,float] = Field(default_factory=dict,max_length=30)
+    metrics: dict[str,float] = Field(default_factory=dict,max_length=64)
 
     @field_validator('metrics')
     @classmethod
@@ -183,7 +185,13 @@ class CandidateBatch(BaseModel):
 
 
 def candidate_dict(row):
-    return {key:getattr(row,key) for key in ('domain','url','origin','status','enabled','discovered','inspected','attempts','good_runs','failures','reason','metrics')}
+    result = {key:getattr(row,key) for key in ('domain','url','origin','status','enabled','discovered','inspected','attempts','good_runs','failures','reason','metrics')}
+    metrics = row.metrics or {}
+    result['qualification'] = {'blockers':[k.removeprefix('qualification/blocker/') for k,v in metrics.items() if k.startswith('qualification/blocker/') and v],
+        'observations':metrics.get('qualification/observations',0), 'next_crawl':metrics.get('schedule/next'),
+        'graph_depth':metrics.get('discovery/graph_depth',1), 'endpoint_count':metrics.get('endpoints/count'),
+        'last_success':metrics.get('operation/last_success')}
+    return result
 
 
 @router.post('/learning/process', dependencies=[Depends(require_learning_key)])
@@ -241,9 +249,29 @@ def candidate_report(payload:CandidateBatch, db:Session=Depends(get_db)):
     return {'recorded':len(payload.items)}
 
 
+def identity_contributions(db,now=None):
+    now=now or datetime.utcnow()
+    publisher=case((Source.domain.like('www.%'),func.substr(Source.domain,5)),else_=Source.domain)
+    owners=db.query(EventSource.event_id,func.count(func.distinct(publisher)).label('owners')).join(Source,Source.id==EventSource.source_id).group_by(EventSource.event_id).subquery()
+    visible=discoverable(now)
+    rows=(db.query(publisher,func.count(EventSource.id),
+        func.count(func.distinct(case((Event.identity_kind!='offer',Event.id)))),
+        func.count(func.distinct(case((visible,Event.id)))),
+        func.count(func.distinct(case((and_(visible,Event.start_time>=now),Event.id)))),
+        func.count(func.distinct(case((and_(visible,owners.c.owners==1),Event.id)))))
+        .join(EventSource,EventSource.source_id==Source.id).join(Event,Event.id==EventSource.event_id)
+        .join(owners,owners.c.event_id==Event.id).filter(Event.merged_into_id.is_(None)).group_by(publisher).all())
+    return {domain:{'source_observations':observations,'canonical_events':canonical,'discoverable_events':visible_count,'future_events':future,'exclusive_discoverable_events':exclusive}
+        for domain,observations,canonical,visible_count,future,exclusive in rows}
+
+
 @router.get('/admin/candidates')
 def admin_candidates(db:Session=Depends(get_db), _=Depends(require_admin)):
-    return [candidate_dict(r) for r in db.query(CandidateSource).order_by(CandidateSource.domain).limit(250)]
+    contribution=identity_contributions(db)
+    result = [candidate_dict(r) for r in db.query(CandidateSource).order_by(CandidateSource.domain).limit(250)]
+    for item in result:
+        item['contribution'] = contribution.get(item['domain'],{'canonical_events':0,'future_events':0})
+    return result
 
 
 class CandidateControl(BaseModel):
@@ -284,7 +312,7 @@ def public_evidence(payload:PublicEventEvidence,db:Session=Depends(get_db)):
 @router.get('/admin/quality')
 def data_quality(db:Session=Depends(get_db),_=Depends(require_admin)):
     now=datetime.utcnow()
-    eligible=db.query(Event).filter(Event.status.in_((EventStatus.fresh,EventStatus.stale)),Event.start_time>=now)
+    eligible=db.query(Event).filter(discoverable(now),Event.start_time>=now)
     total=eligible.count()
     predicates={'end_datetime':Event.end_time.isnot(None),'coordinates':Event.latitude.isnot(None)&Event.longitude.isnot(None),
                 'venue':Event.venue_id.isnot(None),'category':Event.category!='Other',
@@ -299,9 +327,10 @@ def data_quality(db:Session=Depends(get_db),_=Depends(require_admin)):
     for source_id,started,finished in db.query(CrawlerRun.source_id,CrawlerRun.started_at,CrawlerRun.finished_at).order_by(CrawlerRun.finished_at.desc()).limit(12500):
         bucket=durations.setdefault(str(source_id),[])
         bucket.append(max(0,(finished-started).total_seconds()))
-    visible=Event.status.in_((EventStatus.fresh,EventStatus.stale))
+    visible=discoverable(now)
+    root=and_(Event.merged_into_id.is_(None),Event.identity_kind!='offer')
     located=and_(Event.latitude.isnot(None),Event.longitude.isnot(None))
-    conditions={'total':True,'future':Event.start_time>=now,'fresh':Event.status==EventStatus.fresh,
+    conditions={'total':True,'future':and_(root,Event.start_time>=now),'fresh':Event.status==EventStatus.fresh,
                 'stale':Event.status==EventStatus.stale,'cancelled':Event.status==EventStatus.cancelled,
                 'location_known':or_(located,Event.venue_id.isnot(None),Event.address.isnot(None)),
                 'location_complete':and_(located,or_(Event.venue_id.isnot(None),Event.address.isnot(None))),
@@ -331,7 +360,13 @@ def data_quality(db:Session=Depends(get_db),_=Depends(require_admin)):
         if candidate.reason=='unsupported_extraction' or (candidate.attempts>=3 and not candidate.good_runs):
             diagnostics.append({'domain':candidate.domain,'issue':candidate.reason or 'candidate_stagnation'})
     return {'reconciliation':{'as_of_utc':now.isoformat()+'Z','counts':counts,
-                             'definition':'Explore/map use published fresh/stale status; future and Home use UTC starts; Home adds 90-day horizon. Viewports, limits and user filters further reduce displayed results.'},
+                             'definition':'total is retained physical rows. Explore/map count distinct discoverable identities, excluding aliases, offers, expired/cancelled and unknown past schedules. Future requires an upcoming start; ongoing ranges remain eligible. User filters further reduce results.'},
+            'identity_counts':{'physical_rows':db.query(Event).count(),'source_observations':db.query(EventSource).count(),
+                'identity_roots':db.query(Event).filter(Event.merged_into_id.is_(None)).count(),
+                'event_identities':db.query(Event).filter(root).count(),'discoverable_events':db.query(Event).filter(visible).count(),
+                'occurrences':db.query(EventOccurrence).count(),'ticket_offers':db.query(EventOffer).count(),'duplicate_aliases':db.query(EventReconciliation).count()},
+            'source_identity_yield':identity_contributions(db,now),
+            'yield_definition':'exclusive_discoverable_events is current unique publisher coverage; shared identities are not additive net-new events. Historical first-discovery attribution is not retained for every legacy observation.',
             'diagnostics':diagnostics,
             'future_events':total,'total_events':db.query(Event).count(),
             'total_with_end_datetime':db.query(Event).filter(Event.end_time.isnot(None)).count(),'coverage':fields,

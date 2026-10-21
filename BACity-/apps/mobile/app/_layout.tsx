@@ -89,7 +89,9 @@ export default function RootLayout() {
               animation: reduced ? "fade" : "slide_from_right",
               contentStyle: { backgroundColor: colors.background },
             }}
-          />
+          >
+            <Stack.Screen name="area-events" options={{animation:reduced?'fade':'slide_from_bottom'}} />
+          </Stack>
         </QueryClientProvider>
         <StartupScene ready={!authLoading && !!navigation?.key && !entryActive} onRetry={() => void hydrate()} />
         </LoadingExperienceProvider>

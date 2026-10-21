@@ -63,7 +63,7 @@ def _safe_stats(stats):
     items = int(stats.get('item_scraped_count', 0))
     rejected = int(stats.get('validation/rejected', 0))
     errors = int(stats.get('extraction/errors', 0)) + int(stats.get('source/request_errors', 0)) + int(stats.get('item_error_count',0))
-    return pages, int(stats.get('extraction/raw', items + rejected)), items, rejected, errors, dict(list(reasons.items())[:20])
+    return pages, int(stats.get('pipeline/raw_listings',stats.get('extraction/raw', items + rejected))), items, rejected, errors, dict(list(reasons.items())[:20])
 
 
 def report_run(api_url, token, seed, started, finished, success, stats, error):
@@ -82,7 +82,7 @@ def report_run(api_url, token, seed, started, finished, success, stats, error):
             'skip_reasons': reasons, 'error': (error or '')[:2000] or None,
             'quality_metrics': {**{k.removeprefix('quality/'):float(v) for k,v in stats.items() if k.startswith('quality/') and isinstance(v,(int,float))},
                                 'crawl_duration_seconds':max(0,finished-started),
-                                **{k:float(stats.get(k,0)) for k in ('extraction/raw','ingestion/queued','ingestion/delivered','ingestion/pending','extraction/unsupported_pages','source/request_errors','geocoding/requests','geocoding/errors','geocoding/cache_hit','geocoding/deferred')}}}
+                                **{k:float(stats.get(k,0)) for k in ('pipeline/raw_listings','pipeline/normalized_listings','extraction/raw','ingestion/queued','ingestion/delivered','ingestion/pending','extraction/unsupported_pages','source/request_errors','geocoding/requests','geocoding/errors','geocoding/cache_hit','geocoding/deferred')}}}
     response = requests.post(f"{api_url.rstrip('/')}/crawler/runs", json=body,
                              headers={'X-Ingestion-Key': token} if token else {}, timeout=20)
     response.raise_for_status()
@@ -96,6 +96,24 @@ def sync_runtime_config(state, api_url, token):
         state.apply_runtime_config(response.json())
     except (requests.RequestException, ValueError, TypeError) as exc:
         log.warning("Crawler runtime configuration unavailable; retaining local schedule: %s", exc)
+
+
+def collect_orphan_run_stats(state, state_path, now=None, retention_seconds=86400, limit=100):
+    """Remove only abandoned scratch statistics; durable runs/outbox remain."""
+    now=now or time.time()
+    removed=0
+    for path in Path(state_path).parent.glob('run-*.json'):
+        if removed>=limit:break
+        try:
+            run_id=int(path.stem.removeprefix('run-'))
+            row=state.db.execute('SELECT finished FROM runs WHERE id=?',(run_id,)).fetchone()
+            if row is None or row['finished'] is None or now-path.stat().st_mtime < retention_seconds:
+                continue
+            path.unlink()
+            removed+=1
+        except (ValueError,OSError):
+            continue
+    return removed
 
 
 def run_source(state, seed, api_url=None, token="", inspection=False):
@@ -135,10 +153,9 @@ def run_source(state, seed, api_url=None, token="", inspection=False):
         finally:
             stats_path.unlink(missing_ok=True)
     success = process.returncode == 0 and stats.get("success", False)
-    failures = state.finish(run_id, seed, success, stats, error or stats.get("error") or stats.get("source/last_error"))
     if inspection:
         stats['inspection/urls'] = [seed.event_url, *seed.entry_urls]
-        state.candidate_result(seed.domain, stats, success)
+    failures = state.finish(run_id, seed, success, stats, error or stats.get("error") or stats.get("source/last_error"), inspection=inspection)
     log.info("CRAWL_RESULT source=%s success=%s stats=%s", seed.domain, success, stats)
     if failures >= 3:
         log.error("CRAWLER_ALERT repeated_failure source=%s failures=%s", seed.domain, failures)
@@ -209,7 +226,7 @@ def main():
         print(json.dumps({'sources': [dict(r) for r in state.db.execute('SELECT domain,enabled,next_run,failures,last_success,discovered_from FROM sources')],
                           'runs': [dict(r) for r in state.db.execute('SELECT * FROM runs ORDER BY id DESC LIMIT 20')],
                           'delivery': [dict(r) for r in state.db.execute('SELECT status,count(*) AS count,min(created) AS oldest,max(attempts) AS max_attempts FROM outbox GROUP BY status')],
-                          'candidates': [dict(r) for r in state.db.execute('SELECT domain,status,reason,next_inspection,good_runs,metrics FROM candidates')],
+                          'candidates': [dict(r) for r in state.db.execute('SELECT domain,status,reason,next_inspection,good_runs,graph_depth,qualified_observations,last_qualified,bad_runs,metrics FROM candidates')],
                           'endpoint_count': state.db.execute('SELECT count(*) FROM candidate_endpoints').fetchone()[0],
                           'delivery_totals': dict(state.db.execute("SELECT key,value FROM metadata WHERE key LIKE 'outbox_%'"))}, indent=2))
         state.close()
@@ -258,6 +275,8 @@ def main():
                         response.raise_for_status()
                     except requests.RequestException as exc:
                         log.warning('Freshness maintenance failed: %s', exc)
+                    cleaned=collect_orphan_run_stats(state,state_path)
+                    if cleaned:log.info('Removed %s abandoned scratch statistics files',cleaned)
                     if args.once:
                         break
                     stop.wait(30)
