@@ -75,7 +75,7 @@ test('central Rive system owns major Map, Plus and generation transitions', () =
   const provider = read('../components/loading/LoadingExperience.tsx');
   assert.match(provider, /beginMajor/); assert.match(provider, /finishMajor/); assert.match(provider, /useBrandedLoading/);
   assert.match(read('../../app/(tabs)/_layout.tsx'), /major\.begin\('map'\)/);
-  assert.match(read('../../app/(tabs)/map.tsx'), /onDidFinishRenderingFrameFully/);
+  assert.match(read('../map/MapScreen.tsx'), /onDidFinishRenderingFrameFully/);
   assert.match(read('../../app/evening-plan.tsx'), /useBrandedLoading\('plan-generation', generation\.isPending\)/);
   assert.match(read('../../app/weekend-plan.tsx'), /useBrandedLoading\('weekend-generation', generation\.isPending\)/);
 });

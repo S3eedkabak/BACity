@@ -5,4 +5,4 @@ import type { EventViewportBounds } from '../api/events';
 export const mapSession: {
   filters:MapFilters;bounds:EventViewportBounds|null;zoom:number;
   camera:{centerCoordinate:[number,number];zoomLevel:number}|null;selectedDistrict:string|null;
-} = {filters:{},bounds:null,zoom:12,camera:null,selectedDistrict:null};
+} = {filters:{},bounds:null,zoom:10,camera:null,selectedDistrict:null};

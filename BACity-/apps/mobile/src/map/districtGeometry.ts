@@ -11,15 +11,15 @@ export function districtBoundaryLines(data: DistrictData): GeoJSON.FeatureCollec
   })};
 }
 
-// Alternating subdued inks distinguish adjacent territories without replacing
-// the Liberty basemap or encoding event category as district color.
+// A single pink family keeps adjacent official territories legible over Liberty.
+// The hues encode geography only; counts and categories stay independent.
 export const DISTRICT_INKS: Record<string,string> = {
-  '528595':'#A93468','529311':'#6E8590','529320':'#777D60',
-  '529338':'#A17863','529346':'#687F9D','529354':'#A98458',
-  '529362':'#817496','529371':'#739080','529389':'#9B7368',
-  '529397':'#7F7698','529401':'#A18064','529419':'#6F8D8A',
-  '529435':'#8C7894','529427':'#77906C','529443':'#AA8068',
-  '529460':'#6E8799','529494':'#7C8C72',
+  '528595':'#DE6BA5','529311':'#D95599','529320':'#E47BAF',
+  '529338':'#CA4F92','529346':'#E06EA8','529354':'#D85E9B',
+  '529362':'#ED8BBC','529371':'#CE5795','529389':'#E579AD',
+  '529397':'#D264A1','529401':'#EC82B5','529419':'#C94E8C',
+  '529435':'#DE71A8','529427':'#D45B98','529443':'#E784B5',
+  '529460':'#CC5894','529494':'#E175AD',
 };
 
-export const districtInkExpression = ['match',['get','id'],...Object.entries(DISTRICT_INKS).flat(), '#A93468'];
+export const districtInkExpression = ['match',['get','id'],...Object.entries(DISTRICT_INKS).flat(), '#DE6BA5'];

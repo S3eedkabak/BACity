@@ -9,7 +9,7 @@
     "web": "expo start --web",
     "test:api-url": "node --experimental-strip-types --test src/api/apiUrl.test.mjs",
     "test:recommendations": "node --experimental-strip-types --test src/recommendations/locationPolicy.test.mjs",
-    "test:map-markers": "node --experimental-strip-types --test src/map/eventGeoJson.test.cjs src/map/viewportData.test.mjs src/map/area.test.mjs src/map/preservation.test.mjs src/map/districtGeometry.test.mjs",
+    "test:map-markers": "node --experimental-strip-types --test src/map/eventGeoJson.test.cjs src/map/viewportData.test.mjs src/map/area.test.mjs src/map/preservation.test.mjs src/map/districtGeometry.test.mjs src/map/districtMorphGeometry.test.mjs",
     "test:plus": "node --experimental-strip-types --test src/plus/policy.test.mjs",
     "test:tonight": "node --experimental-strip-types --test src/tonight/presentation.test.mjs",
     "test:event-chains": "node --experimental-strip-types --test src/eventChains/presentation.test.mjs",

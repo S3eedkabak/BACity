@@ -13,6 +13,8 @@ import { listEvents } from '../src/api/events';
 import { entryDestination } from '../src/ux/motionPolicy';
 import { sessionGreeting, type Greeting } from '../src/greeting/session';
 import { SessionWelcome } from '../src/components/greeting/SessionWelcome';
+import { DistrictMorphLayer } from '../src/map/DistrictMorphLayer';
+import { useDistrictMorph } from '../src/map/districtMorphState';
 
 export default function RootLayout() {
   const hydrate = useAuthStore((s) => s.hydrate);
@@ -27,6 +29,7 @@ export default function RootLayout() {
   const pathname = usePathname();
   const navigation = useRootNavigationState();
   const reduced = useReducedMotion();
+  const districtMorphActive = useDistrictMorph(state => state.phase !== 'idle');
   // Separate caches per session identity, without clearing queries after children mount.
   const queryClient = useMemo(() => new QueryClient({ defaultOptions: { queries: { retry: 1 } } }), [userId]);
 
@@ -81,7 +84,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <LoadingExperienceProvider>
-        <StatusBar style="light" />
+        <StatusBar style={districtMorphActive?'dark':'light'} />
         <QueryClientProvider key={userId || 'guest'} client={queryClient}>
           <Stack
             screenOptions={{
@@ -90,8 +93,9 @@ export default function RootLayout() {
               contentStyle: { backgroundColor: colors.background },
             }}
           >
-            <Stack.Screen name="area-events" options={{animation:reduced?'fade':'slide_from_bottom'}} />
+            <Stack.Screen name="area-events" options={{animation:districtMorphActive?'none':reduced?'fade':'slide_from_bottom',gestureEnabled:!districtMorphActive}} />
           </Stack>
+          <DistrictMorphLayer />
         </QueryClientProvider>
         <StartupScene ready={!authLoading && !!navigation?.key && !entryActive} onRetry={() => void hydrate()} />
         </LoadingExperienceProvider>

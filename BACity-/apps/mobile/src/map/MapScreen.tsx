@@ -19,13 +19,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useIsFocused } from "@react-navigation/native";
-import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Dimensions, Platform, StyleSheet, Text, View } from "react-native";
 import { AnimatedPressable as Pressable } from '../components/motion/Motion';
 import { colors } from "../theme/colors";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from "../theme/fonts";
 import { nearbyUtilities, utilitiesInViewport, type UtilityBounds } from "../api/utilities";
-import { getEvent, mapClusters, mapDistricts } from "../api/events";
+import { areaEvents, getEvent, mapClusters, mapDistricts } from "../api/events";
 import type { Utility } from "../api/utilities";
 import {
   boundsKey,
@@ -38,6 +38,8 @@ import {
 import { EMPTY_MAP, areaRoute, clusterProperties, clusterCamera, type MapFilters as Filters, type MapProperties } from './area';
 import { MapFilters } from './MapFilters';
 import { districtBoundaryLines, districtInkExpression } from './districtGeometry';
+import { morphRings, type ProjectionFrame } from './districtMorphGeometry';
+import { useDistrictMorph } from './districtMorphState';
 import { useMajorTransition } from "../components/loading/LoadingExperience";
 
 // Expo Router evaluates route modules while building its web route context. Avoid
@@ -110,6 +112,7 @@ export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraRef>(null);
   const mapRef = useRef<MapViewRef>(null);
+  const mapRootRef = useRef<View>(null);
   const eventSourceRef = useRef<ShapeSourceRef>(null);
   const utilitySourceRef = useRef<ShapeSourceRef>(null);
   const requestedBoundsRef = useRef(mapSession.bounds??INITIAL_BOUNDS);
@@ -124,6 +127,9 @@ export default function MapScreen() {
   const setFilters=useMapFiltersStore(state=>state.setFilters);
   const [activeFilters,setActiveFilters] = useState<Filters>(mapSession.filters);
   const [selectedDistrict,setSelectedDistrict] = useState<string|null>(mapSession.selectedDistrict);
+  const morphPhase=useDistrictMorph(state=>state.phase);
+  const morphEntry=useDistrictMorph(state=>state.entry);
+  const morphRestore=useDistrictMorph(state=>state.restore);
   const markerPressedAt=useRef(0);
   const districtNavigation=useRef<ReturnType<typeof setTimeout>|null>(null);
   const [filtersOpen,setFiltersOpen] = useState(false);
@@ -158,8 +164,41 @@ export default function MapScreen() {
     mapSession.camera=restored;
     cameraRef.current?.setCamera({...restored,animationDuration:returnToOrigin||reducedMotion?0:350,animationMode:'easeTo'});
     if(mapSession.bounds){requestedBoundsRef.current=mapSession.bounds;setMapBounds(mapSession.bounds);setZoomLevel(mapSession.zoom);}
-    if(returnToOrigin&&origin)router.navigate(origin);
+    if(returnToOrigin&&origin){
+      useDistrictMorph.getState().resume();
+      router.navigate(origin);
+    } else if (useDistrictMorph.getState().phase === 'suspended') {
+      useDistrictMorph.getState().cancel();
+    }
   }
+
+  // The map remains mounted below Area Events. Restore its exact browsing view
+  // behind the opaque morph surface so the reverse reveals the original city.
+  useEffect(() => {
+    if (morphPhase !== 'returning' || !morphEntry || morphEntry.id !== selectedDistrict) return;
+    const previous = morphEntry.savedCamera;
+    mapSession.camera = previous;
+    mapSession.bounds = morphEntry.savedBounds;
+    mapSession.zoom = previous.zoomLevel;
+    requestedBoundsRef.current = morphEntry.savedBounds;
+    setMapBounds(morphEntry.savedBounds);
+    setZoomLevel(previous.zoomLevel);
+    cameraRequest.current++;
+    cameraRef.current?.setCamera({...previous,animationDuration:0});
+  }, [morphPhase,morphEntry?.id,selectedDistrict]);
+
+  useEffect(() => {
+    if (morphPhase !== 'idle' || !morphRestore) return;
+    mapSession.camera = morphRestore.camera;
+    mapSession.bounds = morphRestore.bounds;
+    mapSession.zoom = morphRestore.camera.zoomLevel;
+    requestedBoundsRef.current = morphRestore.bounds;
+    setMapBounds(morphRestore.bounds);
+    setZoomLevel(morphRestore.camera.zoomLevel);
+    cameraRequest.current++;
+    cameraRef.current?.setCamera({...morphRestore.camera,animationDuration:reducedMotion?0:240,animationMode:'easeTo'});
+    useDistrictMorph.getState().clearRestore();
+  }, [morphPhase,morphRestore,reducedMotion]);
 
   useEffect(() => {
     if (focused && mapReady) major.finish('map');
@@ -216,6 +255,7 @@ export default function MapScreen() {
   }
   async function selectDistrict(properties:any,point?:{x:number;y:number}) {
     if(!properties?.id||zoomLevel>14||target)return;
+    if(Platform.OS!=='web'&&useDistrictMorph.getState().phase!=='idle')return;
     const revision=cameraRequest.current;
     const markerLayers=targetPoint?['focused-event-point']:showUtilities?['toilet-points','toilet-clusters']:nearMeActive?['event-points','event-clusters']:[];
     if(Platform.OS!=='web'&&point&&mapRef.current&&markerLayers.length){
@@ -227,11 +267,62 @@ export default function MapScreen() {
     if(revision!==cameraRequest.current||Date.now()-markerPressedAt.current<100)return;
     if(districtNavigation.current)clearTimeout(districtNavigation.current);
     setSelectedDistrict(String(properties.id));
-    if(Platform.OS!=='web')void Haptics.selectionAsync().catch(()=>undefined);
-    districtNavigation.current=setTimeout(()=>{
-      districtNavigation.current=null;
-      if(revision===cameraRequest.current)openDistrict(properties);
-    },reducedMotion?0:230);
+    if(Platform.OS!=='ios') {
+      if(Platform.OS!=='web')void Haptics.selectionAsync().catch(()=>undefined);
+      districtNavigation.current=setTimeout(()=>{
+        districtNavigation.current=null;
+        if(revision===cameraRequest.current)openDistrict(properties);
+      },reducedMotion?0:230);
+      return;
+    }
+    const morph=useDistrictMorph.getState();
+    const nonce=morph.claim(String(properties.id));
+    if(nonce==null)return;
+    void Haptics.selectionAsync().catch(()=>undefined);
+    const feature=districtQuery.data?.features.find(item=>String(item.properties.id)===String(properties.id));
+    const window=Dimensions.get('window');
+    const viewport=morph.viewport??{width:window.width,height:window.height,originX:0,originY:0,
+      headerHeight:Math.min(260,Math.max(224,window.height*.29))};
+    if(!morph.viewport)morph.setViewport(viewport);
+    if(!feature||!mapRef.current||!mapRootRef.current){
+      morph.cancel(nonce);openDistrict(properties);return;
+    }
+    try {
+      const anchor=feature.properties.label_coordinates;
+      const delta=.01;
+      const map=mapRef.current;
+      const [anchorPoint,eastPoint,northPoint,mapOrigin]=await Promise.all([
+        map.getPointInView(anchor),map.getPointInView([anchor[0]+delta,anchor[1]]),
+        map.getPointInView([anchor[0],anchor[1]+delta]),
+        new Promise<[number,number]>(resolve=>{
+          const node=mapRootRef.current;
+          if(node)node.measureInWindow((x,y)=>resolve([x,y]));
+          else resolve([0,0]);
+        }),
+      ]);
+      if(revision!==cameraRequest.current||useDistrictMorph.getState().nonce!==nonce){morph.cancel(nonce);return;}
+      const projection:ProjectionFrame={anchor,anchorPoint,eastPoint,northPoint,
+        mapOffset:[mapOrigin[0]-viewport.originX,mapOrigin[1]-viewport.originY],delta};
+      const geometry=morphRings(feature,projection,viewport);
+      if(!geometry){morph.cancel(nonce);openDistrict(properties);return;}
+      const savedCamera=mapSession.camera??{centerCoordinate:[BRATISLAVA.longitude,BRATISLAVA.latitude] as [number,number],zoomLevel};
+      const route=areaRoute(properties.area_token,{...eventFilters,district:String(properties.id)});
+      if(!morph.start(nonce,{id:String(properties.id),name:String(properties.name),count:Number(properties.count),
+        source:geometry.source,target:geometry.target,route,savedCamera,savedBounds:mapBounds}))return;
+      // Fetch before navigation; the shared-surface animation never waits for it.
+      void queryClient.prefetchInfiniteQuery({queryKey:['area-events',route.params.area,{...eventFilters,district:String(properties.id)}],
+        initialPageParam:undefined as string|undefined,
+        queryFn:({pageParam,signal})=>areaEvents(route.params.area,{...eventFilters,district:String(properties.id)},pageParam,signal),
+        getNextPageParam:(page:Awaited<ReturnType<typeof areaEvents>>)=>page.next_cursor||undefined,staleTime:30000}).catch(()=>undefined);
+      const [west,south,east,north]=geometry.bounds;
+      cameraRequest.current++;
+      cameraRef.current?.setCamera({bounds:{ne:[east,north],sw:[west,south]},
+        padding:{paddingTop:90,paddingRight:34,paddingBottom:110,paddingLeft:34},
+        animationDuration:reducedMotion?0:640,animationMode:'easeTo'});
+    } catch {
+      morph.cancel(nonce);
+      openDistrict(properties);
+    }
   }
   const clusterKey=JSON.stringify([boundsKey(eventBounds),zoomLevel,eventFilters]);
   const eventViewport = useQuery({
@@ -442,7 +533,7 @@ export default function MapScreen() {
   }, []);
 
   return (
-    <View style={styles.container}>
+    <View ref={mapRootRef} style={styles.container}>
       <MapView
         ref={mapRef}
         style={StyleSheet.absoluteFillObject}
@@ -453,7 +544,12 @@ export default function MapScreen() {
         attributionEnabled
         logoEnabled
         regionDidChangeDebounceTime={700}
-        onRegionWillChange={()=>{cameraRequest.current++;if(districtNavigation.current){clearTimeout(districtNavigation.current);districtNavigation.current=null;}}}
+        onRegionWillChange={()=>{
+          cameraRequest.current++;
+          if(districtNavigation.current){clearTimeout(districtNavigation.current);districtNavigation.current=null;}
+          const morph=useDistrictMorph.getState();
+          if(morph.phase==='selecting'){morph.cancel(morph.nonce);setSelectedDistrict(null);}
+        }}
         onRegionDidChange={handleRegionDidChange}
         onDidFinishLoadingMap={() => {
           setBasemapUnavailable(false);
@@ -473,7 +569,7 @@ export default function MapScreen() {
           ref={cameraRef}
           defaultSettings={initialCamera.current??{
             centerCoordinate: [BRATISLAVA.longitude, BRATISLAVA.latitude],
-            zoomLevel: 12,
+            zoomLevel: 10,
             pitch: 0,
             heading: 0,
           }}
@@ -498,13 +594,15 @@ export default function MapScreen() {
         />
 
         {districtQuery.data&&<ShapeSource id="city-districts" shape={districtQuery.data} onPress={event=>{void selectDistrict(event.features[0]?.properties,event.point);}}>
-          <FillLayer id="city-district-fill" belowLayerID="label_country_1" style={{fillOpacityTransition:{duration:reducedMotion?0:240,delay:0},fillColor:['case',['==',['get','id'],selectedDistrict??''],colors.primary,districtInkExpression],fillOpacity:['interpolate',['linear'],['zoom'],10,['case',['==',['get','id'],selectedDistrict??''],target?0.08:0.34,selectedDistrict?0.10:0.16],13,['case',['==',['get','id'],selectedDistrict??''],target?0.04:0.26,selectedDistrict?0.07:0.12],15,0]}}/>
+          <FillLayer id="city-district-fill" belowLayerID="label_country_1" style={{fillOpacityTransition:{duration:reducedMotion?0:280,delay:0},fillColor:['case',['==',['get','id'],selectedDistrict??''],'#DE4D96',districtInkExpression],fillOpacity:['interpolate',['linear'],['zoom'],10,['case',['==',['get','id'],selectedDistrict??''],target?0.08:0.56,selectedDistrict?0.20:0.40],13,['case',['==',['get','id'],selectedDistrict??''],target?0.04:0.42,selectedDistrict?0.13:0.29],15,0]}}/>
         </ShapeSource>}
         {districtLines&&<ShapeSource id="city-district-boundaries" shape={districtLines}>
-          <LineLayer id="city-district-boundary" belowLayerID="label_country_1" style={{lineColor:['case',['==',['get','id'],selectedDistrict??''],colors.primaryDark,colors.primary],lineWidth:['case',['==',['get','id'],selectedDistrict??''],3,1.5],lineWidthTransition:{duration:reducedMotion?0:240,delay:0},lineOpacity:['interpolate',['linear'],['zoom'],12,target?0.48:0.78,15,0]}}/>
+          <LineLayer id="city-district-boundary" belowLayerID="label_country_1" style={{lineColor:['case',['==',['get','id'],selectedDistrict??''],'#A52469','#C14D8A'],lineWidth:['case',['==',['get','id'],selectedDistrict??''],3,1.5],lineWidthTransition:{duration:reducedMotion?0:280,delay:0},lineOpacity:['interpolate',['linear'],['zoom'],10,target?0.48:0.9,15,0]}}/>
         </ShapeSource>}
         {districtQuery.data&&<ShapeSource id="district-labels" shape={{type:'FeatureCollection',features:districtQuery.data.features.filter(feature=>Array.isArray(feature.properties.label_coordinates)&&feature.properties.label_coordinates.length===2).map(feature=>({type:'Feature',properties:feature.properties,geometry:{type:'Point',coordinates:feature.properties.label_coordinates}}))}} onPress={event=>{void selectDistrict(event.features[0]?.properties,event.point);}}>
-          <SymbolLayer id="city-district-name" belowLayerID="label_country_1" style={{textField:['concat',['get','name'],' · ',['to-string',['get','count']]],textOpacity:['interpolate',['linear'],['zoom'],11,1,13,0.85,15,0],textColor:['case',['==',['get','id'],selectedDistrict??''],colors.primary,colors.black],textSize:['case',['==',['get','id'],selectedDistrict??''],15,12.5],textFont:['Noto Sans Regular'],textHaloColor:colors.white,textHaloWidth:2,textAllowOverlap:false}}/>
+          <CircleLayer id="city-district-count-disc" belowLayerID="label_country_1" style={{circleColor:'#FFF6FB',circleRadius:['case',['>=',['get','count'],100],17,14],circleStrokeColor:'#BA4985',circleStrokeWidth:1.3,circleOpacity:['interpolate',['linear'],['zoom'],10,0.94,14,0.76,15,0]}}/>
+          <SymbolLayer id="city-district-count" aboveLayerID="city-district-count-disc" style={{textField:['to-string',['get','count']],textColor:'#872956',textSize:10,textFont:['Noto Sans Regular'],textHaloColor:'#FFF6FB',textHaloWidth:.4,textAllowOverlap:false,textOpacity:['case',['==',['get','id'],morphPhase==='morphing'?selectedDistrict??'':''],0,1]}}/>
+          <SymbolLayer id="city-district-name" aboveLayerID="city-district-count" style={{textField:['get','name'],textOffset:[0,-1.45],textColor:colors.black,textSize:['case',['==',['get','id'],selectedDistrict??''],15,12.5],textFont:['Noto Sans Regular'],textHaloColor:colors.white,textHaloWidth:2.5,textAllowOverlap:false,textOpacity:['case',['==',['get','id'],morphPhase==='morphing'?selectedDistrict??'':''],0,1]}}/>
         </ShapeSource>}
         {!showUtilities && nearMeActive && !target && <ShapeSource
           ref={eventSourceRef}
@@ -574,13 +672,13 @@ export default function MapScreen() {
           <SymbolLayer id="focused-event-label" aboveLayerID="focused-event-point" style={{textField:'E',textColor:colors.white,textSize:12,textFont:['Noto Sans Regular'],textAllowOverlap:true}}/>
         </ShapeSource>}
       </MapView>
-      {!target&&selectedDistrict&&zoomLevel<=14&&districtQuery.data?.features.filter(feature=>String(feature.properties.id)===selectedDistrict).map(feature=>(
+      {!target&&morphPhase==='idle'&&selectedDistrict&&zoomLevel<=14&&districtQuery.data?.features.filter(feature=>String(feature.properties.id)===selectedDistrict).map(feature=>(
         <Reveal key={selectedDistrict} style={{position:'absolute',bottom:insets.bottom+110,left:16,right:80,borderRadius:16,padding:14,backgroundColor:colors.surface,borderColor:colors.primary,borderWidth:1}}>
           <View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center'}}>
             <Text style={{color:colors.text,fontFamily:fonts.semibold}}>{feature.properties.name} · {feature.properties.count} {feature.properties.count===1?'event':'events'}</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="Clear district selection" onPress={()=>setSelectedDistrict(null)}><AppIcon name="close" size={20} color={colors.text}/></Pressable>
           </View>
-          <Pressable accessibilityRole="button" accessibilityLabel={`Explore ${feature.properties.name} events`} onPress={()=>openDistrict(feature.properties)}><Text style={{color:colors.primary,paddingTop:10}}>Explore events</Text></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Explore ${feature.properties.name} events`} onPress={()=>{void selectDistrict(feature.properties);}}><Text style={{color:colors.primary,paddingTop:10}}>Explore events</Text></Pressable>
           <Text style={{color:colors.textMuted,fontSize:10,paddingTop:8}}>Boundaries: GKÚ Bratislava · CC BY 4.0</Text>
         </Reveal>
       ))}
