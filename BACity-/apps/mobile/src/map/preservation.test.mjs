@@ -42,6 +42,8 @@ test('districts are geographic targets and cluster camera does not fit empty gri
   assert.match(source,/id="city-district-name"/);
   assert.match(source,/textField:\['get','name'\]/);
   assert.match(source,/id="city-district-count"/);
+  assert.doesNotMatch(source,/id="city-district-count-disc"/);
+  assert.match(source,/No events/);
   assert.ok(!source.includes("['concat',['get','name'],' · '"));
   assert.match(source,/morphRings\(feature,projection,viewport\)/);
 });

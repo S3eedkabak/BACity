@@ -73,7 +73,9 @@ export const useDistrictMorph = create<MorphState>((set, get) => ({
     if (get().phase === 'suspended') set({phase:'area-visible'});
   },
   beginReturn: () => {
-    if (get().phase !== 'area-visible') return false;
+    const {phase,areaMounted} = get();
+    if (phase === 'returning') return true;
+    if (phase !== 'area-visible' && !(phase === 'morphing' && areaMounted)) return false;
     set({phase:'returning'});
     return true;
   },

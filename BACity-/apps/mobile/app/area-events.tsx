@@ -1,6 +1,7 @@
 import { useMapFiltersStore } from '../src/map/filterStore';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, BackHandler, FlatList, Platform, Text, View } from 'react-native';
+import { ActivityIndicator, BackHandler, Dimensions, FlatList, Platform, Text, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -14,6 +15,7 @@ import { AnimatedPressable as Pressable } from '../src/components/motion/Motion'
 import { MapFilters } from '../src/map/MapFilters';
 import { parseFilters } from '../src/map/area';
 import { DISTRICT_SURFACE } from '../src/map/DistrictMorphLayer';
+import { districtHeaderHeight, headerSurfacePath } from '../src/map/districtMorphGeometry';
 import { useDistrictMorph } from '../src/map/districtMorphState';
 import { useAuthStore } from '../src/store/authStore';
 import { colors } from '../src/theme/colors';
@@ -24,7 +26,10 @@ export default function AreaEvents() {
   const insets=useSafeAreaInsets();
   const morphEntry=useDistrictMorph(state=>state.entry);
   const morphViewport=useDistrictMorph(state=>state.viewport);
+  const morphPhase=useDistrictMorph(state=>state.phase);
   const morphArea=Platform.OS==='ios'&&params.districtMorph==='1'&&!!morphEntry;
+  // The shared morph renders the surface and identity until the page takes over.
+  const morphOwnsHeader=morphArea&&(morphPhase==='morphing'||morphPhase==='returning');
   useEffect(()=>{
     if(morphArea)useDistrictMorph.getState().markAreaMounted(useDistrictMorph.getState().nonce);
   },[morphArea]);
@@ -61,12 +66,20 @@ export default function AreaEvents() {
     try{if(ids.has(id))await unsaveEvent(id);else await saveEvent(id);await saved.refetch();}catch(e:any){setSaveError(e.message);}finally{setSaving(null);}
   }
   const count=query.data?.pages[0]?.total??morphEntry?.count??0;
+  const window=Dimensions.get('window');
+  const headerHeight=morphViewport?.headerHeight??districtHeaderHeight(window.height);
+  const headerWidth=morphViewport?.width??window.width;
   return <SafeAreaView edges={['top']} style={{flex:1,backgroundColor:morphArea?DISTRICT_SURFACE:colors.background}}>
     {morphArea&&<StatusBar style="dark"/>}
-    {morphArea?<View style={{height:Math.max(170,(morphViewport?.headerHeight??240)-insets.top),backgroundColor:DISTRICT_SURFACE,paddingHorizontal:22,paddingTop:8,borderBottomLeftRadius:24,borderBottomRightRadius:24}}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Back to map" onPress={goBack} style={{width:44,height:44,justifyContent:'center'}}><AppIcon name="chevron-back" size={25} color={colors.black}/></Pressable>
-      <Text style={{marginTop:24,fontFamily:fonts.black,fontSize:30,color:colors.black}} numberOfLines={2}>{query.data?.pages[0]?.name??morphEntry?.name}</Text>
-      <Text accessibilityLiveRegion="polite" style={{marginTop:6,fontFamily:fonts.semibold,fontSize:13,color:colors.black}}>{count} {count===1?'event':'events'} in this area</Text>
+    {morphArea?<View style={{height:Math.max(110,headerHeight-insets.top),backgroundColor:colors.background,overflow:'visible'}}>
+      <Svg width={headerWidth} height={headerHeight} pointerEvents="none" style={{position:'absolute',top:-insets.top,left:0,opacity:morphOwnsHeader?0:1}}>
+        <Path d={headerSurfacePath(headerWidth,headerHeight)} fill={DISTRICT_SURFACE}/>
+      </Svg>
+      <View accessibilityElementsHidden={morphOwnsHeader} style={{paddingHorizontal:22,opacity:morphOwnsHeader?0:1}}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Back to map" onPress={goBack} style={{width:44,height:44,justifyContent:'center'}}><AppIcon name="chevron-back" size={23} color={colors.black}/></Pressable>
+        <Text style={{marginTop:4,fontFamily:fonts.black,fontSize:30,lineHeight:36,color:colors.black}} numberOfLines={1}>{query.data?.pages[0]?.name??morphEntry?.name}</Text>
+        <Text accessibilityLiveRegion="polite" style={{marginTop:4,fontFamily:fonts.semibold,fontSize:13,lineHeight:18,color:colors.black}}>{count} {count===1?'event':'events'} in this area</Text>
+      </View>
     </View>:<View style={{flexDirection:'row',alignItems:'center',paddingHorizontal:12}}><IconButton icon="chevron-back" label="Back to map" onPress={goBack}/><Text style={{fontFamily:fonts.semibold,color:colors.text,fontSize:18}}>Area events</Text></View>}
     <View style={{flex:1,backgroundColor:colors.background}}>
     <FlatList data={refreshing?[]:items} keyExtractor={e=>e.id} initialNumToRender={8} maxToRenderPerBatch={8} windowSize={7} contentContainerStyle={{width:'100%',maxWidth:760,alignSelf:'center',padding:18,paddingBottom:40+insets.bottom,gap:12}} keyboardShouldPersistTaps="handled"

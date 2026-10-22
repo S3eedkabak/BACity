@@ -9,7 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
-import { interpolateRingPath } from './districtMorphGeometry';
+import { districtHeaderHeight, interpolateRingPath } from './districtMorphGeometry';
 import { useDistrictMorph } from './districtMorphState';
 
 export const DISTRICT_SURFACE = '#E987B8';
@@ -76,7 +76,6 @@ export function DistrictMorphLayer() {
       opacity.value = withTiming(0,{duration:reduced?0:130});
     } else if (phase === 'returning' && entry) {
       opacity.value = 1;
-      progress.value = 1;
       progress.value = withTiming(0, {
         duration: reduced ? 130 : 760,
         easing: Easing.bezier(.42,0,.28,1),
@@ -112,33 +111,33 @@ export function DistrictMorphLayer() {
   const sourceCenter = entry ? entry.source.reduce((center,point) => [center[0]+point[0]/entry.source.length,center[1]+point[1]/entry.source.length] as [number,number],[0,0] as [number,number]) : [0,0];
   const label = useAnimatedStyle(() => ({
     opacity: opacity.value * interpolate(progress.value,[0,.15,.48,1],[0,0,.95,1]),
-    left: interpolate(progress.value,[0,1],[sourceCenter[0]-70,24]),
-    top: interpolate(progress.value,[0,1],[sourceCenter[1]-15,(viewport?.headerHeight ?? 235)-108]),
-    transform:[{scale:interpolate(progress.value,[0,1],[.6,1])}],
-  }), [sourceCenter[0],sourceCenter[1],viewport?.headerHeight]);
+    left: interpolate(progress.value,[0,1],[sourceCenter[0]-70,22]),
+    top: interpolate(progress.value,[0,1],[sourceCenter[1]-15,insets.top+48]),
+    transform:[{scale:interpolate(progress.value,[0,1],[.72,1])}],
+  }), [sourceCenter[0],sourceCenter[1],insets.top]);
   const countStyle = useAnimatedStyle(() => ({
     opacity: opacity.value * interpolate(progress.value,[0,.25,.7,1],[0,0,.95,1]),
-    left: interpolate(progress.value,[0,1],[sourceCenter[0]-30,26]),
-    top: interpolate(progress.value,[0,1],[sourceCenter[1]+10,(viewport?.headerHeight ?? 235)-61]),
-  }), [sourceCenter[0],sourceCenter[1],viewport?.headerHeight]);
+    left: interpolate(progress.value,[0,1],[sourceCenter[0]-30,22]),
+    top: interpolate(progress.value,[0,1],[sourceCenter[1]+10,insets.top+88]),
+  }), [sourceCenter[0],sourceCenter[1],insets.top]);
 
   if (Platform.OS !== 'ios') return null;
   return <View ref={host} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
-    style={[StyleSheet.absoluteFillObject,{top:-insets.top,zIndex:100,elevation:100}]}
+    style={[StyleSheet.absoluteFillObject,{zIndex:100,elevation:100}]}
     onLayout={event => {
       const {width,height} = event.nativeEvent.layout;
       host.current?.measureInWindow((originX,originY) =>
-        useDistrictMorph.getState().setViewport({width,height,originX,originY,headerHeight:Math.min(260,Math.max(224,height*.29))}));
+        useDistrictMorph.getState().setViewport({width,height,originX,originY,headerHeight:districtHeaderHeight(height)}));
     }}>
-    {entry && (phase === 'morphing' || phase === 'returning' || phase === 'area-visible') && viewport && <>
+    {entry && (phase === 'morphing' || phase === 'returning') && viewport && <>
       <Animated.View style={[StyleSheet.absoluteFillObject,{backgroundColor:colors.background},scrim]}/>
       <Animated.View style={[StyleSheet.absoluteFillObject,surface]}>
         <Svg width={viewport.width} height={viewport.height} pointerEvents="none">
           <AnimatedPath animatedProps={path} fill={DISTRICT_SURFACE}/>
         </Svg>
       </Animated.View>
-      <Animated.Text numberOfLines={2} style={[{position:'absolute',maxWidth:viewport.width-48,color:colors.black,fontFamily:fonts.black,fontSize:30},label]}>{entry.name}</Animated.Text>
-      <Animated.Text style={[{position:'absolute',color:colors.black,fontFamily:fonts.semibold,fontSize:13},countStyle]}>{entry.count} {entry.count===1?'event':'events'}</Animated.Text>
+      <Animated.Text numberOfLines={1} style={[{position:'absolute',maxWidth:viewport.width-44,color:colors.black,fontFamily:fonts.black,fontSize:30,lineHeight:36},label]}>{entry.name}</Animated.Text>
+      <Animated.Text style={[{position:'absolute',color:colors.black,fontFamily:fonts.semibold,fontSize:13,lineHeight:18},countStyle]}>{entry.count} {entry.count===1?'event':'events'} in this area</Animated.Text>
     </>}
   </View>;
 }

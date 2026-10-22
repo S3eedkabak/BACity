@@ -85,19 +85,34 @@ export function resampleRing(points: ScreenPoint[], count = MORPH_VERTICES): Scr
   return samples;
 }
 
-function roundedHeader(width: number, height: number): ScreenPoint[] {
-  const radius = Math.min(28, height / 5);
-  const points: ScreenPoint[] = [[0, 0], [width, 0], [width, height - radius]];
-  for (let i = 1; i <= 8; i++) {
-    const angle = (Math.PI / 2) * i / 8;
-    points.push([width - radius + radius * Math.cos(angle), height - radius + radius * Math.sin(angle)]);
+export function districtHeaderHeight(viewportHeight: number) {
+  return Math.min(196, Math.max(174, viewportHeight * .22));
+}
+
+/** The destination page draws this same contour, so the morph has no shape swap. */
+function headerSurfacePoints(width: number, height: number): ScreenPoint[] {
+  const radius = 18;
+  const edge = height - 18;
+  const points: ScreenPoint[] = [[0, 0], [width, 0], [width, edge - radius]];
+  for (let i = 1; i <= 5; i++) {
+    const angle = Math.PI * i / 10;
+    points.push([width - radius + radius * Math.cos(angle), edge - radius + radius * Math.sin(angle)]);
   }
-  points.push([radius, height]);
-  for (let i = 1; i <= 8; i++) {
-    const angle = Math.PI / 2 + (Math.PI / 2) * i / 8;
-    points.push([radius + radius * Math.cos(angle), height - radius + radius * Math.sin(angle)]);
+  for (let i = 1; i <= 28; i++) {
+    const t = i / 28;
+    points.push([width - radius - (width - 2 * radius) * t,
+      edge + 18 * Math.sin(Math.PI * t) - 2 * Math.sin(2 * Math.PI * t)]);
+  }
+  for (let i = 1; i <= 5; i++) {
+    const angle = Math.PI / 2 + Math.PI * i / 10;
+    points.push([radius + radius * Math.cos(angle), edge - radius + radius * Math.sin(angle)]);
   }
   return points;
+}
+
+export function headerSurfacePath(width: number, height: number) {
+  const ring = resampleRing(headerSurfacePoints(width, height));
+  return interpolateRingPath(ring, ring, 1);
 }
 
 function rotateTowardTopLeft(points: ScreenPoint[]) {
@@ -106,7 +121,7 @@ function rotateTowardTopLeft(points: ScreenPoint[]) {
 }
 
 export function morphRings(feature: DistrictFeature, frame: ProjectionFrame, viewport: {width: number; height: number; headerHeight: number}) {
-  const target = resampleRing(roundedHeader(viewport.width, viewport.headerHeight));
+  const target = resampleRing(headerSurfacePoints(viewport.width, viewport.headerHeight));
   let source = districtScreenRing(feature, frame);
   if (Math.sign(area(source)) !== Math.sign(area(target))) source = [...source].reverse();
   source = resampleRing(rotateTowardTopLeft(source));
@@ -118,10 +133,23 @@ export function morphRings(feature: DistrictFeature, frame: ProjectionFrame, vie
 export function interpolateRingPath(source: ScreenPoint[], target: ScreenPoint[], progress: number) {
   'worklet';
   let path = '';
+  const smooth = .14 * Math.sin(Math.PI * progress);
   for (let i = 0; i < source.length; i++) {
     const x = source[i][0] + (target[i][0] - source[i][0]) * progress;
     const y = source[i][1] + (target[i][1] - source[i][1]) * progress;
-    path += `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
+    if (i === 0) path = `M${x.toFixed(1)},${y.toFixed(1)}`;
+    const next = (i + 1) % source.length;
+    const before = (i + source.length - 1) % source.length;
+    const after = (i + 2) % source.length;
+    const nx = source[next][0] + (target[next][0] - source[next][0]) * progress;
+    const ny = source[next][1] + (target[next][1] - source[next][1]) * progress;
+    const bx = source[before][0] + (target[before][0] - source[before][0]) * progress;
+    const by = source[before][1] + (target[before][1] - source[before][1]) * progress;
+    const ax = source[after][0] + (target[after][0] - source[after][0]) * progress;
+    const ay = source[after][1] + (target[after][1] - source[after][1]) * progress;
+    path += `C${(x + (nx - bx) * smooth).toFixed(1)},${(y + (ny - by) * smooth).toFixed(1)}` +
+      ` ${(nx - (ax - x) * smooth).toFixed(1)},${(ny - (ay - y) * smooth).toFixed(1)}` +
+      ` ${nx.toFixed(1)},${ny.toFixed(1)}`;
   }
   return path + 'Z';
 }

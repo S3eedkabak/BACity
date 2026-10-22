@@ -38,7 +38,7 @@ import {
 import { EMPTY_MAP, areaRoute, clusterProperties, clusterCamera, type MapFilters as Filters, type MapProperties } from './area';
 import { MapFilters } from './MapFilters';
 import { districtBoundaryLines, districtInkExpression } from './districtGeometry';
-import { morphRings, type ProjectionFrame } from './districtMorphGeometry';
+import { districtHeaderHeight, morphRings, type ProjectionFrame } from './districtMorphGeometry';
 import { useDistrictMorph } from './districtMorphState';
 import { useMajorTransition } from "../components/loading/LoadingExperience";
 
@@ -282,7 +282,7 @@ export default function MapScreen() {
     const feature=districtQuery.data?.features.find(item=>String(item.properties.id)===String(properties.id));
     const window=Dimensions.get('window');
     const viewport=morph.viewport??{width:window.width,height:window.height,originX:0,originY:0,
-      headerHeight:Math.min(260,Math.max(224,window.height*.29))};
+      headerHeight:districtHeaderHeight(window.height)};
     if(!morph.viewport)morph.setViewport(viewport);
     if(!feature||!mapRef.current||!mapRootRef.current){
       morph.cancel(nonce);openDistrict(properties);return;
@@ -599,10 +599,9 @@ export default function MapScreen() {
         {districtLines&&<ShapeSource id="city-district-boundaries" shape={districtLines}>
           <LineLayer id="city-district-boundary" belowLayerID="label_country_1" style={{lineColor:['case',['==',['get','id'],selectedDistrict??''],'#A52469','#C14D8A'],lineWidth:['case',['==',['get','id'],selectedDistrict??''],3,1.5],lineWidthTransition:{duration:reducedMotion?0:280,delay:0},lineOpacity:['interpolate',['linear'],['zoom'],10,target?0.48:0.9,15,0]}}/>
         </ShapeSource>}
-        {districtQuery.data&&<ShapeSource id="district-labels" shape={{type:'FeatureCollection',features:districtQuery.data.features.filter(feature=>Array.isArray(feature.properties.label_coordinates)&&feature.properties.label_coordinates.length===2).map(feature=>({type:'Feature',properties:feature.properties,geometry:{type:'Point',coordinates:feature.properties.label_coordinates}}))}} onPress={event=>{void selectDistrict(event.features[0]?.properties,event.point);}}>
-          <CircleLayer id="city-district-count-disc" belowLayerID="label_country_1" style={{circleColor:'#FFF6FB',circleRadius:['case',['>=',['get','count'],100],17,14],circleStrokeColor:'#BA4985',circleStrokeWidth:1.3,circleOpacity:['interpolate',['linear'],['zoom'],10,0.94,14,0.76,15,0]}}/>
-          <SymbolLayer id="city-district-count" aboveLayerID="city-district-count-disc" style={{textField:['to-string',['get','count']],textColor:'#872956',textSize:10,textFont:['Noto Sans Regular'],textHaloColor:'#FFF6FB',textHaloWidth:.4,textAllowOverlap:false,textOpacity:['case',['==',['get','id'],morphPhase==='morphing'?selectedDistrict??'':''],0,1]}}/>
-          <SymbolLayer id="city-district-name" aboveLayerID="city-district-count" style={{textField:['get','name'],textOffset:[0,-1.45],textColor:colors.black,textSize:['case',['==',['get','id'],selectedDistrict??''],15,12.5],textFont:['Noto Sans Regular'],textHaloColor:colors.white,textHaloWidth:2.5,textAllowOverlap:false,textOpacity:['case',['==',['get','id'],morphPhase==='morphing'?selectedDistrict??'':''],0,1]}}/>
+        {districtQuery.data&&<ShapeSource id="district-labels" shape={{type:'FeatureCollection',features:districtQuery.data.features.filter(feature=>Array.isArray(feature.properties.label_coordinates)&&feature.properties.label_coordinates.length===2).map(feature=>({type:'Feature',properties:{...feature.properties,count_label:feature.properties.count===0?'No events':`${feature.properties.count} ${feature.properties.count===1?'event':'events'}`},geometry:{type:'Point',coordinates:feature.properties.label_coordinates}}))}} onPress={event=>{void selectDistrict(event.features[0]?.properties,event.point);}}>
+          <SymbolLayer id="city-district-name" belowLayerID="label_country_1" style={{textField:['get','name'],textOffset:[0,-.6],textColor:colors.black,textSize:['case',['==',['get','id'],selectedDistrict??''],15,12.5],textFont:['Noto Sans Regular'],textHaloColor:colors.white,textHaloWidth:2.5,textAllowOverlap:false,textOpacity:['case',['==',['get','id'],morphPhase==='morphing'?selectedDistrict??'':''],0,1]}}/>
+          <SymbolLayer id="city-district-count" aboveLayerID="city-district-name" style={{textField:['get','count_label'],textOffset:[0,1.05],textColor:'#71314E',textSize:['interpolate',['linear'],['zoom'],10,10,13,11],textFont:['Noto Sans Regular'],textHaloColor:colors.white,textHaloWidth:1.6,textAllowOverlap:false,textOpacity:['interpolate',['linear'],['zoom'],10,['case',['==',['get','id'],morphPhase==='morphing'?selectedDistrict??'':''],0,.95],14,['case',['==',['get','id'],morphPhase==='morphing'?selectedDistrict??'':''],0,.72],15,0]}}/>
         </ShapeSource>}
         {!showUtilities && nearMeActive && !target && <ShapeSource
           ref={eventSourceRef}

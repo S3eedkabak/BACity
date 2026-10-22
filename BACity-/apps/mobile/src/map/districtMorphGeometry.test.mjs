@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import test from 'node:test';
-import {districtBounds,morphRings,projectCoordinate,interpolateRingPath} from './districtMorphGeometry.ts';
+import {districtBounds,districtHeaderHeight,headerSurfacePath,morphRings,projectCoordinate,interpolateRingPath} from './districtMorphGeometry.ts';
 
 const viewport={width:393,height:852,headerHeight:246};
 const frame={anchor:[17.11,48.15],anchorPoint:[196,355],eastPoint:[225,355],northPoint:[196,313],mapOffset:[0,0],delta:.01};
@@ -23,8 +23,19 @@ test('all 17 official geometries produce finite geographic silhouettes and the s
     const end=interpolateRingPath(shape.source,shape.target,1);
     assert.ok(start.startsWith('M')&&start.endsWith('Z'));
     assert.notEqual(start,end);
+    assert.equal(end,headerSurfacePath(viewport.width,viewport.headerHeight));
+    assert.ok(interpolateRingPath(shape.source,shape.target,.5).includes('C'));
     if(endPath)assert.equal(end,endPath);
     endPath=end;
+  }
+});
+
+test('compact destination surface remains within the viewport across phone sizes',()=>{
+  for(const height of [667,734,852,932]){
+    const header=districtHeaderHeight(height);
+    assert.ok(header>=174&&header<=196);
+    assert.ok(header<height*.29);
+    assert.ok(headerSurfacePath(393,header).endsWith('Z'));
   }
 });
 
