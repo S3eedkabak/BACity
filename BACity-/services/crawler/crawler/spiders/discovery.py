@@ -70,6 +70,7 @@ class DiscoverySpider(BratislavaSourcesSpider):
         yield from self._extract(response, source)
         if not response.text.lstrip().startswith('<'):
             return
+        self._observe_instagram_profiles(response, source)
         if source.parser == 'karlova_ves_api' or response.selector.type in ('json','xml'):
             return  # Structured endpoints are data, not HTML link graphs.
         followed = 0
@@ -153,6 +154,23 @@ class DiscoverySpider(BratislavaSourcesSpider):
             followed += 1
             if followed >= self.max_links_per_page:
                 break
+
+    def _observe_instagram_profiles(self, response, source):
+        # No extra requests or scheduler: inspect responses already fetched.
+        if os.getenv('L4_INSTAGRAM_DISCOVERY_ENABLED', '0') != '1':
+            return
+        try:
+            from crawler.instagram_discovery import discover_profiles, record_profiles
+            if self.state is None:
+                self.state = State()
+            leads = discover_profiles(response, source, self.state.db)
+            added = record_profiles(self.state.db, leads)
+            self.crawler.stats.inc_value('instagram/accounts_discovered', added)
+            self.crawler.stats.inc_value('instagram/profile_links_observed', len(leads))
+        except Exception as exc:
+            # Optional discovery must never break L1-L3. Do not log page data.
+            self.logger.warning('Instagram account discovery unavailable (%s)', type(exc).__name__)
+            self.crawler.stats.inc_value('instagram/discovery_errors')
 
     def closed(self, reason):
         self.logger.info('SOURCE_COUNTS=%s', self.source_counts)
