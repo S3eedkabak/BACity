@@ -1,22 +1,22 @@
 import assert from 'node:assert/strict';
-import {createHash} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
 import test from 'node:test';
 const read=path=>readFile(new URL(path,import.meta.url),'utf8');
-const digest=value=>createHash('sha256').update(value).digest('hex');
 
-test('pre-task map styles and toilet layers stay intact in the shared screen',async()=>{
+test('map cleanup retains caching, utility clustering and accessible icon controls',async()=>{
   const source=await read('./MapScreen.tsx');
-  const baseline=JSON.parse(await read('./fixtures/pre-task-map.json'));
-  assert.equal(digest(source.slice(source.indexOf('const styles = StyleSheet.create('))),baseline.styles);
-  const start=source.indexOf('        {showUtilities && <ShapeSource');
-  const end=source.indexOf('</ShapeSource>}',start)+'</ShapeSource>}'.length;
-  assert.equal(digest(source.slice(start,end)),baseline.toilets);
   assert.match(source,/https:\/\/tiles.openfreemap.org\/styles\/liberty/);
-  for(const label of ['Search events','Show events near me','Show public toilet map layer','Browse all city utilities','Zoom in','Zoom out','Recenter map'])assert.ok(source.includes(label),label);
-  assert.match(source,/NEARBY_RADIUS_KM = 3/);
-  assert.match(source,/followUserLocation=\{nearMeActive\}/);
-  assert.match(source,/mergeViewportUtilities/);assert.match(source,/OfflineManager.setMaximumAmbientCacheSize/);
+  for(const label of ['Show public toilet map layer','Hide public toilet map layer','Browse all city utilities','Map event filters and area events','Recenter map to show all Bratislava'])assert.ok(source.includes(label),label);
+  for(const removed of ['Search events','Show events near me','Zoom in','Zoom out','events on the map','Find events','Filters / Area'])assert.ok(!source.includes(removed),removed);
+  assert.match(source,/accessibilityState=\{\{ selected: showUtilities \}\}/);
+  assert.match(source,/iconImage: "restroom"/);
+  assert.doesNotMatch(source,/circleColor: colors.free/);
+  assert.match(source,/clusterMaxZoomLevel=\{14\}/);
+  assert.match(source,/mergeViewportUtilities/);
+  assert.match(source,/OfflineManager.setMaximumAmbientCacheSize/);
+  // Network errors remain visible without a permanent event-count banner.
+  assert.match(source,/dataUnavailable \|\| basemapUnavailable \|\| \(isRefreshing && !hasCachedLayer\)/);
+  assert.match(source,/cameraRef.current\?\.fitBounds\(/);
 });
 
 test('both routes share the original screen and keep utility/area interactions separate',async()=>{

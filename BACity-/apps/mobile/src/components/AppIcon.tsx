@@ -1,3 +1,4 @@
+import Svg, { Circle as SvgCircle, Path } from 'react-native-svg';
 import Activity from 'iconoir-react-native/regular/Activity';
 import Album from 'iconoir-react-native/regular/Album';
 import AntennaSignal from 'iconoir-react-native/regular/AntennaSignal';
@@ -75,8 +76,24 @@ import XmarkCircle from 'iconoir-react-native/regular/XmarkCircle';
 import { colors } from '../theme/colors';
 import { tokens } from '../theme/tokens';
 
+function Restroom({width, height, color}: {width?: number; height?: number; color?: string}) {
+  return <Svg width={width} height={height} viewBox="0 0 64 64" fill={color}>
+    <SvgCircle cx={18} cy={12} r={5}/><SvgCircle cx={46} cy={12} r={5}/>
+    <Path d="M12 21h12v33h-5V36h-2v18h-5V21ZM46 20 34 41h6v13h5V41h2v13h5V41h6L46 20Z"/>
+  </Svg>;
+}
+
+function CityRecenter({width, height, color, strokeWidth}: {width?: number; height?: number; color?: string; strokeWidth?: number}) {
+  return <Svg width={width} height={height} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth}>
+    <SvgCircle cx={12} cy={12} r={7}/><SvgCircle cx={12} cy={12} r={2}/>
+    <Path d="M12 2v3m0 14v3M2 12h3m14 0h3" strokeLinecap="round"/>
+  </Svg>;
+}
+
 // Semantic compatibility keys keep existing navigation/action contracts unchanged.
 const icons = {
+  'restroom': Restroom,
+  'city-recenter': CityRecenter,
   'camera-outline': Camera,
   'add-outline': Plus,
   'download-outline': Download,

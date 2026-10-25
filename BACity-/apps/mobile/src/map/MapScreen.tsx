@@ -1,3 +1,5 @@
+import { CITY_NORTH_EAST, CITY_SOUTH_WEST, cityOverviewPadding } from './cityOverview';
+import { restroomImages } from './restroomImage';
 import { useEventTarget } from './eventTarget';
 import { eventCoordinates } from './eventLocation';
 import { EventCard } from '../components/EventCard';
@@ -50,6 +52,7 @@ const {
   Camera,
   CircleLayer,
   FillLayer,
+  Images,
   LineLayer,
   MapView,
   ShapeSource,
@@ -118,7 +121,7 @@ export default function MapScreen() {
   const requestedBoundsRef = useRef(mapSession.bounds??INITIAL_BOUNDS);
   const cameraRequest = useRef(0);
   const utilityRequestedBounds=useRef(mapSession.bounds??INITIAL_BOUNDS);
-  const [nearMeActive, setNearMeActive] = useState(false);
+  const [nearMeActive] = useState(false);
   const [showUtilities, setShowUtilities] = useState(false);
   const [utilityBounds,setUtilityBounds]=useState(mapSession.bounds??INITIAL_BOUNDS);
   const [mapBounds, setMapBounds] = useState(mapSession.bounds??INITIAL_BOUNDS);
@@ -425,44 +428,22 @@ export default function MapScreen() {
   const cacheIsOld = cacheSavedAt > 0 && Date.now() - cacheSavedAt > MAP_DATA_STALE_MS;
 
   const recenter = () => {
-    if (nearMeActive && currentLocation) {
-      cameraRef.current?.setCamera({
-        centerCoordinate: [currentLocation.longitude, currentLocation.latitude],
-        zoomLevel: 15,
-        animationDuration: 700,
-        animationMode: "easeTo",
-      });
-      return;
+    cameraRequest.current++;
+    if (districtNavigation.current) {
+      clearTimeout(districtNavigation.current);
+      districtNavigation.current = null;
     }
-
-    cameraRef.current?.setCamera({
-      centerCoordinate: [BRATISLAVA.longitude, BRATISLAVA.latitude],
-      zoomLevel: 12,
-      animationDuration: 700,
-      animationMode: "easeTo",
-    });
-  };
-
-  const zoom = (direction: "in" | "out") => {
-    cameraRef.current?.setCamera({
-      zoomLevel: direction === "in" ? 14 : 10,
-      animationDuration: 250,
-      animationMode: "easeTo",
-    });
-  };
-
-  const toggleNearMe = () => {
-    const next = !nearMeActive;
-    setNearMeActive(next);
-
-    if (next && currentLocation) {
-      cameraRef.current?.setCamera({
-        centerCoordinate: [currentLocation.longitude, currentLocation.latitude],
-        zoomLevel: 15,
-        animationDuration: 700,
-        animationMode: "easeTo",
-      });
+    if (!target) {
+      useDistrictMorph.getState().cancel();
+      setSelectedDistrict(null);
     }
+    setSelectedCluster(null);
+    cameraRef.current?.fitBounds(
+      CITY_NORTH_EAST,
+      CITY_SOUTH_WEST,
+      cityOverviewPadding(insets.top, insets.bottom, target ? previewHeight + 160 : 0),
+      reducedMotion ? 0 : 450,
+    );
   };
 
   const handleRegionDidChange = useCallback(async () => {
@@ -642,6 +623,7 @@ export default function MapScreen() {
           }} />
         </ShapeSource>}
 
+        <Images images={restroomImages} />
         {showUtilities && <ShapeSource
           ref={utilitySourceRef}
           id="public-toilets"
@@ -660,10 +642,10 @@ export default function MapScreen() {
             if (id) router.push({ pathname: "/utility/[id]", params: { id: String(id), kind: String(feature.properties?.kind ?? "toilet") } });
           }}
         >
-          <CircleLayer id="toilet-clusters" aboveLayerID="label_country_1" filter={["has", "point_count"]} style={{ circleColor: colors.free, circleRadius: 20, circleStrokeColor: colors.white, circleStrokeWidth: 3 }} />
-          <SymbolLayer id="toilet-cluster-count" aboveLayerID="toilet-clusters" filter={["has", "point_count"]} style={{ textField: ["get", "point_count_abbreviated"], textColor: colors.textInverse, textSize: 11, textFont: ["Noto Sans Regular"] }} />
-          <CircleLayer id="toilet-points" aboveLayerID="toilet-cluster-count" filter={["!", ["has", "point_count"]]} style={{ circleColor: colors.free, circleRadius: 14, circleStrokeColor: colors.white, circleStrokeWidth: 3 }} />
-          <SymbolLayer id="toilet-labels" aboveLayerID="toilet-points" filter={["!", ["has", "point_count"]]} style={{ textField: "WC", textColor: colors.textInverse, textSize: 8, textFont: ["Noto Sans Regular"] }} />
+          <CircleLayer id="toilet-clusters" aboveLayerID="label_country_1" filter={["has", "point_count"]} style={{ circleColor: colors.primary, circleRadius: 20, circleStrokeColor: colors.white, circleStrokeWidth: 3 }} />
+          <SymbolLayer id="toilet-cluster-count" aboveLayerID="toilet-clusters" filter={["has", "point_count"]} style={{ textField: ["get", "point_count_abbreviated"], textColor: colors.white, textSize: 11, textFont: ["Noto Sans Regular"] }} />
+          <CircleLayer id="toilet-points" aboveLayerID="toilet-cluster-count" filter={["!", ["has", "point_count"]]} style={{ circleColor: colors.primary, circleRadius: 14, circleStrokeColor: colors.white, circleStrokeWidth: 3 }} />
+          <SymbolLayer id="toilet-labels" aboveLayerID="toilet-points" filter={["!", ["has", "point_count"]]} style={{ iconImage: "restroom", iconSize: 0.38, iconAllowOverlap: true }} />
         </ShapeSource>}
         {target&&targetPoint&&focusedEvent.data&&<ShapeSource id="focused-event" shape={{type:'FeatureCollection',features:[{type:'Feature',properties:{id:focusedEvent.data.id},geometry:{type:'Point',coordinates:targetPoint}}]}} onPress={()=>{markerPressedAt.current=Date.now();router.push('/event/'+focusedEvent.data!.id);}}>
           <CircleLayer id="focused-event-halo" style={{circleRadius:24,circleColor:colors.primary,circleOpacity:.18}}/>
@@ -705,82 +687,30 @@ export default function MapScreen() {
       </OverflowMenu>
 
       <View pointerEvents="box-none" style={StyleSheet.absoluteFillObject}>
-        <View style={[styles.topControls, { marginTop: Math.max(16, insets.top + 12) }]}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Search events" onPress={() => router.push('/(tabs)/explore')} style={styles.searchBar}>
-            <AppIcon name="search" size={17} color={colors.primary} />
-            <Text style={styles.searchText}>Find events</Text>
-          </Pressable>
-
+        <View pointerEvents="box-none" style={[styles.topControls, { top: insets.top + 12 }]}>
           <Pressable
-            accessibilityLabel={nearMeActive ? "Show all events" : "Show events near me"}
-            onPress={toggleNearMe}
-            style={[styles.nearButton, nearMeActive && styles.nearButtonActive]}
+            accessibilityRole="button"
+            accessibilityLabel={showUtilities ? "Hide public toilet map layer" : "Show public toilet map layer"}
+            accessibilityState={{ selected: showUtilities }}
+            onPress={() => { void toggleLayer(); }}
+            style={[styles.controlButton, showUtilities && styles.layerButtonActive]}
           >
-            <AppIcon
-              name="navigate"
-              size={17}
-              color={nearMeActive ? colors.white : colors.primary}
-            />
-            <Text
-              style={[
-                styles.nearText,
-                nearMeActive && styles.nearTextActive,
-              ]}
-            >
-              {nearMeActive ? "Nearby" : "Near me"}
-            </Text>
+            <AppIcon name="restroom" size={25} color={showUtilities ? colors.white : colors.primaryDark} />
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Browse all city utilities" onPress={() => router.push("/utilities")} style={styles.controlButton}>
+            <AppIcon name="grid-outline" size={21} color={colors.text} />
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Map event filters and area events" onPress={()=>setFiltersOpen(true)} style={[styles.controlButton, Object.values(filters).some(value => value != null && value !== '') && styles.layerButtonActive]}>
+            <AppIcon name="options-outline" size={21} color={colors.text} />
+          </Pressable>
+        </View>
+        <View style={[styles.controls, { bottom: Math.max(24, insets.bottom + 16) }, target && {bottom:insets.bottom+160+previewHeight}]}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Recenter map to show all Bratislava" onPress={recenter} style={styles.controlButton}>
+            <AppIcon name="city-recenter" size={22} color={colors.primaryDark} />
           </Pressable>
         </View>
 
-        <View style={styles.layerTray}><View style={styles.countPill}>
-          <View style={styles.countDot} />
-          <Text style={styles.countText}>
-            {nearMeActive
-              ? (showUtilities ? utilities.length : eventTotal) + " nearby"
-              : (showUtilities ? utilities.length + " toilets" : eventTotal + " events")}
-          </Text>
-          {isRefreshing && <ActivityIndicator size={9} color={colors.white} />}
-        </View>
-
-        <Pressable
-          accessibilityLabel={showUtilities ? "Show event map layer" : "Show public toilet map layer"}
-          onPress={() => { void toggleLayer(); }}
-          style={[styles.layerButton, showUtilities && styles.layerButtonActive]}
-        >
-          <AppIcon name={showUtilities ? "calendar-outline" : "business-outline"} size={16} color={showUtilities ? colors.white : colors.free} />
-          <Text style={[styles.layerText, showUtilities && styles.layerTextActive]}>{showUtilities ? "Events" : "Toilets"}</Text>
-        </Pressable>
-        <Pressable accessibilityLabel="Browse all city utilities" onPress={() => router.push("/utilities")} style={styles.allUtilitiesButton}>
-          <AppIcon name="grid-outline" size={14} color={colors.textMuted} />
-          <Text style={styles.allUtilitiesText}>All utilities</Text>
-        </Pressable>
-        {<Pressable accessibilityRole="button" accessibilityLabel="Map event filters and area events" onPress={()=>setFiltersOpen(true)} style={styles.allUtilitiesButton}><AppIcon name="options-outline" size={14} color={colors.textMuted}/><Text style={styles.allUtilitiesText}>Filters / Area</Text></Pressable>}
-        </View>
-        <View style={[styles.controls,target&&{bottom:insets.bottom+160+previewHeight}]}>
-          <Pressable
-            accessibilityLabel="Zoom in"
-            onPress={() => zoom("in")}
-            style={styles.controlButton}
-          >
-            <AppIcon name="add" size={20} color={colors.text} />
-          </Pressable>
-          <Pressable
-            accessibilityLabel="Zoom out"
-            onPress={() => zoom("out")}
-            style={styles.controlButton}
-          >
-            <AppIcon name="remove" size={20} color={colors.text} />
-          </Pressable>
-          <Pressable
-            accessibilityLabel="Recenter map"
-            onPress={recenter}
-            style={styles.controlButton}
-          >
-            <AppIcon name="locate" size={19} color={colors.primary} />
-          </Pressable>
-        </View>
-
-        <View style={styles.statusPill}>
+        {(dataUnavailable || basemapUnavailable || (isRefreshing && !hasCachedLayer)) && <View accessibilityLiveRegion="polite" style={[styles.statusPill, target && { bottom: insets.bottom + 220 + previewHeight }]}>
           <AppIcon
             name={dataUnavailable || basemapUnavailable ? "cloud-offline-outline" : nearMeActive ? "navigate" : "map-outline"}
             size={13}
@@ -795,145 +725,28 @@ export default function MapScreen() {
                   ? `Unable to refresh ${showUtilities ? "utilities" : "events"}`
                   : isRefreshing && !hasCachedLayer
                     ? `Loading ${showUtilities ? "utilities" : "events"}…`
-                  : nearMeActive&&!currentLocation
-                    ? "Waiting for location to show nearby events"
-                  : nearMeActive
-              ? (showUtilities ? utilities.length : nearbyPins.length)
-                ? (showUtilities ? utilities.length + " public toilets near you" : eventTotal + " events near you")
-                : showUtilities ? "No nearby public toilets" : "No nearby events"
-              : showUtilities
-                ? utilities.length ? utilities.length + " public toilets in this area" : "No public toilets in this area"
-              : pins.length
-                ? eventShape.total + " events on the map"
-                : "No mapped events yet"}
+                    : ""}
           </Text>
-        </View>
+        </View>}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  layerTray: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingHorizontal: 16, marginTop: 12 },
-  container: {
-    flex: 1,
-    backgroundColor: colors.mapWater,
-  },
+  container: { flex: 1, backgroundColor: colors.mapWater },
   topControls: {
-    marginTop: 16,
-    marginHorizontal: 16,
+    position: "absolute",
+    right: 16,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
-  searchBar: {
-    flex: 1,
-    height: 46,
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    backgroundColor: colors.mediaOverlay,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 9,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: colors.shadow,
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-  },
-  searchText: {
-    color: colors.textMuted,
-    fontFamily: fonts.medium,
-    fontSize: 12,
-  },
-  nearButton: {
-    height: 46,
-    borderRadius: 16,
-    paddingHorizontal: 13,
-    backgroundColor: colors.mediaOverlay,
-    borderWidth: 1,
-    borderColor: colors.border,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    shadowColor: colors.shadow,
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-  },
-  nearButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  nearText: {
-    color: colors.text,
-    fontFamily: fonts.semibold, fontWeight: '600',
-    fontSize: 12,
-  },
-  nearTextActive: {
-    color: colors.white,
-  },
-  countPill: {
-    alignSelf: "flex-start",
-    marginTop: 8,
-    marginLeft: 0,
-    height: 26,
-    paddingHorizontal: 10,
-    borderRadius: 13,
-    backgroundColor: "rgba(39,35,41,0.9)",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-  },
-  countDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: colors.primary,
-  },
-  countText: {
-    color: colors.white,
-    fontFamily: fonts.medium,
-    fontSize: 12,
-  },
-  layerButton: {
-    alignSelf: "flex-start",
-    marginTop: 8,
-    marginLeft: 0,
-    height: 44,
-    paddingHorizontal: 12,
-    borderRadius: 17,
-    backgroundColor: colors.mediaOverlay,
-    borderWidth: 1,
-    borderColor: colors.border,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  allUtilitiesButton: {
-    alignSelf: "flex-start",
-    marginTop: 6,
-    marginLeft: 0,
-    height: 44,
-    paddingHorizontal: 11,
-    borderRadius: 16,
-    backgroundColor: colors.mediaOverlay,
-    borderWidth: 1,
-    borderColor: colors.border,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  allUtilitiesText: { color: colors.textMuted, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
-  layerButtonActive: { backgroundColor: colors.successSurface, borderColor: colors.free },
-  layerText: { color: colors.text, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
-  layerTextActive: { color: colors.white },
+  layerButtonActive: { backgroundColor: colors.primary, borderColor: colors.primaryDark },
   controls: {
     position: "absolute",
     right: 16,
-    bottom: 90,
-    gap: 7,
+    bottom: 24,
   },
   controlButton: {
     width: 48,
@@ -952,7 +765,7 @@ const styles = StyleSheet.create({
   statusPill: {
     position: "absolute",
     left: 18,
-    right: 18,
+    right: 80,
     bottom: 24,
     alignSelf: "center",
     minHeight: 34,
@@ -970,5 +783,7 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontFamily: fonts.medium,
     fontSize: 12,
+    flexShrink: 1,
+    paddingVertical: 8,
   },
 });

@@ -1,3 +1,4 @@
+import { webCameraPadding } from './cityOverview';
 import { layerSpec } from './layerSpec';
 /** Web adapter for the original native map screen; uses its exact mapStyle. */
 import React, { createContext, forwardRef, useContext, useEffect, useImperativeHandle, useRef, useState } from 'react';
@@ -47,7 +48,7 @@ export const Camera = forwardRef<any,any>(function Camera(props,ref) {
   useEffect(()=>{if(map&&props.defaultSettings)map.jumpTo({center:props.defaultSettings.centerCoordinate,zoom:props.defaultSettings.zoomLevel});},[map]);
   useImperativeHandle(ref,()=>({
     setCamera:({centerCoordinate,zoomLevel,animationDuration=0}:any)=>map?.easeTo({center:centerCoordinate,zoom:zoomLevel,duration:animationDuration}),
-    fitBounds:(ne:any,sw:any,padding=40,duration=350)=>map?.fitBounds([sw,ne],{padding,duration,maxZoom:19}),
+    fitBounds:(ne:any,sw:any,padding: number | [number, number] | [number, number, number, number]=40,duration=350)=>map?.fitBounds([sw,ne],{padding:webCameraPadding(padding),duration,maxZoom:19}),
   }),[map]);
 
   return null;
@@ -67,6 +68,22 @@ export function UserLocation(props:any) {
     },()=>undefined,{maximumAge:60000,timeout:10000});
     return()=>{navigator.geolocation.clearWatch(watch);marker?.remove();};
   },[props.visible,map]);
+  return null;
+}
+
+// Register the same local marker pictograms used by MapLibre Native.
+export function Images({images}: {images: Record<string, {uri: string}>}) {
+  const {map} = useContext(MapContext);
+  useEffect(() => {
+    if (!map) return;
+    let cancelled = false;
+    for (const [id, source] of Object.entries(images)) {
+      void map.loadImage(source.uri).then(({data}) => {
+        if (!cancelled && !map.hasImage(id)) map.addImage(id, data);
+      }).catch(error => console.warn('[map:image]', error));
+    }
+    return () => { cancelled = true; };
+  }, [map, images]);
   return null;
 }
 
