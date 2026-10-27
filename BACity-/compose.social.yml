@@ -1,0 +1,192 @@
+# Optional overlay. No service starts without the explicitly selected social profile.
+# Use with docker-compose.yml. Bind only loopback or the host's WireGuard address.
+services:
+  postgres:
+    networks: [default, social-data]
+  social-admin:
+    profiles: [social]
+    build:
+      context: ./services/api
+      dockerfile: Dockerfile.social
+    environment:
+      SOCIAL_L4_ENABLED: ${SOCIAL_L4_ENABLED:-false}
+      SCRAPINGANT_ENABLED: ${SCRAPINGANT_ENABLED:-false}
+      SCRAPINGANT_KEY_CONFIGURED: ${SCRAPINGANT_API_KEY:+true}
+      APIFY_ENABLED: ${APIFY_ENABLED:-false}
+      APIFY_TOKEN_CONFIGURED: ${APIFY_API_TOKEN:+true}
+      APIFY_INSTAGRAM_ACTOR_ID: ${APIFY_INSTAGRAM_ACTOR_ID:-apify/instagram-scraper}
+      APIFY_MONTHLY_BUDGET_USD: ${APIFY_MONTHLY_BUDGET_USD:-4.00}
+      APIFY_MONTHLY_RESERVE_USD: ${APIFY_MONTHLY_RESERVE_USD:-1.00}
+      APIFY_MAX_ACTIVE_PROFILES: ${APIFY_MAX_ACTIVE_PROFILES:-20}
+      APIFY_DEFAULT_POSTS_PER_PROFILE: ${APIFY_DEFAULT_POSTS_PER_PROFILE:-1}
+      APIFY_COLLECTION_INTERVAL_HOURS: ${APIFY_COLLECTION_INTERVAL_HOURS:-24}
+      INSTAGRAM_ACQUISITION_PROVIDER: ${INSTAGRAM_ACQUISITION_PROVIDER:-apify}
+      SCRAPINGANT_MONTHLY_CREDIT_LIMIT: ${SCRAPINGANT_MONTHLY_CREDIT_LIMIT:-10000}
+      SCRAPINGANT_MONTHLY_CREDIT_RESERVE: ${SCRAPINGANT_MONTHLY_CREDIT_RESERVE:-1000}
+      SCRAPINGANT_MAX_ACTIVE_PROFILES: ${SCRAPINGANT_MAX_ACTIVE_PROFILES:-20}
+      SCRAPINGANT_COLLECTION_INTERVAL_HOURS: ${SCRAPINGANT_COLLECTION_INTERVAL_HOURS:-24}
+      SOCIAL_L4_COLLECTION_ENABLED: ${SOCIAL_L4_COLLECTION_ENABLED:-false}
+      SOCIAL_L4_PUBLICATION_ENABLED: ${SOCIAL_L4_PUBLICATION_ENABLED:-false}
+      SOCIAL_DATABASE_URL: ${SOCIAL_ADMIN_DATABASE_URL:?Set a least-privilege staff database URL}
+      SOCIAL_CONSUMER_DB_ROLE: ${SOCIAL_CONSUMER_DB_ROLE:-}
+      SOCIAL_ADMIN_ORIGIN: https://${SOCIAL_ADMIN_HOST:-localhost}:8443
+      SOCIAL_ADMIN_NETWORKS: ${SOCIAL_ADMIN_NETWORKS:-127.0.0.1/32,10.88.0.0/24}
+      SOCIAL_TRUSTED_PROXY_IP: 172.30.40.2
+    networks:
+      social-front:
+        ipv4_address: 172.30.40.3
+      social-data: {}
+    read_only: true
+    tmpfs: [/tmp:size=16m]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+  social-proxy:
+    profiles: [social]
+    build:
+      context: ./infrastructure/social
+      dockerfile: Dockerfile.proxy
+    image: bacity-social-proxy:local
+    environment:
+      SOCIAL_ADMIN_HOST: ${SOCIAL_ADMIN_HOST:-localhost}
+    ports: ['${SOCIAL_BIND_ADDRESS:-127.0.0.1}:8443:8443']
+    volumes:
+      - ./infrastructure/social/Caddyfile:/etc/caddy/Caddyfile:ro
+      - social-caddy-data:/data
+      - social-caddy-config:/config
+    networks:
+      social-front:
+        ipv4_address: 172.30.40.2
+      social-ingress: {}
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+  social-gateway:
+    profiles: [social]
+    build:
+      context: ./services/api
+      dockerfile: Dockerfile.social
+    command: [uvicorn, app.social.worker_api:app, --host, 0.0.0.0, --port, '8012', --no-proxy-headers, --no-access-log]
+    environment:
+      SOCIAL_L4_ENABLED: ${SOCIAL_L4_ENABLED:-false}
+      SCRAPINGANT_ENABLED: ${SCRAPINGANT_ENABLED:-false}
+      SCRAPINGANT_KEY_CONFIGURED: ${SCRAPINGANT_API_KEY:+true}
+      APIFY_ENABLED: ${APIFY_ENABLED:-false}
+      APIFY_TOKEN_CONFIGURED: ${APIFY_API_TOKEN:+true}
+      APIFY_INSTAGRAM_ACTOR_ID: ${APIFY_INSTAGRAM_ACTOR_ID:-apify/instagram-scraper}
+      APIFY_MONTHLY_BUDGET_USD: ${APIFY_MONTHLY_BUDGET_USD:-4.00}
+      APIFY_MONTHLY_RESERVE_USD: ${APIFY_MONTHLY_RESERVE_USD:-1.00}
+      APIFY_MAX_ACTIVE_PROFILES: ${APIFY_MAX_ACTIVE_PROFILES:-20}
+      APIFY_DEFAULT_POSTS_PER_PROFILE: ${APIFY_DEFAULT_POSTS_PER_PROFILE:-1}
+      APIFY_COLLECTION_INTERVAL_HOURS: ${APIFY_COLLECTION_INTERVAL_HOURS:-24}
+      INSTAGRAM_ACQUISITION_PROVIDER: ${INSTAGRAM_ACQUISITION_PROVIDER:-apify}
+      SCRAPINGANT_MONTHLY_CREDIT_LIMIT: ${SCRAPINGANT_MONTHLY_CREDIT_LIMIT:-10000}
+      SCRAPINGANT_MONTHLY_CREDIT_RESERVE: ${SCRAPINGANT_MONTHLY_CREDIT_RESERVE:-1000}
+      SCRAPINGANT_MAX_ACTIVE_PROFILES: ${SCRAPINGANT_MAX_ACTIVE_PROFILES:-20}
+      SCRAPINGANT_COLLECTION_INTERVAL_HOURS: ${SCRAPINGANT_COLLECTION_INTERVAL_HOURS:-24}
+      SOCIAL_L4_COLLECTION_ENABLED: ${SOCIAL_L4_COLLECTION_ENABLED:-false}
+      SOCIAL_SERVICE_ROLE: gateway
+      SOCIAL_CONSUMER_DB_ROLE: ${SOCIAL_CONSUMER_DB_ROLE:-}
+      SOCIAL_WORKER_KEY: ${SOCIAL_WORKER_KEY:-}
+      SOCIAL_DATABASE_URL: ${SOCIAL_GATEWAY_DATABASE_URL:?Set a staging-only database URL}
+    networks: [social-collector, social-data]
+    read_only: true
+    tmpfs: [/tmp:size=16m]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+  social-collector:
+    profiles: [social]
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: services/social_collector/Dockerfile
+    environment:
+      SOCIAL_WORKER_KEY: ${SOCIAL_WORKER_KEY:-}
+      SCRAPINGANT_ENABLED: ${SCRAPINGANT_ENABLED:-false}
+      APIFY_ENABLED: ${APIFY_ENABLED:-false}
+      APIFY_API_TOKEN: ${APIFY_API_TOKEN:-}
+      SCRAPINGANT_API_KEY: ${SCRAPINGANT_API_KEY:-}
+      SOCIAL_WORKER_GATEWAY: http://social-gateway:8012
+      SOCIAL_EGRESS_PROXY: http://social-egress:3128
+      SOCIAL_OUTBOX_PATH: /var/lib/bacity-outbox/outbox.sqlite3
+    volumes:
+      - social-outbox:/var/lib/bacity-outbox
+    networks: [social-collector]
+    read_only: true
+    tmpfs: [/tmp:size=128m, /home/collector:size=16m]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true, seccomp=./infrastructure/social/seccomp_profile.json]
+    mem_limit: 512m
+    cpus: 0.5
+    pids_limit: 128
+    shm_size: 128m
+    init: true
+    stop_grace_period: 5s
+  social-egress:
+    profiles: [social]
+    build:
+      context: .
+      dockerfile: services/social_collector/Dockerfile.egress
+    networks: [social-collector, social-egress]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 64m
+    cpus: 0.25
+    pids_limit: 32
+  social-publication:
+    profiles: [social-publication]
+    build:
+      context: ./services/api
+      dockerfile: Dockerfile.social
+    command: [python, -m, app.social.publication]
+    environment:
+      SOCIAL_SERVICE_ROLE: relay
+      SOCIAL_CONSUMER_DB_ROLE: ${SOCIAL_CONSUMER_DB_ROLE:-}
+      SOCIAL_L4_ENABLED: ${SOCIAL_L4_ENABLED:-false}
+      SOCIAL_L4_PUBLICATION_ENABLED: ${SOCIAL_L4_PUBLICATION_ENABLED:-false}
+      SOCIAL_DATABASE_URL: ${SOCIAL_RELAY_DATABASE_URL:?Set a narrowly privileged publication database URL}
+    networks: [social-data]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    cpus: 0.25
+  social-retention:
+    profiles: [social-retention]
+    build:
+      context: ./services/api
+      dockerfile: Dockerfile.social
+    command: [python, -m, app.social.maintenance]
+    environment:
+      SOCIAL_SERVICE_ROLE: maintenance
+      SOCIAL_CONSUMER_DB_ROLE: ${SOCIAL_CONSUMER_DB_ROLE:-}
+      SOCIAL_DATABASE_URL: ${SOCIAL_MAINTENANCE_DATABASE_URL:?Set a retention-only database URL}
+    networks: [social-data]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 128m
+    cpus: 0.25
+
+networks:
+  # Only the TLS proxy joins this bridge, allowing Docker Desktop to publish
+  # its loopback port. Staff and database networks remain internal.
+  social-ingress: {}
+  social-front:
+    internal: true
+    ipam:
+      config: [{subnet: 172.30.40.0/28}]
+  social-data:
+    internal: true
+  social-collector:
+    internal: true
+  social-egress: {}
+volumes:
+  social-outbox: {}
+  social-caddy-data: {}
+  social-caddy-config: {}

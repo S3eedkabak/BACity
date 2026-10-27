@@ -1,0 +1,8 @@
+# Copy outside the checkout beside social.env. Contains no credentials.
+services:
+  social-retention:
+    restart: unless-stopped
+    command:
+      - /bin/sh
+      - -c
+      - 'while :; do python -m app.social.maintenance; sleep 3600; done'

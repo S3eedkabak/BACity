@@ -1,0 +1,29 @@
+Modified for ScrapingAnt integration:
+BACity-/.env.example
+BACity-/services/api/tests/test_postgres_migrations.py
+BACity-/compose.social.yml
+BACity-/infrastructure/social/environment.example
+BACity-/infrastructure/social/roles.sql
+BACity-/infrastructure/social/verify-container.sh
+BACity-/services/api/app/social/acquisition/runner.py
+BACity-/services/api/app/social/acquisition/urls.py
+BACity-/services/api/app/social/maintenance.py
+BACity-/services/api/app/social/models.py
+BACity-/services/api/app/social/routes.py
+BACity-/services/api/app/social/static/app.js
+BACity-/services/api/app/social/static/index.html
+BACity-/services/api/app/social/worker_api.py
+BACity-/services/api/app/social/workflows.py
+BACity-/services/api/tests/social/test_postgres_security.py
+BACity-/services/social_collector/Dockerfile
+BACity-/services/social_collector/egress.py
+
+Created for ScrapingAnt integration:
+BACity-/docs/scrapingant-instagram.md
+BACity-/services/api/alembic/versions/0025_scrapingant_budget.py
+BACity-/services/api/app/social/acquisition/scrapingant.py
+BACity-/services/api/app/social/provider_budget.py
+BACity-/services/api/app/social/provider_config.py
+BACity-/services/api/app/social/scrapingant_probe.py
+BACity-/services/api/tests/social/test_scrapingant.py
+BACity-/docs/scrapingant-instagram-files.txt

@@ -1,5 +1,11 @@
 # BACity / Bratislava Event Discovery
 
+**Deployment:** See [the deployment guide](docs/deployment.md) for server configuration, private secret files, database setup and panel enrollment.
+
+**Control panel startup:** See [control_panel_start.md](docs/control_panel_start.md) for panel-only, social collection and full-backend commands.
+
+**Outage recovery:** See [social_outage_recovery.md](docs/social_outage_recovery.md) for durable social buffering and automatic delivery after PostgreSQL returns.
+
 ## Current state: iOS Functional MVP
 
 **Branch:** `ios-functional-mvp`  

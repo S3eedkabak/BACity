@@ -41,7 +41,7 @@ def test_upgrade_backfills_existing_source_references(monkeypatch):
             row = connection.execute(text('SELECT title_key,source_url FROM event_sources')).one()
             assert row.title_key == 'test jazz'
             assert row.source_url == 'https://venue.example/event'
-            assert connection.execute(text('SELECT version_num FROM alembic_version')).scalar() == '0023'
+            assert connection.execute(text('SELECT version_num FROM alembic_version')).scalar() == '0027'
             assert connection.execute(text("SELECT count(*) FROM pg_constraint WHERE conname='ck_privacy_request_kind'")).scalar() == 1
             assert connection.execute(text("SELECT count(*) FROM pg_indexes WHERE indexname='ix_privacy_requests_status_due'")).scalar() == 1
             assert connection.execute(text("SELECT data_type FROM information_schema.columns WHERE table_name='privacy_requests' AND column_name='details'")).scalar() == 'text'

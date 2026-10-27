@@ -1,0 +1,45 @@
+# Optional private staff stack. Do not merge these privileges into consumer accounts.
+SOCIAL_L4_ENABLED=false
+SOCIAL_L4_COLLECTION_ENABLED=false
+SOCIAL_L4_PUBLICATION_ENABLED=false
+# The SAME PostgreSQL database as BACity, with DIFFERENT least-privilege LOGIN roles.
+SOCIAL_ADMIN_DATABASE_URL=postgresql://staff_login:replace-locally@postgres:5432/bratislava_events
+SOCIAL_GATEWAY_DATABASE_URL=postgresql://staging_login:replace-locally@postgres:5432/bratislava_events
+SOCIAL_RELAY_DATABASE_URL=postgresql://relay_login:replace-locally@postgres:5432/bratislava_events
+# Use the private WireGuard DNS name for real passkeys. Enroll on this final origin.
+SOCIAL_ADMIN_HOST=localhost
+SOCIAL_BIND_ADDRESS=127.0.0.1
+SOCIAL_ADMIN_NETWORKS=127.0.0.1/32,10.88.0.0/24
+# Generate a distinct 32+ character machine secret; never use INGESTION_API_KEY.
+SOCIAL_WORKER_KEY=
+# Direct local service/CLI settings (Compose maps the appropriate role URL above).
+SOCIAL_DATABASE_URL=
+SOCIAL_ADMIN_ORIGIN=https://localhost:8443
+SOCIAL_TRUSTED_PROXY_IP=
+SOCIAL_ALLOW_SQLITE=false
+SOCIAL_OBSERVATION_RETENTION_DAYS=14
+SOCIAL_MAINTENANCE_DATABASE_URL=postgresql://retention_login:replace-locally@postgres:5432/bratislava_events
+
+# Actual deprivileged LOGIN role used by the public API, not the migration owner.
+SOCIAL_CONSUMER_DB_ROLE=consumer_login
+SOCIAL_PUBLIC_API_DATABASE_URL=postgresql://consumer_login:replace-locally@postgres:5432/bratislava_events
+
+# --- Optional private Level 4 ScrapingAnt Instagram collection ---
+# Only the isolated collector receives the key. No live calls while disabled.
+SCRAPINGANT_ENABLED=false
+SCRAPINGANT_API_KEY=
+SCRAPINGANT_MONTHLY_CREDIT_LIMIT=10000
+SCRAPINGANT_MONTHLY_CREDIT_RESERVE=1000
+SCRAPINGANT_MAX_ACTIVE_PROFILES=20
+SCRAPINGANT_COLLECTION_INTERVAL_HOURS=24
+
+# Optional selected Apify Actor; token only enters the isolated collector.
+APIFY_ENABLED=false
+APIFY_API_TOKEN=
+APIFY_INSTAGRAM_ACTOR_ID=apify/instagram-scraper
+APIFY_MONTHLY_BUDGET_USD=4.00
+APIFY_MONTHLY_RESERVE_USD=1.00
+APIFY_MAX_ACTIVE_PROFILES=20
+APIFY_DEFAULT_POSTS_PER_PROFILE=1
+APIFY_COLLECTION_INTERVAL_HOURS=24
+INSTAGRAM_ACQUISITION_PROVIDER=apify
