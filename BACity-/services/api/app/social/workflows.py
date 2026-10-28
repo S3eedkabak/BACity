@@ -1,4 +1,5 @@
 import time
+from .acquisition.policy import MAX_POSTS, DAILY_SECONDS
 from datetime import datetime, timezone
 from sqlalchemy import select, update
 from fastapi import HTTPException
@@ -17,7 +18,8 @@ def stopped(db):
 def available(publisher, now=None):
     return (publisher.approval == 'approved' and publisher.enabled
             and publisher.eligibility == 'available' and publisher.permission_basis
-            and publisher.permission_expires and publisher.permission_expires > (now or time.time()))
+            and (publisher.collection_approved or
+                 (publisher.permission_expires and publisher.permission_expires > (now or time.time()))))
 
 
 def schedule(db, *, now=None, limit=10,provider_filter=None):
@@ -57,6 +59,10 @@ def schedule(db, *, now=None, limit=10,provider_filter=None):
     apify_ids={p.id for p in db.query(Publisher).filter_by(platform='instagram',target_type='profile',method='apify',enabled=True).order_by(Publisher.priority.desc(),Publisher.id).limit(apify.max_active_profiles)}
     ids = []
     for publisher in rows:
+        # A provider switch, manual retry or pause/resume cannot multiply the
+        # daily allowance. Failed checks also keep the existing spending limit.
+        if publisher.last_attempt and now-publisher.last_attempt<DAILY_SECONDS:
+            continue
         if publisher.method=='scrapingant' and (not provider.enabled or not provider.configured or publisher.id not in active_provider_ids or (publisher.last_attempt and now-publisher.last_attempt<provider.interval)):
             continue
         if publisher.method=='apify' and (not apify.enabled or not apify.configured or publisher.id not in apify_ids or (publisher.last_attempt and now-publisher.last_attempt<apify.interval)):
@@ -70,7 +76,7 @@ def schedule(db, *, now=None, limit=10,provider_filter=None):
             continue
         job = CollectionJob(publisher_id=publisher.id, dedup_key=key)
         db.add(job); db.flush(); ids.append(job.id)
-        publisher.next_due = now + max(publisher.interval_seconds,provider.interval if publisher.method=='scrapingant' else apify.interval if publisher.method=='apify' else 0)
+        publisher.next_due = now + max(DAILY_SECONDS,publisher.interval_seconds,provider.interval if publisher.method=='scrapingant' else apify.interval if publisher.method=='apify' else 0)
         audit(db, 'scheduler', 'collection.scheduled', job.id)
     db.commit()
     return ids
@@ -114,6 +120,8 @@ def stage(db, publisher, content, actor, *, job=None, request=None):
             return previous,False
     if previous:
         return previous,False
+    if job and db.query(Observation).filter_by(job_id=job.id).count() >= MAX_POSTS:
+        raise HTTPException(422, 'Daily collection is limited to two posts')
     if db.query(Observation).count() >= cfg.max_observations:
         raise HTTPException(409, 'Private observation storage is at capacity')
     from .acquisition.scrapingant import media_reference

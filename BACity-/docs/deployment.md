@@ -77,7 +77,7 @@ docker compose exec -T postgres sh -c \
   < infrastructure/social/roles.sql
 ```
 
-The current migration head is **0027**. Create the five non-owner LOGIN roles and assign the groups as described above; fill their connection URLs in the server social file. Verify all actual service identities and public-runtime denial of private `l4_` tables before enabling the panel. Do not run the public API as the migration owner.
+The current migration head is **0028**. Create the five non-owner LOGIN roles and assign the groups as described above; fill their connection URLs in the server social file. Verify all actual service identities and public-runtime denial of private `l4_` tables before enabling the panel. Do not run the public API as the migration owner.
 
 ## Start the configured stack
 
@@ -127,7 +127,7 @@ sh infrastructure/social/control.sh exec social-admin \
 
 ## Activate acquisition after validation
 
-Verify normal API/crawler health, actual database identities, private-panel access, trusted TLS, authentication, secret placement and backups on the target host. First choose and approve the intended public Instagram profiles and record valid collection permission in the panel.
+Verify normal API/crawler health, actual database identities, private-panel access, trusted TLS, authentication, secret placement and backups on the target host. Choose the intended public Instagram profiles, review their details and confirm Approve & start daily checks in the panel.
 
 Then explicitly enable Apify in the **server's** social file:
 
@@ -149,3 +149,7 @@ Validate one approved profile before adding more. Collection does not enable pub
 ## What has and has not been done
 
 The Mac installation is running, its token was checked through read-only account metadata, and LEAD enrolled a real passkey. The local report is in the chat's `outputs/panel-setup/setup-report.md`. No Instagram Actor acquisition or remote deployment was performed. No server has been provisioned, no public domain selected, and no final production ingress/VPN deployment has been validated. Those steps require the actual target configuration; they are not solved by copying a Mac filesystem path.
+
+## Simplified publisher approval upgrade (0028)
+
+Back up PostgreSQL, let existing collector work drain, apply migration 0028 as the owner, then rebuild/recreate social-admin, social-gateway, social-collector and social-retention together. The migration adds the reviewed collection approval marker and caps existing per-profile limits at two. It does not enable any publisher or change acquisition/publication flags or credentials. Reapply the normal role grants if provisioning a new installation. Existing publisher and staff data, passkeys, receipts and the independent outbox are retained. Keep the same outbox volume. See [control_panel_start.md](control_panel_start.md#everyday-publisher-workflow) for the new workflow and session behavior.

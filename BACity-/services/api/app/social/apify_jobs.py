@@ -1,4 +1,5 @@
 """Persistent Actor batches and atomic micro-dollar reservations in the L4 gateway."""
+from .acquisition.policy import MAX_POSTS, DAILY_SECONDS
 import time
 import secrets
 from datetime import datetime,timezone
@@ -216,7 +217,7 @@ def page(identity:str,payload:Page,x_social_lease:str=Header(''),db=Depends(data
         if target.platform!='instagram' or target.target_type!='post' or target.external_id!=content.external_id or content.publisher_identifier!=member['handle'] or stamp>time.time()+300:
             raise HTTPException(422,'Dataset source attribution mismatch')
         values={c['external_id']:c for c in items.get(job_id,[])};values[content.external_id]=value
-        items[job_id]=sorted(values.values(),key=lambda v:(v['published_at'],v['external_id']),reverse=True)[:member['limit']]
+        items[job_id]=sorted(values.values(),key=lambda v:(v['published_at'],v['external_id']),reverse=True)[:min(MAX_POSTS,member['limit'])]
     run.items,run.errors,run.offset=items,errors,run.offset+payload.count
     run.dataset_done=run.offset==run.total
     db.commit();return {'offset':run.offset,'done':run.dataset_done}

@@ -6,6 +6,20 @@ For durable buffering and recovery during database/worker outages, see [social_o
 
 The **private control panel** and **regular app API** are separate services sharing the same PostgreSQL database. The mobile app/development server is separate again. Starting the panel does not require starting the app API.
 
+## Everyday publisher workflow
+
+1. Open **Publishers → Add publisher**. Enter the Instagram profile/event link, name, type and a short description. Venue information is optional.
+2. The publisher is saved **Awaiting approval**. No provider request runs yet.
+3. An owner or staff member with approval rights opens **Review**, checks the displayed details and confirms **Approve & start daily checks**. That single reviewed action records approval and starts monitoring. No separate access form, manual post link, priority, score or schedule setting is needed.
+4. The first check is due immediately and the collector normally picks it up within 30 seconds, subject to the provider, spending limits and any existing buffered work. Provider execution can take longer. Later checks run no more than once per 24 hours, with **at most two posts per publisher**. Failed checks do not trigger unlimited paid retries.
+5. **Daily checks** shows results; publisher details show collected posts; **Events to review** contains extracted events. Publication remains separate and respects independent-review rules.
+
+A publisher's approval does not override a login wall, blocked source, rate limit, provider outage or spending limit. These appear as actionable status messages. Existing approved-but-paused publishers stay paused through the upgrade; review and start them explicitly. Editing source details returns the publisher to approval. Pause/resume or switching providers cannot create a second daily allowance.
+
+**Settings** contains team access, activity logs, passkeys, system pause and advanced provider/access diagnostics. Technical controls are not part of everyday publisher setup. Staff-reviewed collection approval lasts until edited/revoked/suspended; legacy explicit access reviews retain their existing expiry behavior.
+
+Staff sessions now allow **two hours idle and eight hours total**. While you actively use the visible page, activity keeps the session current. A truly expired session or sensitive team/security/publication action opens an in-place passkey prompt and resumes the rejected request after verification, preserving the form. Revoked sessions and staff permissions remain enforced. Form contents are held only in the current page, not localStorage; refreshing/closing the tab can discard an unfinished form.
+
 ## Configuration files
 
 | File | Purpose |
@@ -50,7 +64,7 @@ SCRAPINGANT_ENABLED=false
 SOCIAL_L4_PUBLICATION_ENABLED=false
 ```
 
-A valid token and approved publishers with current collection permission and monitoring enabled are also required. Choose one explicit provider per publisher. Do not enable every setting merely because it is currently false.
+A valid token and a publisher confirmed through **Approve & start daily checks** are also required. The configured preferred provider is selected automatically; the system does not call both providers for the same check. Do not enable every setting merely because it is currently false.
 
 ### Entire configured backend, including the panel
 

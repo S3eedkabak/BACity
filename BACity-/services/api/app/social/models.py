@@ -102,6 +102,7 @@ class Publisher(SocialBase):
     eligibility = Column(String(32), nullable=False, default='authorization_required')
     permission_basis = Column(String(1000))
     permission_expires = Column(Float)
+    collection_approved = Column(Boolean, nullable=False, default=False, server_default='false')
     method = Column(String(20), nullable=False, default='submission')
     priority = Column(Integer, nullable=False, default=50)
     interval_seconds = Column(Integer, nullable=False, default=86400)
@@ -112,7 +113,7 @@ class Publisher(SocialBase):
     last_error = Column(String(40))
     failures = Column(Integer, nullable=False, default=0)
     checkpoint = Column(String(200))
-    posts_per_profile = Column(Integer,nullable=False,default=1,server_default='1')
+    posts_per_profile = Column(Integer,nullable=False,default=2,server_default='2')
     instagram_timestamp = Column(Float)
     discovered_by = Column(String(32), nullable=False, default='staff_url')
     created_by = Column(String(36), ForeignKey('l4_staff.id'), nullable=False)
@@ -123,7 +124,7 @@ class Publisher(SocialBase):
         CheckConstraint("platform IN ('instagram','facebook','tiktok','event_url')", name='ck_l4_publisher_platform'),
         CheckConstraint("approval IN ('pending','approved','rejected','suspended')", name='ck_l4_publisher_approval'),
         CheckConstraint("eligibility IN ('authorization_required','available','blocked','unsupported','rate_limited')", name='ck_l4_publisher_access'),
-        CheckConstraint('posts_per_profile BETWEEN 1 AND 3',name='ck_l4_publisher_posts_limit'),
+        CheckConstraint('posts_per_profile BETWEEN 1 AND 2',name='ck_l4_publisher_posts_limit'),
         CheckConstraint('priority BETWEEN 0 AND 100', name='ck_l4_publisher_priority'),
         CheckConstraint('interval_seconds BETWEEN 3600 AND 604800', name='ck_l4_publisher_interval'),
         Index('ix_l4_publisher_due', 'enabled', 'approval', 'next_due'),

@@ -1,4 +1,5 @@
 import time
+from .acquisition.policy import MAX_POSTS, DAILY_SECONDS
 import secrets
 from typing import Literal
 from datetime import datetime
@@ -20,7 +21,7 @@ class Input(BaseModel):
     model_config = ConfigDict(extra='forbid', allow_inf_nan=False)
 
 class PublisherInput(Input):
-    posts_per_profile: int=Field(1,ge=1,le=3)
+    posts_per_profile: int=Field(MAX_POSTS,ge=1,le=MAX_POSTS)
     url: str = Field(max_length=1024)
     name: str = Field(min_length=2, max_length=160)
     publisher_type: Literal['venue','organizer','promoter','artist','cultural_institution','community','other'] = 'other'
@@ -35,6 +36,10 @@ class PublisherInput(Input):
 class Decision(Input):
     decision: Literal['approved','rejected','suspended']
     note: str = Field(min_length=10, max_length=1000)
+
+class StartApproval(Input):
+    confirmed: Literal[True]
+    reviewed_updated: float = Field(gt=0)
 
 class Monitoring(Input):
     enabled: bool
@@ -116,7 +121,7 @@ def dashboard(current=Depends(require('read')), db=Depends(database)):
         'published':count(EventCandidate,EventCandidate.status=='published'),
         'emergency_stop':stopped(db), 'collection_enabled':settings().l4_collection_enabled,
         'publication_enabled':settings().l4_publication_enabled,
-        'recent_jobs':[job_dict(x) for x in recent]}
+        'recent_jobs':[job_dict(x,db) for x in recent]}
 
 
 @router.get('/publishers')
@@ -155,9 +160,6 @@ def create_publisher(payload: PublisherInput, request: Request, current=Depends(
     if db.query(Publisher).filter_by(url=target.url).first():
         raise HTTPException(409,'This publisher or post is already registered')
     values=payload.model_dump(exclude={'url'})
-    if target.platform=='instagram' and target.target_type=='profile' and 'posts_per_profile' not in payload.model_fields_set:
-        from .apify_config import apify_settings
-        values['posts_per_profile']=apify_settings().default_posts_per_profile
     publisher=Publisher(**values, **vars(target), created_by=current.staff.id)
     db.add(publisher); db.flush()
     audit(db,current.staff.id,'publisher.created',publisher.id,request=request)
@@ -169,7 +171,7 @@ def create_publisher(payload: PublisherInput, request: Request, current=Depends(
 def publisher_detail(publisher_id: str,current=Depends(require('read')),db=Depends(database)):
     publisher=row(db,Publisher,publisher_id)
     return {'publisher':public_publisher(publisher),
-        'jobs':[job_dict(j) for j in db.query(CollectionJob).filter_by(publisher_id=publisher_id).order_by(CollectionJob.created.desc()).limit(30)],
+        'jobs':[job_dict(j,db) for j in db.query(CollectionJob).filter_by(publisher_id=publisher_id).order_by(CollectionJob.created.desc()).limit(30)],
         'observations':[{'id':o.id,'source_url':o.source_url,'observed':o.observed,'method':o.method,'caption':o.caption,'content_hash':o.content_hash}
                        for o in db.query(Observation).filter_by(publisher_id=publisher_id).order_by(Observation.observed.desc()).limit(20)]}
 
@@ -186,20 +188,67 @@ def edit_publisher(publisher_id: str,payload: PublisherInput,request: Request,cu
     for key,value in payload.model_dump(exclude={'url'}).items():
         setattr(publisher,key,value)
     publisher.approval, publisher.enabled, publisher.updated = 'pending',False,time.time()
+    publisher.collection_approved=False
     db.query(CollectionJob).filter(CollectionJob.publisher_id==publisher.id, CollectionJob.state.in_(['queued','running'])).update({'state':'cancelled','finished':time.time(),'error':'cancelled'})
     audit(db,current.staff.id,'publisher.edited',publisher.id,request=request); db.commit()
     return public_publisher(publisher)
 
 
 @router.post('/publishers/{publisher_id}/decision')
-def publisher_decision(publisher_id: str,payload: Decision,request: Request,current=Depends(require('approve',recent=True)),db=Depends(database)):
+def publisher_decision(publisher_id: str,payload: Decision,request: Request,current=Depends(require('approve')),db=Depends(database)):
     budget(db,'publisher-approval',current.staff.id,30,3600)
     publisher=row(db,Publisher,publisher_id,True)
     publisher.approval,publisher.approved_by,publisher.updated=payload.decision,current.staff.id,time.time()
     publisher.enabled=False
+    publisher.collection_approved=False
     db.query(CollectionJob).filter(CollectionJob.publisher_id==publisher.id,CollectionJob.state.in_(['queued','running'])).update({'state':'cancelled','finished':time.time(),'error':'cancelled'})
     audit(db,current.staff.id,'publisher.'+payload.decision,publisher.id,request=request,details={'note':payload.note})
     db.commit(); return public_publisher(publisher)
+
+
+@router.post('/publishers/{publisher_id}/approve-and-start')
+def approve_and_start(publisher_id: str,payload: StartApproval,request: Request,
+                      current=Depends(require('approve')),db=Depends(database)):
+    """One explicit human review approves the source and daily collection.
+
+    This records the staff decision, not a claim of external platform permission.
+    Provider restrictions, spending policy and emergency stops still apply.
+    """
+    from .security import insert_for
+    from .apify_config import provider_preference,apify_settings
+    from .provider_config import provider_settings
+    budget(db,'publisher-approval',current.staff.id,30,3600)
+    db.execute(insert_for(db,Control).values(id=1,emergency_stop=False).on_conflict_do_nothing(index_elements=['id']))
+    db.execute(select(Control).where(Control.id==1).with_for_update()).scalar_one()
+    p=row(db,Publisher,publisher_id,True)
+    if p.updated!=payload.reviewed_updated:
+        raise HTTPException(409,'This publisher changed. Reopen the review before approving.')
+    if stopped(db) or not settings().l4_enabled or not settings().l4_collection_enabled:
+        raise HTTPException(409,'Automatic checks are paused in system settings. Your publisher is saved.')
+    if p.eligibility in ('blocked','unsupported','rate_limited'):
+        raise HTTPException(409,'This source has an access restriction. An owner must review it in advanced settings.')
+    if p.platform=='instagram' and p.target_type=='profile':
+        method=provider_preference();provider=apify_settings() if method=='apify' else provider_settings()
+        if not provider.enabled or not provider.configured:
+            raise HTTPException(409,'The collection service is unavailable. Ask the owner to check Settings.')
+        count=db.query(Publisher).filter(Publisher.platform=='instagram',Publisher.target_type=='profile',
+            Publisher.method.in_(('apify','scrapingant')),Publisher.enabled.is_(True),Publisher.id!=p.id).count()
+        if count>=min(20,provider.max_active_profiles):
+            raise HTTPException(409,'The active publisher limit has been reached. Pause another publisher first.')
+    elif p.platform=='event_url':method='http'
+    else:
+        raise HTTPException(422,'Automatic checks support Instagram profile links and supported event pages. Edit the publisher link before starting.')
+    now=time.time()
+    p.approval,p.approved_by,p.enabled='approved',current.staff.id,True
+    p.collection_approved=True;p.eligibility='available';p.method=method
+    p.permission_basis='Staff-reviewed approval for public-source BACity event discovery'
+    p.permission_expires=None
+    p.interval_seconds=DAILY_SECONDS;p.posts_per_profile=MAX_POSTS;p.priority=50
+    p.next_due=max(now,(p.last_attempt or 0)+DAILY_SECONDS,p.next_due if p.last_attempt else 0)
+    p.updated=now
+    audit(db,current.staff.id,'publisher.approved_and_started',p.id,request=request,
+          details={'method':method,'enabled':True,'note':'Reviewed source details; approved daily checks, at most two posts'})
+    db.commit();return public_publisher(p)
 
 
 @router.post('/publishers/{publisher_id}/access')
@@ -213,6 +262,7 @@ def publisher_access(publisher_id: str,payload: Access,request: Request,current=
         raise HTTPException(422,'Provider collection requires an Instagram profile')
     publisher.eligibility,publisher.method=payload.eligibility,payload.method
     publisher.permission_basis,publisher.permission_expires=payload.permission_basis,payload.permission_expires
+    publisher.collection_approved=False
     publisher.enabled=False; publisher.updated=time.time()
     audit(db,current.staff.id,'publisher.access_reviewed',publisher.id,request=request,details={'eligibility':payload.eligibility,'method':payload.method})
     db.commit(); return public_publisher(publisher)
@@ -224,10 +274,11 @@ def monitoring(publisher_id: str,payload: Monitoring,request: Request,current=De
     db.execute(insert_for(db,Control).values(id=1,emergency_stop=False).on_conflict_do_nothing(index_elements=['id']))
     db.execute(select(Control).where(Control.id==1).with_for_update()).scalar_one()
     publisher=row(db,Publisher,publisher_id,True)
-    if payload.enabled and (publisher.approval!='approved' or publisher.eligibility!='available' or not publisher.permission_expires
-                            or publisher.permission_expires <= time.time() or not publisher.permission_basis or stopped(db)):
+    if payload.enabled and (publisher.approval!='approved' or publisher.eligibility!='available'
+                            or not (publisher.collection_approved or (publisher.permission_expires and publisher.permission_expires>time.time()))
+                            or not publisher.permission_basis or stopped(db)):
         raise HTTPException(409,'Approval, current collection authorization and an active system are required')
-    interval=payload.interval_seconds
+    interval=max(DAILY_SECONDS,payload.interval_seconds)
     if publisher.method in ('scrapingant','apify'):
         from .provider_config import provider_settings
         from .apify_config import apify_settings
@@ -344,8 +395,9 @@ def publish(candidate_id: str,request: Request,current=Depends(require('publish'
     return {'ok':True,'state':'publication_queued'}
 
 
-def job_dict(job):
-    return {key:getattr(job,key) for key in ('id','publisher_id','state','created','started','finished','error','metrics')}
+def job_dict(job,db=None):
+    p=db.get(Publisher,job.publisher_id) if db is not None else None
+    return {'publisher_name':p.name if p else None,**{key:getattr(job,key) for key in ('id','publisher_id','state','created','started','finished','error','metrics')}}
 
 
 @router.get('/health')
@@ -362,7 +414,7 @@ def collection_health(limit: int=Query(50,ge=1,le=100),current=Depends(require('
             'restricted_collections':job_query.filter(CollectionJob.state.in_(['blocked','unauthorized','rate_limited'])).count(),
             'observations':observations.count(),'event_candidates':candidate_query.count(),
             'published_events':candidate_query.filter(EventCandidate.status=='published').count()})
-    return {'jobs':[job_dict(j) for j in jobs], 'platforms':platform_metrics,
+    return {'jobs':[job_dict(j,db) for j in jobs], 'platforms':platform_metrics,
             'publication_mode':'review_gated' if settings().l4_publication_enabled else 'shadow'}
 
 
@@ -464,7 +516,7 @@ def instagram_collection(current=Depends(require('read')),db=Depends(database)):
     jobs=db.query(CollectionJob).filter(CollectionJob.publisher_id.in_(ids)).order_by(CollectionJob.created.desc()).limit(50).all()
     data.update({'collection_enabled':settings().l4_collection_enabled,'active_profiles':sum(p.enabled and p.method in ('scrapingant','apify') for p in publishers),
         'last_scheduled_run':max((j.created for j in jobs),default=None),
-        'publishers':[public_publisher(p) for p in publishers], 'jobs':[job_dict(j) for j in jobs],
+        'publishers':[public_publisher(p) for p in publishers], 'jobs':[job_dict(j,db) for j in jobs],
         'posts_discovered':sum(j.metrics.get('posts_discovered',0) for j in jobs),
         'reels_discovered':sum(j.metrics.get('reels_discovered',0) for j in jobs),
         'event_candidates':db.query(EventCandidate).join(Observation,EventCandidate.observation_id==Observation.id).filter(Observation.publisher_id.in_(ids)).count()})

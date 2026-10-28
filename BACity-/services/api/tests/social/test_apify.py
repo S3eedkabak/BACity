@@ -78,20 +78,20 @@ def test_defaults_and_selected_actor_only(monkeypatch):
     for key in ('ENABLED','API_TOKEN','TOKEN_CONFIGURED','MONTHLY_BUDGET_USD','MONTHLY_RESERVE_USD','MAX_ACTIVE_PROFILES','DEFAULT_POSTS_PER_PROFILE','COLLECTION_INTERVAL_HOURS','INSTAGRAM_ACTOR_ID'):monkeypatch.delenv('APIFY_'+key,raising=False)
     monkeypatch.delenv('INSTAGRAM_ACQUISITION_PROVIDER',raising=False)
     cfg=apify_settings();assert not cfg.enabled and not cfg.configured
-    assert cfg.budget==4000000 and cfg.reserve==1000000 and cfg.default_posts_per_profile==1 and cfg.max_active_profiles==20
+    assert cfg.budget==4000000 and cfg.reserve==1000000 and cfg.default_posts_per_profile==2 and cfg.max_active_profiles==20
     assert provider_preference()=='apify'
     monkeypatch.setenv('APIFY_API_TOKEN',TOKEN);assert TOKEN not in repr(apify_settings())
     monkeypatch.setenv('APIFY_INSTAGRAM_ACTOR_ID','other/actor')
     with pytest.raises(ValueError):apify_settings()
     with pytest.raises(ProviderFailure,match='provider_not_configured'):Client('').preflight()
 
-@pytest.mark.parametrize('value',[0,4,10])
+@pytest.mark.parametrize('value',[0,3,4,10])
 def test_invalid_limits_rejected(apify,value):
     social,owner,p,_,_,_=apify
     response=owner.post('/api/publishers',json={'url':'@limit_fixture','name':'Fixture','relevance':'Explicit Bratislava synthetic test','posts_per_profile':value})
     assert response.status_code==422
 
-@pytest.mark.parametrize('limit',[1,2,3])
+@pytest.mark.parametrize('limit',[1,2])
 def test_verified_input_shape(limit):
     members=[{'url':'https://www.instagram.com/fixture_venue/','checkpoint_timestamp':time.time()-3600}]
     value=actor_input(members,limit)
@@ -122,7 +122,7 @@ def test_carousel_and_old_pinned_order():
 def test_two_profiles_one_run_stages_and_bills_once(apify):
     social,owner,p,worker,identity,staff=apify
     social.publisher(staff,method='apify',url='https://www.instagram.com/second_fixture/',external_id='second_fixture')
-    batch=lease(apify);assert len(batch['members'])==2 and batch['actor_input']['resultsLimit']==1
+    batch=lease(apify);assert len(batch['members'])==2 and batch['actor_input']['resultsLimit']==2
     provider=Provider([item(),item('second_fixture','ReelTwo',True)],cost=0.0054)
     step(batch,provider.client(),call_for(apify,batch))
     assert len(provider.launches)==1

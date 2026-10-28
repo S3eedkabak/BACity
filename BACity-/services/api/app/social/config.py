@@ -18,7 +18,7 @@ class SocialSettings(BaseSettings):
     admin_networks: str = '127.0.0.1/32,::1/128'
     trusted_proxy_ip: str = ''
     worker_key: str = Field('', repr=False)
-    session_idle_seconds: int = Field(900, ge=60, le=900)
+    session_idle_seconds: int = Field(7200, ge=60, le=7200)
     session_absolute_seconds: int = Field(28800, ge=300, le=28800)
     recent_seconds: int = Field(300, ge=30, le=300)
     observation_retention_days: int = Field(14, ge=1, le=30)

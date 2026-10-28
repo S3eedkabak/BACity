@@ -120,7 +120,7 @@ def test_real_migrations_privilege_boundaries_audit_and_preserving_downgrade(mon
             session.add(actor_run);session.flush()
             actor_job=CollectionJob(publisher_id=p.id,dedup_key=uuid.uuid4().hex,apify_run_id=actor_run.id,state='running')
             session.add(actor_job);session.flush()
-            actor_run.members=[{'job_id':actor_job.id,'publisher_id':p.id,'url':p.url,'handle':p.external_id,'limit':1}]
+            actor_run.members=[{'job_id':actor_job.id,'publisher_id':p.id,'url':p.url,'handle':p.external_id,'limit':publisher.posts_per_profile}]
             session.add(ApifyBudget(id=1,period_start=time.time()-86400,period_end=time.time()+29*86400,
                 synced=time.time(),price=2700,provider_limit=5000000,build='0.0.831'))
             session.commit();actor_id=actor_run.id
@@ -182,7 +182,7 @@ def test_real_migrations_privilege_boundaries_audit_and_preserving_downgrade(mon
         migrate('upgrade','head')
         with db.connect() as c:
             assert c.execute(text('SELECT count(*) FROM l4_audit_events')).scalar()==preserved_audits
-            assert c.execute(text('SELECT version_num FROM alembic_version')).scalar()=='0027'
+            assert c.execute(text('SELECT version_num FROM alembic_version')).scalar()=='0028'
     finally:
         db.dispose()
         with admin.connect() as c:c.execute(text('DROP DATABASE '+name+' WITH (FORCE)'))

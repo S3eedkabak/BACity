@@ -1,4 +1,5 @@
 """Single bounded worker. This image contains no staff, ORM or ingestion code."""
+from .policy import MAX_POSTS
 import argparse
 import secrets
 import json
@@ -17,7 +18,7 @@ def perform(job):
     started=time.monotonic()
     transport=NetworkBudget()
     try:
-        if job['permission_expires']<=time.time():
+        if not job.get('collection_approved') and (not job.get('permission_expires') or job['permission_expires']<=time.time()):
             raise AccessFailure('permission_required','unauthorized')
         target=normalize_target(job['url'])
         if job['method']=='browser':
@@ -27,7 +28,7 @@ def perform(job):
             observations,received=ADAPTERS[target.platform].acquire(target.url,fetcher=transport)
         else:
             raise AccessFailure('unsupported','failed')
-        return {'outcome':'success' if observations else 'empty','error':'none','observations':observations,
+        return {'outcome':'success' if observations else 'empty','error':'none','observations':observations[:MAX_POSTS],
                 'bytes_received':transport.received,'requests':transport.requests,'elapsed_ms':min(60000,int((time.monotonic()-started)*1000))}
     except AccessFailure as error:
         return {'outcome':error.outcome,'error':error.category,'retry_after':error.retry_after,'observations':[],

@@ -2,6 +2,7 @@
 
 No staff/database imports, cookies, log scraping, video downloads or fallbacks.
 """
+from .policy import MAX_POSTS
 import json
 import re
 import os
@@ -95,6 +96,7 @@ def billing_snapshot(account,actor):
 
 
 def actor_input(members,limit):
+    limit=min(MAX_POSTS,limit)
     value={'directUrls':[m['url'] for m in members],'resultsType':'posts','resultsLimit':limit,'addParentData':True,
            'skipPinnedPosts':True} # README documents this; generated OpenAPI currently omits it.
     stamps=[m.get('checkpoint_timestamp') for m in members]

@@ -1,4 +1,5 @@
 """Machine-only staging gateway, on a private container network; no staff routes."""
+from .acquisition.policy import MAX_POSTS, DAILY_SECONDS
 import time
 import secrets
 from typing import Literal
@@ -56,7 +57,7 @@ def lease(db=Depends(database)):
         db.commit()
         return {'job':{'id':job.id,'publisher_id':publisher.id,'platform':publisher.platform,
                        'url':publisher.url,'method':publisher.method,'checkpoint':publisher.checkpoint,
-                       'permission_expires':publisher.permission_expires,'lease':raw}}
+                       'permission_expires':publisher.permission_expires,'collection_approved':publisher.collection_approved,'lease':raw}}
     db.commit(); return {'job':None}
 
 
@@ -86,7 +87,7 @@ def complete(job_id:str,payload:Completion,db=Depends(database)):
     if payload.outcome=='success' and not payload.observations:
         raise HTTPException(422,'A successful collection requires actual content')
     added=0;new_posts=0;new_reels=0
-    for content in payload.observations:
+    for content in payload.observations[:MAX_POSTS]:
         observation,created=stage(db,publisher,content.model_dump(),'L4_WORKER',job=job)
         added+=int(created)
         if created:
@@ -104,7 +105,7 @@ def complete(job_id:str,payload:Completion,db=Depends(database)):
     if payload.outcome in ('success','empty','partial'):
         publisher.last_success=now; publisher.failures=0; publisher.last_error=None
         from .provider_config import provider_settings
-        publisher.next_due=now+max(publisher.interval_seconds,provider_settings().interval if publisher.method=='scrapingant' else 0)
+        publisher.next_due=now+max(DAILY_SECONDS,publisher.interval_seconds,provider_settings().interval if publisher.method=='scrapingant' else 0)
     else:
         publisher.failures+=1; publisher.last_error=payload.error
         publisher.next_due=now+max(payload.retry_after,min(86400,300*2**min(publisher.failures,8)))

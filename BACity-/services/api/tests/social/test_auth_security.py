@@ -89,7 +89,7 @@ def test_csrf_origin_and_forwarded_ip_spoofing_rejected(social):
     assert outsider.get('/',headers={'X-Forwarded-For':'127.0.0.1'}).status_code==403
     assert client.get('/',headers={'Host':'evil.test'}).status_code==403
 
-@pytest.mark.parametrize('age',[901,28801])
+@pytest.mark.parametrize('age',[7201,28801])
 def test_expired_admin_sessions_rejected(social,age):
     client,_,_,_=social.login(age=age)
     assert client.get('/api/dashboard').status_code==401

@@ -3,6 +3,7 @@
 No cookies, browser rendering, residential upgrades, challenge solving or retries.
 All network calls, including account-status calls, require a quota callback first.
 """
+from .policy import MAX_POSTS
 import json
 import time
 import uuid
@@ -231,11 +232,12 @@ def collect(job,client,quota,*,request_id_factory=None):
         # At most two additional direct documents, sharing the same quota and job.
         pending=[p['source_url'] for p in posts if len(p['caption'])<5]+links
         for url in dict.fromkeys(pending):
-            if requests>=4 or len([p for p in discovered.values() if len(p['caption'])>=5])>=5:break
+            if requests>=4 or len([p for p in discovered.values() if len(p['caption'])>=5])>=MAX_POSTS:break
             more,_=parse_document(url,request('acquire',url),handle)
             discovered.update({p['external_id']:p for p in more})
     except ProviderFailure as exc:error=exc.category;retry=exc.retry_after
-    observations=[p for p in discovered.values() if len(p['caption'])>=5][:5]
+    observations=sorted((p for p in discovered.values() if len(p['caption'])>=5),
+        key=lambda p:(p.get('published_at') or '',p['external_id']),reverse=True)[:MAX_POSTS]
     # Quota errors must be sanitized by the gateway callback, never echoed HTTP bodies.
     for post in observations:post.pop('is_reel',None)
     restricted_error=error in ('login_required','challenge','access_denied','provider_denied','provider_auth')

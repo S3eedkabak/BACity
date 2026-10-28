@@ -13,7 +13,7 @@ class ApifySettings(BaseSettings):
     monthly_budget_usd: Decimal=Field(Decimal('4.00'),gt=0,le=4)
     monthly_reserve_usd: Decimal=Field(Decimal('1.00'),ge=1,le=5)
     max_active_profiles: int=Field(20,ge=1,le=20)
-    default_posts_per_profile: int=Field(1,ge=1,le=3)
+    default_posts_per_profile: int=Field(2,ge=1,le=2)
     collection_interval_hours: int=Field(24,ge=24,le=168)
     @field_validator('token_configured',mode='before')
     @classmethod
