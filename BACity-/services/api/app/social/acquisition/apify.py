@@ -118,8 +118,20 @@ def normalize_record(record,members):
         except ValueError:pass
     owner=record.get('ownerUsername')
     owner=owner.lower() if isinstance(owner,str) else None
-    if owner and source_handle and owner!=source_handle:raise ProviderFailure('invalid_content')
-    handle=owner or source_handle
+    relationship='owner'
+    if owner and source_handle and owner!=source_handle:
+        # Instagram collaboration posts appear in a coauthor's profile feed
+        # while ownerUsername remains the original author. Both the requested
+        # profile and an explicit published coauthor must match; a mention,
+        # tagged user, inputUrl alone or batch order is not authorship evidence.
+        coauthors=record.get('coauthorProducers')
+        if (record.get('error') or source_handle not in handles or not isinstance(coauthors,list)
+                or not any(isinstance(c,dict) and isinstance(c.get('username'),str)
+                           and c['username'].lower()==source_handle and c.get('is_unpublished') is not True
+                           for c in coauthors)):
+            raise ProviderFailure('invalid_content')
+        relationship='coauthor'
+    handle=source_handle if relationship=='coauthor' else owner or source_handle
     if handle not in handles:raise ProviderFailure('invalid_content')
     member=handles[handle]
     if record.get('error'):
@@ -148,4 +160,5 @@ def normalize_record(record,members):
             reference=media_reference(child.get('displayUrl'))
             if reference and reference not in media:media.append(reference)
     return member['job_id'],{'source_url':source_url,'external_id':code,'caption':caption,'published_at':published,
-        'publisher_identifier':handle,'content_type':'text','adapter':'apify_instagram_v1','media':media[:3]},None
+        'publisher_identifier':handle,'content_type':'text','adapter':'apify_instagram_v1','media':media[:3],
+        'source_author':owner,'source_relationship':relationship},None

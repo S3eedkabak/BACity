@@ -28,6 +28,8 @@ class Content(BaseModel):
     content_type: Literal['text','event']='text'
     adapter: str=Field(max_length=80)
     publisher_identifier: str|None=Field(None,max_length=30)
+    source_author: str|None=Field(None,max_length=30,pattern=r'^[a-z0-9_][a-z0-9_.]{0,29}$')
+    source_relationship: Literal['owner','coauthor']|None=None
     media: list[str]=Field(default_factory=list,max_length=3)
 
 

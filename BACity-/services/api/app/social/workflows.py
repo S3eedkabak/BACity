@@ -130,7 +130,8 @@ def stage(db, publisher, content, actor, *, job=None, request=None):
         published_at=published, method=publisher.method if job and publisher.method in ('scrapingant','apify') else 'browser' if job and publisher.method=='browser' else 'http' if job else 'user_submission',
         provenance={'permission_basis':publisher.permission_basis if job else content['permission_attestation'],
                     'actor':actor, 'content_type':content.get('content_type','text'),
-                    'adapter':content.get('adapter','staff_evidence'),'publisher_identifier':content.get('publisher_identifier')},
+                    'adapter':content.get('adapter','staff_evidence'),'publisher_identifier':content.get('publisher_identifier'),
+                    **{k:content[k] for k in ('source_author','source_relationship') if content.get(k)}},
         media=[m for m in content.get('media',[]) if publisher.method in ('scrapingant','apify') and media_reference(m)],
         retention_until=time.time()+cfg.observation_retention_days*86400)
     db.add(observation); db.flush()
