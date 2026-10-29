@@ -24,6 +24,11 @@ NAMED = re.compile(r'\b(\d{1,2})\.?\s+('+ '|'.join(sorted(MONTHS, key=len, rever
 NAMED_FIRST = re.compile(r'\b('+ '|'.join(sorted(MONTHS,key=len,reverse=True))+r')\s+(\d{1,2})(?:st|nd|rd|th)?[,]?\s*(\d{4})?\b')
 ISO_STAMP = re.compile(r'\d{4}-\d{2}-\d{2}[tT ]\d{2}:\d{2}(?::\d{2})?(?:[zZ]|[+-]\d{2}:\d{2})')
 CLOCK = re.compile(r'(?<!\d)([01]?\d|2[0-3]):([0-5]\d)(?!\d)')
+WORD_CLOCK = re.compile(r'\b(?:o|od|at)\s+([01]?\d|2[0-3])\s*(?:tej|:00|[.]00|hod(?:in)?[.]?|h)\b')
+EVENT = re.compile(r'\b(koncert|concert|party|párty|vystav\w*|exhibition|festival|workshop|trh|market|prednask\w*|lecture|divadlo|theatre|premier\w*|diskusi\w*|beseda|discussion|talk|promit\w*|premiet\w*|screening|meetup|vernisaz\w*)\b')
+GIVEAWAY = re.compile(r'\b(sutaz\w*|giveaway|vyhraj\w*|competition|win\s+(?:tickets?|entry))\b')
+DRAW = re.compile(r'\b(zreb\w*|losovan\w*|vyhlas\w*\s+vyher\w*|winner\w*|prize\s+draw|draw\s+(?:on|at)|giveaway\s+(?:ends|closes)|sutaz\s+(?:konci|do)|deadline)\b')
+CTA = re.compile(r'\b(sleduj\w*|oznac\w*|komentar\w*|napis\w*|ako sa zapojit|follow\s+(?:us|our)|tag\s+(?:a|your)|comment\s+(?:below|with)|enter\s+the\s+giveaway)\b')
 
 
 def normalized(text):
@@ -32,6 +37,48 @@ def normalized(text):
 
 def content_hash(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=True, separators=(',', ':')).encode()).hexdigest()
+
+
+def event_key(fields):
+    """Conservative publisher-local identity; unknown dates never merge posts."""
+    title=' '.join(re.findall(r'\w+',normalized(fields.get('title') or '')))
+    day=fields.get('start_time') or fields.get('event_date')
+    venue=' '.join(re.findall(r'\w+',normalized(fields.get('venue_name') or '')))
+    return (title,day,venue) if title and day and venue else None
+
+
+def event_blocks(caption):
+    """Paragraphs are context, not events. Split only independent dated headings."""
+    paragraphs=[p.strip() for p in re.split(r'\n\s*\n',caption[:20000]) if p.strip()]
+    dated=[]
+    for i,p in enumerate(paragraphs):
+        text=normalized(p);heading=text.splitlines()[0]
+        if EVENT.search(heading) and not (GIVEAWAY.search(heading) or CTA.search(heading)) and (NUMERIC.search(text) or NAMED.search(text) or NAMED_FIRST.search(text)):
+            dated.append(i)
+    if len(dated)<2:return ['\n\n'.join(paragraphs)] if paragraphs else []
+    starts=[0]+dated[1:]
+    return ['\n\n'.join(paragraphs[a:b]) for a,b in zip(starts,starts[1:]+[len(paragraphs)])][:20]
+
+
+def event_text(block):
+    # Draw/deadline dates and entry instructions cannot supply an event schedule.
+    return '\n'.join(line for line in block.splitlines()
+        if not any(p.search(normalized(line)) for p in (DRAW,CTA,GIVEAWAY))
+        and not re.fullmatch(r'\s*(?:[#@]\S+\s*)+',line))
+
+
+def filtered_reason(caption):
+    """Explain why a retained post is not an event, without discarding evidence."""
+    text=normalized(caption)
+    if GIVEAWAY.search(text):
+        # A promotion can still contain a real, separately dated event invitation.
+        invitation=event_text(caption)
+        if not any(EVENT.search(normalized(line)) and not GIVEAWAY.search(normalized(line)) for line in invitation.splitlines()):
+            return 'giveaway'
+        if not (NUMERIC.search(normalized(invitation)) or NAMED.search(normalized(invitation)) or NAMED_FIRST.search(normalized(invitation))):
+            return 'giveaway'
+    if not EVENT.search(normalized(event_text(caption))):return 'not_event'
+    return None
 
 
 def local_time(day, hour, minute):
@@ -46,7 +93,7 @@ def local_time(day, hour, minute):
     return valid[0]
 
 
-def extract(caption, published_at, publisher, *, now=None):
+def extract(caption, published_at, publisher, *, now=None, structured_event=False):
     now = now or datetime.now(timezone.utc)
     reference = None
     try:
@@ -57,10 +104,11 @@ def extract(caption, published_at, publisher, *, now=None):
     except (TypeError, ValueError):
         pass
     results = []
-    # An explicit separate line/block is required for multiple-event extraction.
-    blocks = [block.strip() for block in re.split(r'\n\s*\n', caption[:20000]) if block.strip()][:20]
+    blocks = event_blocks(caption)
+    seen=set()
     for block in blocks:
-        text = normalized(block)
+        if not structured_event and filtered_reason(block):continue
+        text = normalized(event_text(block))
         dates = []
         iso_stamps=[]
         for m in ISO_STAMP.finditer(text):
@@ -106,6 +154,7 @@ def extract(caption, published_at, publisher, *, now=None):
         if len(unique) != 1:
             missing.append('unambiguous_date')
         clocks = [m.groups() for m in CLOCK.finditer(text) if not any(a<=m.start()<b for (a,b),_ in iso_stamps)]
+        clocks += [(m[1],'00') for m in WORD_CLOCK.finditer(text) if not CLOCK.search(m[0])]
         if iso_stamps:
             if len(iso_stamps)!=1 or clocks:
                 missing.append('unambiguous_time')
@@ -131,7 +180,7 @@ def extract(caption, published_at, publisher, *, now=None):
         coords = publisher.latitude, publisher.longitude
         if not all(v is not None for v in coords) or not (48 <= (coords[0] or 0) <= 48.35 and 16.9 <= (coords[1] or 0) <= 17.35):
             missing.append('verified_bratislava_location')
-        if not re.search(r'\b(koncert|concert|party|vystav\w*|exhibition|festival|workshop|trh|market|prednask\w*|lecture|divadlo|theatre|premier\w*|diskusi\w*|beseda|discussion|talk|promit\w*|premiet\w*|screening|meetup|vernisaz\w*)\b', text):
+        if not EVENT.search(text):
             missing.append('event_evidence')
         if re.search(r'\b(zrusen\w*|zruseno|cancelled|canceled|presunut\w*|postponed|rescheduled)\b', text):
             missing.append('schedule_change_review')
@@ -139,7 +188,7 @@ def extract(caption, published_at, publisher, *, now=None):
             missing.append('upcoming_date')
         if reference and now-reference > timedelta(days=180):
             missing.append('old_announcement')
-        title = block.splitlines()[0].strip()[:200]
+        title = next((line.strip() for line in event_text(block).splitlines() if line.strip()),'')[:200]
         if len(title) < 3:
             missing.append('title')
         fields = {'title': title, 'description': block, 'start_time': start.astimezone(timezone.utc).isoformat() if start else None,
@@ -157,6 +206,10 @@ def extract(caption, published_at, publisher, *, now=None):
         ticket=re.search(r'https://[^\s<>\"\']{5,500}',block)
         fields['ticket_url']=ticket[0].rstrip('.,)') if ticket else None
         confidence = 0.9 if not missing else max(0.1, 0.8-0.1*len(missing))
+        key=event_key(fields) or content_hash({'text':normalized(block)})
+        if key in seen:continue
+        seen.add(key)
+        fields['evidence']['method']='deterministic_social_caption_v2'
         results.append({'fields': fields, 'missing': sorted(set(missing)), 'confidence': confidence,
                         'status': 'qualified' if not missing else 'needs_review'})
     return results

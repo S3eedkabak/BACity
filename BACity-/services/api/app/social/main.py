@@ -15,6 +15,8 @@ app.add_middleware(RequestMiddleware,max_body=65536)
 app.add_middleware(PrivateBoundary)
 app.include_router(auth)
 app.include_router(routes)
+from .post_images import staff_router
+app.include_router(staff_router)
 STATIC=Path(__file__).parent/'static'
 app.mount('/assets',StaticFiles(directory=STATIC),name='staff-assets')
 

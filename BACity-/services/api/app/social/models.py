@@ -1,7 +1,7 @@
 """Additive tables in the existing PostgreSQL database; no consumer role linkage."""
 import time
 import uuid
-from sqlalchemy import (Column, String, Text, Integer, Float, Boolean, JSON,
+from sqlalchemy import (Column, String, Text, Integer, Float, Boolean, JSON, LargeBinary,
                         ForeignKey, UniqueConstraint, CheckConstraint, Index, Uuid)
 from app.database import Base
 from app.models.source import GUID
@@ -164,6 +164,35 @@ class Observation(SocialBase):
     media = Column(JSON, nullable=False, default=list)
     retention_until = Column(Float, nullable=False, index=True)
     __table_args__ = (UniqueConstraint('publisher_id', 'external_id', 'content_hash', name='uq_l4_observation_version'),)
+
+class PostImage(SocialBase):
+    __tablename__ = 'l4_post_images'
+    id = Column(String(36), primary_key=True, default=identity)
+    observation_id = Column(String(36), ForeignKey('l4_observations.id', ondelete='CASCADE'), nullable=False, index=True)
+    source_url = Column(String(1500), nullable=False)
+    source_hash = Column(String(64), nullable=False)
+    position = Column(Integer, nullable=False)
+    state = Column(String(20), nullable=False, default='queued')
+    preview = Column(LargeBinary)
+    width = Column(Integer)
+    height = Column(Integer)
+    image_hash = Column(String(64))
+    ocr_text = Column(Text, nullable=False, default='')
+    ocr_status = Column(String(20), nullable=False, default='pending')
+    ocr_confidence = Column(Float, nullable=False, default=0)
+    error = Column(String(40))
+    attempts = Column(Integer, nullable=False, default=0)
+    owner_digest = Column(String(64))
+    lease_until = Column(Float)
+    next_due = Column(Float, nullable=False, default=0)
+    created = Column(Float, nullable=False, default=time.time)
+    updated = Column(Float, nullable=False, default=time.time)
+    __table_args__ = (
+        UniqueConstraint('observation_id','source_hash',name='uq_l4_post_image_source'),
+        CheckConstraint("state IN ('queued','running','ready','failed')",name='ck_l4_post_image_state'),
+        CheckConstraint('position BETWEEN 0 AND 2',name='ck_l4_post_image_position'),
+        CheckConstraint('length(preview)<=40000',name='ck_l4_post_image_size'),
+    )
 
 class EventCandidate(SocialBase):
     __tablename__ = 'l4_event_candidates'

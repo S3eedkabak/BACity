@@ -12,7 +12,7 @@ from .security import require, authenticate, audit, budget, digest
 from .models import (Staff, Credential, Invitation, StaffSession, Publisher, CollectionJob,
                      Observation, EventCandidate, CandidateReview, AuditEvent, Control)
 from .acquisition.urls import normalize_target
-from .extraction import content_hash
+from .extraction import filtered_reason, content_hash
 from .workflows import available, stage, qualify, stopped
 
 router = APIRouter(prefix='/api')
@@ -117,7 +117,7 @@ def dashboard(current=Depends(require('read')), db=Depends(database)):
     return {'publishers':count(Publisher), 'approved':count(Publisher, Publisher.approval=='approved'),
         'pending':count(Publisher,Publisher.approval=='pending'), 'enabled':count(Publisher,Publisher.enabled.is_(True)),
         'attention':count(Publisher,Publisher.last_error.is_not(None)), 'observations':count(Observation),
-        'candidates':count(EventCandidate),'awaiting_review':count(EventCandidate, EventCandidate.status.in_(['needs_review','qualified'])),
+        'candidates':count(EventCandidate,EventCandidate.status.notin_(['rejected','duplicate'])),'awaiting_review':count(EventCandidate, EventCandidate.status.in_(['needs_review','qualified'])),
         'published':count(EventCandidate,EventCandidate.status=='published'),
         'emergency_stop':stopped(db), 'collection_enabled':settings().l4_collection_enabled,
         'publication_enabled':settings().l4_publication_enabled,
@@ -172,7 +172,7 @@ def publisher_detail(publisher_id: str,current=Depends(require('read')),db=Depen
     publisher=row(db,Publisher,publisher_id)
     return {'publisher':public_publisher(publisher),
         'jobs':[job_dict(j,db) for j in db.query(CollectionJob).filter_by(publisher_id=publisher_id).order_by(CollectionJob.created.desc()).limit(30)],
-        'observations':[{'id':o.id,'source_url':o.source_url,'observed':o.observed,'method':o.method,'caption':o.caption,'content_hash':o.content_hash}
+        'observations':[{'id':o.id,'source_url':o.source_url,'observed':o.observed,'method':o.method,'caption':o.caption,'content_hash':o.content_hash,'has_images':bool(o.media),'filter_reason':filtered_reason(o.caption)}
                        for o in db.query(Observation).filter_by(publisher_id=publisher_id).order_by(Observation.observed.desc()).limit(20)]}
 
 
@@ -338,8 +338,9 @@ def submit_evidence(publisher_id: str,payload: Evidence,request: Request,current
 
 
 @router.get('/candidates')
-def candidates(limit: int=Query(50,ge=1,le=100),offset: int=Query(0,ge=0,le=10000),current=Depends(require('read')),db=Depends(database)):
+def candidates(limit: int=Query(50,ge=1,le=100),offset: int=Query(0,ge=0,le=10000),view: str=Query('all',pattern='^(all|active)$'),current=Depends(require('read')),db=Depends(database)):
     query=db.query(EventCandidate,Observation).join(Observation,Observation.id==EventCandidate.observation_id)
+    if view=='active':query=query.filter(EventCandidate.status.in_(['needs_review','qualified','approved','publication_queued']))
     return {'total':query.count(),'items':[public_candidate(c,o) for c,o in query.order_by(EventCandidate.created.desc(),EventCandidate.id).offset(offset).limit(limit)]}
 
 
@@ -408,7 +409,7 @@ def collection_health(limit: int=Query(50,ge=1,le=100),current=Depends(require('
         publishers=db.query(Publisher.id).filter(Publisher.platform==platform)
         job_query=db.query(CollectionJob).filter(CollectionJob.publisher_id.in_(publishers))
         observations=db.query(Observation.id).filter(Observation.publisher_id.in_(publishers))
-        candidate_query=db.query(EventCandidate).filter(EventCandidate.observation_id.in_(observations))
+        candidate_query=db.query(EventCandidate).filter(EventCandidate.observation_id.in_(observations),EventCandidate.status.notin_(['rejected','duplicate']))
         platform_metrics.append({'platform':platform,'publishers':publishers.count(),
             'collections':job_query.count(),'successful_collections':job_query.filter(CollectionJob.state.in_(['success','partial'])).count(),
             'restricted_collections':job_query.filter(CollectionJob.state.in_(['blocked','unauthorized','rate_limited'])).count(),
@@ -519,7 +520,7 @@ def instagram_collection(current=Depends(require('read')),db=Depends(database)):
         'publishers':[public_publisher(p) for p in publishers], 'jobs':[job_dict(j,db) for j in jobs],
         'posts_discovered':sum(j.metrics.get('posts_discovered',0) for j in jobs),
         'reels_discovered':sum(j.metrics.get('reels_discovered',0) for j in jobs),
-        'event_candidates':db.query(EventCandidate).join(Observation,EventCandidate.observation_id==Observation.id).filter(Observation.publisher_id.in_(ids)).count()})
+        'event_candidates':db.query(EventCandidate).join(Observation,EventCandidate.observation_id==Observation.id).filter(Observation.publisher_id.in_(ids),EventCandidate.status.notin_(['rejected','duplicate'])).count()})
     from .apify_jobs import summary
     from .apify_config import provider_preference
     from .models import ApifyRun

@@ -10,6 +10,7 @@ class SocialSettings(BaseSettings):
     l4_enabled: bool = False
     l4_collection_enabled: bool = False
     l4_publication_enabled: bool = False
+    media_enabled: bool = True
     database_url: str = Field('', repr=False)
     allow_sqlite: bool = False
     service_role: str = Field('staff', pattern='^(staff|gateway|relay|maintenance)$')

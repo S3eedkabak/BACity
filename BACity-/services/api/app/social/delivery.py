@@ -100,7 +100,10 @@ def deliver(payload:Delivery,db=Depends(database)):
     if db.query(DeliveryReceipt).count()>=100000:raise HTTPException(503,'Delivery receipt capacity reached; queue retained')
     identity=str(payload.identity);job_id=None;session=AtomicSession(db)
     try:
-        if payload.action.startswith('apify:'):
+        if payload.action=='media:complete':
+            from .post_images import complete,Completion
+            result=complete(db,identity,payload.owner,Completion.model_validate(payload.payload))
+        elif payload.action.startswith('apify:'):
             from . import apify_jobs as a
             run=actor(db,identity,payload.owner);run.lease_until=time.time()+90
             actions={'sync':(a.sync,a.Snapshot),'reserve':(a.reserve,None),'dispatch':(a.dispatch,None),

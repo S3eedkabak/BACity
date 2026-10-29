@@ -15,6 +15,8 @@ from .workflows import schedule, available, stage, stopped
 
 app=FastAPI(docs_url=None,redoc_url=None,openapi_url=None)
 app.add_middleware(RequestMiddleware,max_body=65536)
+from .post_images import worker_router as image_router
+app.include_router(image_router)
 
 
 from .worker_security import worker,Content

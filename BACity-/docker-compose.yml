@@ -1,6 +1,9 @@
 services:
   postgres:
     image: postgis/postgis:16-3.4
+    # The optional panel uses this same internal bridge. Declaring it here
+    # prevents either launcher from changing the shared database's networks.
+    networks: [default, social-data]
     platform: linux/amd64
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-events}
@@ -101,3 +104,7 @@ services:
 volumes:
   pgdata:
   crawlerdata:
+
+networks:
+  social-data:
+    internal: true

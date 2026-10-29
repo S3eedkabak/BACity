@@ -168,7 +168,7 @@ def test_upgrade_clamps_existing_limit_without_starting_publishers():
         with engine.connect() as db:
             p=db.execute(text('SELECT approval,enabled,collection_approved,posts_per_profile FROM l4_publishers')).one()
             assert p.approval=='approved' and not p.enabled and not p.collection_approved and p.posts_per_profile==2
-            assert db.execute(text('SELECT version_num FROM alembic_version')).scalar()=='0028'
+            assert db.execute(text('SELECT version_num FROM alembic_version')).scalar()=='0029'
     finally:
         engine.dispose()
         with admin.connect() as db:db.execute(text('DROP DATABASE '+name+' WITH (FORCE)'))

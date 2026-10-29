@@ -15,7 +15,7 @@ Secrets belong to each deployment, outside Git. They are supplied when the conta
 | Main app/migration environment | `BACity-/.env` | `/opt/bacity/BACity-/.env` |
 | Panel/provider environment | `/Users/s3eed/.config/bacity/social.env` | `/etc/bacity/social.env` |
 | Local runtime/retention override | `/Users/s3eed/.config/bacity/runtime.override.yml` | `/etc/bacity/runtime.override.yml` |
-| Startup entry point | Mac-specific `/Users/s3eed/.config/bacity/control` | Repository `infrastructure/social/control.sh` |
+| Startup entry point | Mac-specific `/Users/s3eed/.config/bacity/control` | Repository `./control` (delegates to `infrastructure/social/control.sh`) |
 
 The server paths above are examples, not directories already provisioned. The main `.env` contains the normal application configuration and migration connection. Put **all `APIFY_*`, `SCRAPINGANT_*`, `SOCIAL_*` and `INSTAGRAM_ACQUISITION_PROVIDER` settings in the separate social file**, not the main `.env`: the base API/crawler services receive the main file. The social Compose overlay maps only the actual collector's provider credentials into its environment; the staff/gateway receive configuration-presence hints.
 
@@ -61,8 +61,8 @@ For a fresh database, provision fresh service logins. For a restored database, e
 From the application directory, with the main `.env` pointing at that host's intended migration-owner connection:
 
 ```sh
-docker compose up -d postgres redis opensearch
-docker compose build api
+docker compose -f docker-compose.yml up -d postgres redis opensearch
+docker compose -f docker-compose.yml build api
 ```
 
 If moving existing data, transfer and restore a protected database backup into the intended target database before enabling app writers. Back up the target before any upgrade. Do not replace a live target database without a separately reviewed migration plan. Keep all database, crawler-state and `social-outbox` volumes persistent. Back up the social outbox independently; see [social_outage_recovery.md](social_outage_recovery.md).
@@ -70,14 +70,14 @@ If moving existing data, transfer and restore a protected database backup into t
 Run migrations separately from the public API, then install the group grants:
 
 ```sh
-docker compose run --rm --no-deps api alembic upgrade head
+docker compose -f docker-compose.yml run --rm --no-deps api alembic upgrade head
 
-docker compose exec -T postgres sh -c \
+docker compose -f docker-compose.yml exec -T postgres sh -c \
   'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
   < infrastructure/social/roles.sql
 ```
 
-The current migration head is **0028**. Create the five non-owner LOGIN roles and assign the groups as described above; fill their connection URLs in the server social file. Verify all actual service identities and public-runtime denial of private `l4_` tables before enabling the panel. Do not run the public API as the migration owner.
+The current migration head is **0029**. Create the five non-owner LOGIN roles and assign the groups as described above; fill their connection URLs in the server social file. Verify all actual service identities and public-runtime denial of private `l4_` tables before enabling the panel. Do not run the public API as the migration owner.
 
 ## Start the configured stack
 
@@ -153,3 +153,13 @@ The Mac installation is running, its token was checked through read-only account
 ## Simplified publisher approval upgrade (0028)
 
 Back up PostgreSQL, let existing collector work drain, apply migration 0028 as the owner, then rebuild/recreate social-admin, social-gateway, social-collector and social-retention together. The migration adds the reviewed collection approval marker and caps existing per-profile limits at two. It does not enable any publisher or change acquisition/publication flags or credentials. Reapply the normal role grants if provisioning a new installation. Existing publisher and staff data, passkeys, receipts and the independent outbox are retained. Keep the same outbox volume. See [control_panel_start.md](control_panel_start.md#everyday-publisher-workflow) for the new workflow and session behavior.
+
+For private post previews and local OCR, apply migration **0029**, reapply role grants and rebuild/recreate the collector, egress, gateway, staff and retention services. See [post_images_ocr.md](post_images_ocr.md).
+
+## Provisioned local startup consistency
+
+Standard `docker compose up --build` remains available for the main backend. `./control` is an optional launcher for named main/panel groups and the private overlays. Both manifests use the same PostgreSQL network attachments. Explicit owner provisioning commands above select the base file and are for first installation; on a provisioned host `./control owner-run alembic upgrade head` is available for migrations. No secret is copied between the app and social environment files.
+
+The ingress bridge is pinned to `172.30.41.0/28`, gateway `172.30.41.1`; the local source allowlist must contain `172.30.41.1/32`. `SOCIAL_INGRESS_SUBNET` and `SOCIAL_INGRESS_GATEWAY` allow other hosts to choose an unused range. The internal trusted proxy remains `172.30.40.2`. Recreating only the TLS proxy's ingress network does not require restarting PostgreSQL. See [control_panel_start.md](control_panel_start.md) for separate service stops and combined startup.
+
+Docker references: [Compose environment/file selection](https://docs.docker.com/compose/how-tos/environment-variables/envvars/), [network IPAM](https://docs.docker.com/reference/compose-file/networks/#ipam).

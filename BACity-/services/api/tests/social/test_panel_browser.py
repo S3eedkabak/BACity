@@ -109,3 +109,51 @@ def test_review_flow_and_expired_form_resume_with_real_virtual_passkey(social,mo
         expect(page.get_by_role('heading',name='One-use enrollment invitation')).to_be_visible()
         assert not errors,errors
         browser.close()
+
+
+def test_private_post_gallery_and_ocr_text_on_desktop_and_phone(social,announcement,tmp_path):
+    import io
+    from PIL import Image,ImageDraw,ImageFont
+    from app.social.workflows import stage
+    from app.social.models import Publisher,PostImage
+    from app.social.acquisition.poster import prepare
+    from playwright.sync_api import sync_playwright,expect
+    owner,staff,_,raw=social.login();p=social.publisher(staff)
+    poster=Image.new('RGB',(900,1200),'#261326');draw=ImageDraw.Draw(poster)
+    for i,text in enumerate(['HALLOWEEN','PARTY','31.10.2030','20:00','BRATISLAVA']):
+        draw.text((60,100+i*170),text,font=ImageFont.load_default(size=62),fill='#ffc9e5')
+    output=io.BytesIO();poster.save(output,'PNG')
+    prepared=prepare(output.getvalue(),ocr=lambda image:('HALLOWEEN PARTY\n31.10.2030 20:00\nBRATISLAVA',.96,'ready'))
+    with social.factory() as db:
+        observation,_=stage(db,db.get(Publisher,p.id),announcement,'fixture');observation.media=['https://scontent.cdninstagram.com/post.jpg'];db.flush()
+        db.add(PostImage(observation_id=observation.id,source_url=observation.media[0],source_hash='a'*64,position=0,state='ready',preview=base64.b64decode(prepared['preview']),
+            width=prepared['width'],height=prepared['height'],ocr_text=prepared['ocr_text'],ocr_status='ready',ocr_confidence=.96));db.commit()
+    shots=Path(os.environ.get('SOCIAL_UI_ARTIFACTS',str(tmp_path)));shots.mkdir(parents=True,exist_ok=True)
+    with sync_playwright() as browser_api:
+        browser=browser_api.chromium.launch(headless=True);context=browser.new_context(viewport={'width':1440,'height':1000},ignore_https_errors=True)
+        context.add_cookies([{'name':COOKIE,'value':raw,'domain':'admin.bacity.test','path':'/','secure':True,'httpOnly':True,'sameSite':'Strict'}])
+        def bridge(route):
+            req=route.request;assert req.url.startswith(ORIGIN+'/'),req.url
+            result=owner.request(req.method,req.url,content=req.post_data_buffer,headers=req.headers)
+            route.fulfill(status=result.status_code,headers={k:v for k,v in result.headers.items() if k not in ('content-length','transfer-encoding','content-encoding')},body=result.content)
+        context.route('**/*',bridge);page=context.new_page();errors=[];page.on('pageerror',lambda error:errors.append(str(error)))
+        page.goto(ORIGIN);page.get_by_role('button',name='Events to review',exact=True).click()
+        image=page.get_by_role('img',name='Image from the original post');expect(image).to_be_visible()
+        expect(image).to_have_js_property('complete',True);assert image.evaluate('(image)=>image.naturalWidth')>0
+        page.get_by_text('Text read from this image',exact=True).click()
+        expect(page.get_by_text('HALLOWEEN PARTY\n31.10.2030 20:00\nBRATISLAVA',exact=True)).to_be_visible()
+        page.screenshot(path=str(shots/'poster-review-desktop.png'),full_page=True)
+        page.set_viewport_size({'width':390,'height':844});expect(image).to_be_visible()
+        assert page.evaluate('document.documentElement.scrollWidth<=window.innerWidth')
+        page.screenshot(path=str(shots/'poster-review-phone.png'),full_page=True)
+        # Archived noise is absent from the queue but its evidence is reachable.
+        from app.social.models import EventCandidate
+        with social.factory() as db:
+            db.query(EventCandidate).filter_by(observation_id=observation.id).update({'status':'rejected'});db.commit()
+        page.get_by_role('button',name='Refresh',exact=False).click()
+        expect(page.get_by_text('Nothing awaiting your judgment.',exact=True)).to_be_visible()
+        page.get_by_role('button',name='Show past decisions',exact=True).click()
+        expect(page.get_by_role('img',name='Image from the original post')).to_be_visible()
+        page.get_by_role('button',name='Back to review queue',exact=True).click()
+        expect(page.get_by_text('Nothing awaiting your judgment.',exact=True)).to_be_visible()
+        assert not errors,errors;browser.close()

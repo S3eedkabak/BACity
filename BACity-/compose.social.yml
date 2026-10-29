@@ -1,14 +1,13 @@
 # Optional overlay. No service starts without the explicitly selected social profile.
 # Use with docker-compose.yml. Bind only loopback or the host's WireGuard address.
 services:
-  postgres:
-    networks: [default, social-data]
   social-admin:
     profiles: [social]
     build:
       context: ./services/api
       dockerfile: Dockerfile.social
     environment:
+      SOCIAL_MEDIA_ENABLED: ${SOCIAL_MEDIA_ENABLED:-true}
       SOCIAL_L4_ENABLED: ${SOCIAL_L4_ENABLED:-false}
       SCRAPINGANT_ENABLED: ${SCRAPINGANT_ENABLED:-false}
       SCRAPINGANT_KEY_CONFIGURED: ${SCRAPINGANT_API_KEY:+true}
@@ -30,7 +29,7 @@ services:
       SOCIAL_DATABASE_URL: ${SOCIAL_ADMIN_DATABASE_URL:?Set a least-privilege staff database URL}
       SOCIAL_CONSUMER_DB_ROLE: ${SOCIAL_CONSUMER_DB_ROLE:-}
       SOCIAL_ADMIN_ORIGIN: https://${SOCIAL_ADMIN_HOST:-localhost}:8443
-      SOCIAL_ADMIN_NETWORKS: ${SOCIAL_ADMIN_NETWORKS:-127.0.0.1/32,10.88.0.0/24}
+      SOCIAL_ADMIN_NETWORKS: ${SOCIAL_ADMIN_NETWORKS:-127.0.0.1/32,::1/128,172.30.41.1/32,10.88.0.0/24}
       SOCIAL_TRUSTED_PROXY_IP: 172.30.40.2
     networks:
       social-front:
@@ -69,6 +68,7 @@ services:
       dockerfile: Dockerfile.social
     command: [uvicorn, app.social.worker_api:app, --host, 0.0.0.0, --port, '8012', --no-proxy-headers, --no-access-log]
     environment:
+      SOCIAL_MEDIA_ENABLED: ${SOCIAL_MEDIA_ENABLED:-true}
       SOCIAL_L4_ENABLED: ${SOCIAL_L4_ENABLED:-false}
       SCRAPINGANT_ENABLED: ${SCRAPINGANT_ENABLED:-false}
       SCRAPINGANT_KEY_CONFIGURED: ${SCRAPINGANT_API_KEY:+true}
@@ -105,6 +105,7 @@ services:
       context: .
       dockerfile: services/social_collector/Dockerfile
     environment:
+      SOCIAL_MEDIA_ENABLED: ${SOCIAL_MEDIA_ENABLED:-true}
       SOCIAL_WORKER_KEY: ${SOCIAL_WORKER_KEY:-}
       SCRAPINGANT_ENABLED: ${SCRAPINGANT_ENABLED:-false}
       APIFY_ENABLED: ${APIFY_ENABLED:-false}
@@ -176,7 +177,13 @@ services:
 networks:
   # Only the TLS proxy joins this bridge, allowing Docker Desktop to publish
   # its loopback port. Staff and database networks remain internal.
-  social-ingress: {}
+  # Docker Desktop forwards loopback requests through this gateway. Keep it
+  # stable across down/up so the staff source-IP allowlist remains valid.
+  social-ingress:
+    ipam:
+      config:
+        - subnet: ${SOCIAL_INGRESS_SUBNET:-172.30.41.0/28}
+          gateway: ${SOCIAL_INGRESS_GATEWAY:-172.30.41.1}
   social-front:
     internal: true
     ipam:

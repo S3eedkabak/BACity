@@ -63,3 +63,7 @@ GRANT UPDATE(items) ON l4_apify_runs TO bacity_l4_maintenance;
 -- Delivery receipts contain hashes/results, not raw captions or provider tokens.
 GRANT SELECT,INSERT ON l4_delivery_receipts TO bacity_l4_gateway;
 GRANT SELECT ON l4_delivery_receipts TO bacity_l4_staff,bacity_l4_maintenance;
+
+-- Private sanitized image previews and local OCR, never public media storage.
+GRANT SELECT ON l4_post_images TO bacity_l4_staff,bacity_l4_maintenance;
+GRANT SELECT,INSERT,UPDATE ON l4_post_images TO bacity_l4_gateway;

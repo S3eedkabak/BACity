@@ -20,6 +20,10 @@ A publisher's approval does not override a login wall, blocked source, rate limi
 
 Staff sessions now allow **two hours idle and eight hours total**. While you actively use the visible page, activity keeps the session current. A truly expired session or sensitive team/security/publication action opens an in-place passkey prompt and resumes the rejected request after verification, preserving the form. Revoked sessions and staff permissions remain enforced. Form contents are held only in the current page, not localStorage; refreshing/closing the tab can discard an unfinished form.
 
+For private post images and free local poster OCR, see [post_images_ocr.md](post_images_ocr.md). Images and poster text appear automatically for collected posts; no new key or extra paid crawl is required.
+
+For event filtering, giveaway dates, deduplication and legacy draft cleanup, see [social_event_filtering.md](social_event_filtering.md).
+
 ## Configuration files
 
 | File | Purpose |
@@ -33,12 +37,44 @@ On the current Mac, the private files are in `/Users/s3eed/.config/bacity/`. Onl
 
 ## Current Mac: choose what to start
 
-The configured `/Users/s3eed/.config/bacity/control` wrapper loads both backend environment files and the required Compose overlays. Commands below can be run from any directory. `-d` keeps services running in the background; `--build` builds their current images before starting them.
+Run the commands below from the application directory using `./control`. It loads both backend environment files and the same Compose overlays for startup, shutdown and inspection. The existing `/Users/s3eed/.config/bacity/control` command delegates to this launcher and can still be used from any directory. `-d` keeps services running in the background; `--build` builds their current images before starting them.
+
+### Two everyday start commands
+
+```sh
+./control up main
+./control up panel
+```
+
+Both show build output, start services in the background and immediately stream live service logs (including the last 100 lines). **Ctrl+C closes the log stream; it leaves the backend running.** Use a second terminal for the other backend, or press Ctrl+C before starting it. `main` starts PostgreSQL, Redis, OpenSearch, the app API, website crawler and app maintenance. `panel` starts PostgreSQL, the private panel and HTTPS proxy, social gateway, collector, provider egress and hourly retention. Neither starts the mobile development server. Existing collection/publication settings and publisher approvals remain in force.
+
+Run both commands, in either order, to run both sides. They share the same PostgreSQL configuration and persistent volumes. Starting one side leaves the other running. The longer service-specific commands below remain available.
+
+### Everyday command reference
+
+| Command | What it does |
+|---|---|
+| `./control up main` | Build/start the app backend and show its live logs. |
+| `./control up panel` | Build/start the panel and social services and show their live logs. |
+| `./control down main` | Stop app services; leave PostgreSQL and the panel running. |
+| `./control down panel` | Stop panel/social services; leave PostgreSQL and the app running. |
+| `./control prune main` | Stop and remove only main-backend containers; keep the shared database and panel. |
+| `./control prune panel` | Stop and remove only panel/social containers; keep the shared database and main backend. |
+| `./control down` | Stop/remove the entire stack's containers and networks, including PostgreSQL. Persistent data volumes remain. |
+| `./control logs -f` | Reopen live logs for the running services. Ctrl+C only closes logs. |
+| `./control ps` | Show which services are running. |
+| `docker system prune` | Ask Docker to remove unused containers, networks, dangling images and build cache. This applies across Docker projects; volumes are retained by default. |
+
+The named `down` commands intentionally use service-specific stops so they cannot remove the shared database. They preserve the saved collector outbox. Starting that side again resumes its services. `./control down` is the full shutdown command.
+
+The group `prune` commands stop the selected services and remove their containers. They retain PostgreSQL, all persistent data volumes, saved collector results, images and build cache. They do not remove networks or run a global Docker prune. Use `./control up main` or `./control up panel` to rebuild/recreate that side afterward. Extra prune flags are rejected to keep cleanup scoped.
+
+Global Docker pruning is optional disk cleanup, not a startup requirement or restart command. Docker asks for confirmation. It can make the next build slower because it removes cache. The command above does not request volume deletion; retain the PostgreSQL and social outbox volumes. No prune runs automatically.
 
 ### Panel and database only
 
 ```sh
-/Users/s3eed/.config/bacity/control up -d --build \
+./control up -d --build \
   postgres social-admin social-proxy
 ```
 
@@ -47,7 +83,7 @@ Open **https://localhost:8443** on this Mac and sign in with your staff passkey.
 ### Panel plus social collection and cleanup
 
 ```sh
-/Users/s3eed/.config/bacity/control up -d --build \
+./control up -d --build \
   postgres social-admin social-proxy \
   social-gateway social-collector social-egress social-retention
 ```
@@ -69,12 +105,45 @@ A valid token and a publisher confirmed through **Approve & start daily checks**
 ### Entire configured backend, including the panel
 
 ```sh
-/Users/s3eed/.config/bacity/control up -d --build
+./control up -d --build
 ```
 
 This starts the regular app backend/website crawler and the social stack, including hourly retention. It does not enable acquisition flags, select publishers, start the mobile development server or select the separate publication profile.
 
-**Plain `docker compose up --build` uses the base Compose file.** Without additional files/profiles selected, it starts the normal app stack and does not launch the private panel. For this configured installation, use the wrapper so the private settings and restricted public-runtime database connection are applied.
+Standard Docker commands remain available. From `BACity-`, `docker compose up --build` starts the main app backend with its normal foreground build output and logs. It does not start the panel. `docker compose down` retains its normal behavior, including stopping the shared PostgreSQL service. `./control` is optional convenience for the named groups and private panel configuration.
+
+The base manifest and panel overlay share the same PostgreSQL network definition, so switching launchers does not change the database's network attachments. Unlike the named `./control` starts, a foreground `docker compose up --build` stops its selected services on Ctrl+C. Use `./control config --quiet` or `docker compose config --quiet` to validate either configuration.
+
+### App API and panel together, without starting collection
+
+```sh
+./control up -d --build postgres redis api social-admin social-proxy
+```
+
+Starting the panel first and adding `api` later uses the same PostgreSQL configuration and container.
+
+### Stop everything
+
+```sh
+./control down
+```
+
+This stops the app and panel, including their shared PostgreSQL database. To stop just one side, use the service-specific `stop` commands below. Retain the database and outbox volumes.
+
+### Stable local panel network
+
+`social-ingress` now uses subnet `172.30.41.0/28` and gateway `172.30.41.1`. The Mac's private `SOCIAL_ADMIN_NETWORKS` includes exactly `172.30.41.1/32`, plus loopback addresses. Docker recreating this bridge no longer changes the source address accepted by the panel. `SOCIAL_TRUSTED_PROXY_IP` stays `172.30.40.2`; it identifies the proxy on the separate internal network.
+
+Other hosts can override `SOCIAL_INGRESS_SUBNET` and `SOCIAL_INGRESS_GATEWAY` if those ranges conflict, and must align their own source-IP allowlist. The proxy port remains bound to loopback on this Mac.
+
+### Owner migrations and repairs
+
+```sh
+./control owner-run alembic upgrade head
+./control owner-run python -m app.social.reconcile_candidates
+```
+
+`owner-run` uses the main app environment in a one-off owner container with `--no-deps`. It does not start/reconfigure PostgreSQL or change the regular API's restricted runtime identity. The reconciliation command remains a dry run unless `--apply` is supplied.
 
 ## Starting selected services does not stop other services
 
@@ -83,7 +152,7 @@ The commands above start/recreate only the selected services and applicable depe
 To stop the regular app API, website crawler and normal app maintenance while keeping PostgreSQL and the social stack running:
 
 ```sh
-/Users/s3eed/.config/bacity/control stop api worker maintenance
+./control stop api worker maintenance
 ```
 
 To stop social collection without stopping the panel or database, disable acquisition in `social.env` and apply it as described below. Keep the collector/token available until any existing remote runs finish or are aborted and reconciled. This allows cleanup rather than abandoning a billable run.
@@ -111,7 +180,7 @@ Collection alone does not publish. Enabling publication alone does not approve o
 After deliberately authorizing publication, set `SOCIAL_L4_PUBLICATION_ENABLED=true` in the private social file and start the separate relay, updating the panel's environment too:
 
 ```sh
-/Users/s3eed/.config/bacity/control --profile social-publication \
+./control --profile social-publication \
   up -d --build social-admin social-publication
 ```
 
@@ -134,7 +203,7 @@ open -a "Visual Studio Code" /Users/s3eed/.config/bacity/social.env
 Save, then apply provider/collection changes:
 
 ```sh
-/Users/s3eed/.config/bacity/control up -d \
+./control up -d \
   social-admin social-gateway social-collector
 ```
 
@@ -143,8 +212,8 @@ A plain container restart does not reload changed environment values; `up -d` re
 ## Status and logs
 
 ```sh
-/Users/s3eed/.config/bacity/control ps
-/Users/s3eed/.config/bacity/control logs --tail 50 \
+./control ps
+./control logs --tail 50 \
   social-admin social-gateway social-collector social-proxy
 ```
 

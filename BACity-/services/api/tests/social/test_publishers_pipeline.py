@@ -67,7 +67,7 @@ def test_editorial_approval_does_not_grant_collection_and_suspend_cancels(social
         assert not db.get(Publisher,p.id).enabled
 
 
-def test_permitted_evidence_is_idempotent_edited_posts_create_new_version(social,announcement):
+def test_permitted_evidence_keeps_edited_versions_without_duplicate_event(social,announcement):
     client,staff,_,_=social.login('SOCIAL_EDITOR');p=social.publisher(staff)
     first=client.post('/api/publishers/'+p.id+'/evidence',json=announcement)
     assert first.status_code==201,first.text
@@ -77,12 +77,12 @@ def test_permitted_evidence_is_idempotent_edited_posts_create_new_version(social
     assert client.post('/api/publishers/'+p.id+'/evidence',json=edited).json()['created']
     with social.factory() as db:
         assert db.query(Observation).count()==2
-        assert db.query(EventCandidate).count()==2
+        assert db.query(EventCandidate).count()==1
         assert {o.method for o in db.query(Observation)}=={'user_submission'}
         from app.models.event import Event
         assert db.query(Event).count()==0
     data=client.get('/api/candidates').json()
-    assert data['total']==2
+    assert data['total']==1
     assert data['items'][0]['status']=='qualified'
     assert not data['items'][0]['missing']
 
@@ -106,7 +106,7 @@ def test_missing_time_dst_expired_non_event_and_multi_event_quarantine(social):
     assert 'valid_local_time' in check('Koncert\n2026-03-29 02:30\nFixture Hall')[0]['missing']
     assert 'valid_local_time' in check('Koncert\n2026-10-25 02:30\nFixture Hall')[0]['missing']
     assert 'upcoming_date' in check('Koncert\n2025-12-30 20:00\nFixture Hall')[0]['missing']
-    assert 'event_evidence' in check('New cocktails\n2026-11-10 20:00\nFixture Hall')[0]['missing']
+    assert check('New cocktails\n2026-11-10 20:00\nFixture Hall')==[]
     assert 'schedule_change_review' in check('Koncert cancelled\n2026-11-10 20:00\nFixture Hall')[0]['missing']
     text='Koncert First\n2026-11-10 20:00\nFixture Hall\n\nKoncert Second\n2026-11-11 19:00\nFixture Hall'
     result=check(text)

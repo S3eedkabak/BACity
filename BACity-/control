@@ -1,0 +1,5 @@
+#!/bin/sh
+# One entry point for the app backend, private panel and shared database.
+set -eu
+TASK_CONTROL_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+exec sh "$TASK_CONTROL_ROOT/infrastructure/social/control.sh" "$@"

@@ -6,7 +6,7 @@ from fastapi import HTTPException
 from .models import Publisher, CollectionJob, Observation, EventCandidate, Control
 from .security import digest, audit
 from .config import settings
-from .extraction import extract, content_hash
+from .extraction import extract, content_hash, event_key
 from .acquisition.urls import normalize_target
 
 
@@ -138,12 +138,23 @@ def stage(db, publisher, content, actor, *, job=None, request=None):
     if persistent:
         if item:item.content_hash=hashed;item.last_seen=time.time()
         else:db.add(InstagramItem(publisher_id=publisher.id,external_id=target.external_id,content_hash=hashed))
-    for ordinal, item in enumerate(extract(caption, published, publisher)):
+    # Preserve every post/version as evidence; repeated announcements do not
+    # multiply the review queue. Identity is intentionally publisher-local.
+    known={event_key(c.fields) for c in db.query(EventCandidate).join(Observation,Observation.id==EventCandidate.observation_id)
+        .filter(Observation.publisher_id==publisher.id,EventCandidate.status.notin_(['rejected','duplicate']))
+        .order_by(EventCandidate.created.desc()).limit(1000) if event_key(c.fields)}
+    structured=bool(job and publisher.platform=='event_url' and content.get('content_type')=='event')
+    for ordinal, item in enumerate(extract(caption, published, publisher,structured_event=structured)):
         if job and publisher.platform=='event_url' and content.get('content_type')=='event':
             item['missing']=[m for m in item['missing'] if m!='event_evidence']
             if not item['missing']:
                 item['status'],item['confidence']='qualified',0.9
         item['fields']['source_url'] = target.url
+        key=event_key(item['fields'])
+        if key and key in known:
+            audit(db,actor,'candidate.duplicate_skipped',observation.id,details={'outcome':'same_publisher_title_schedule_venue'})
+            continue
+        if key:known.add(key)
         db.add(EventCandidate(observation_id=observation.id, ordinal=ordinal, **item))
     audit(db, actor, 'observation.staged', observation.id, request=request)
     return observation, True

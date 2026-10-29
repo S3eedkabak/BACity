@@ -68,14 +68,14 @@ def test_owner_repairs_existing_paid_dataset_once_without_reenabling_or_rebillin
     social,_,p,_,_,_=apify;batch,evidence,before,provider=failed_paid_run(apify)
     with social.factory() as db:
         result=recover(db,batch['id'],evidence,allow_paused=True);db.commit()
-        assert result=={'replayed':False,'new_observations':2,'new_candidates':2,'public_event_writes':0,'publishers_still_paused':1}
+        assert result=={'replayed':False,'new_observations':2,'new_candidates':1,'public_event_writes':0,'publishers_still_paused':1}
         publisher=db.get(Publisher,p.id);assert not publisher.enabled and publisher.last_error is None
         assert publisher.last_attempt==before['last_attempt'] and publisher.next_due==before['next_due']
         run=db.get(ApifyRun,batch['id']);assert run.state=='finished' and run.offset==run.total==2 and run.error is None
         assert run.cost==before['cost'] and run.cost_kind==before['cost_kind']
         assert {k:getattr(db.get(ApifyBudget,1),k) for k in before['budget']}==before['budget']
         assert db.query(CollectionJob).one().metrics['recovered_existing_dataset']
-        assert db.query(Observation).count()==2 and db.query(EventCandidate).count()==2
+        assert db.query(Observation).count()==2 and db.query(EventCandidate).count()==1
         repeated=recover(db,batch['id'],evidence,allow_paused=True);db.commit()
         assert repeated['replayed'] and repeated['new_observations']==0
         assert db.query(Observation).count()==2

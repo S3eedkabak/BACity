@@ -21,7 +21,8 @@ class Proxy(socketserver.StreamRequestHandler):
             host,port=destination.rsplit(':',1)
         except (ValueError,UnicodeError):
             return
-        if method!='CONNECT' or host not in HOSTS or port!='443' or version not in ('HTTP/1.0','HTTP/1.1'):
+        image_host=host.endswith('.cdninstagram.com') or host.endswith('.fbcdn.net')
+        if method!='CONNECT' or (host not in HOSTS and not image_host) or port!='443' or version not in ('HTTP/1.0','HTTP/1.1'):
             self.wfile.write(b'HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\n'); return
         for _ in range(32):
             header=self.rfile.readline(2049)

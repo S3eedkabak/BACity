@@ -61,8 +61,13 @@ class PinnedHTTPS(http.client.HTTPSConnection):
             raw.close(); raise
 
 
-def fetch(url,*,max_bytes=MAX_BYTES,timeout=10):
-    parsed=checked_url(url)
+def fetch(url,*,max_bytes=MAX_BYTES,timeout=10,media=False):
+    if media:
+        from .scrapingant import media_reference
+        if not media_reference(url) or any(ord(c)<32 for c in url) or '\\' in url:
+            raise AccessFailure('access_denied')
+        parsed=urlsplit(url)
+    else:parsed=checked_url(url)
     proxy=os.getenv('SOCIAL_EGRESS_PROXY','')
     if proxy:
         p=urlsplit(proxy)
@@ -77,7 +82,7 @@ def fetch(url,*,max_bytes=MAX_BYTES,timeout=10):
         path=parsed.path or '/'
         if parsed.query:
             path+='?'+parsed.query
-        connection.request('GET',path,headers={'User-Agent':USER_AGENT,'Accept':'text/html,application/json,text/plain;q=0.8','Accept-Encoding':'identity'})
+        connection.request('GET',path,headers={'User-Agent':USER_AGENT,'Accept':'image/jpeg,image/png,image/webp' if media else 'text/html,application/json,text/plain;q=0.8','Accept-Encoding':'identity'})
         response=connection.getresponse()
         headers={key.lower():value for key,value in response.getheaders()}
         if response.status in (401,403,429):

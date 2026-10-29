@@ -182,7 +182,7 @@ def test_real_migrations_privilege_boundaries_audit_and_preserving_downgrade(mon
         migrate('upgrade','head')
         with db.connect() as c:
             assert c.execute(text('SELECT count(*) FROM l4_audit_events')).scalar()==preserved_audits
-            assert c.execute(text('SELECT version_num FROM alembic_version')).scalar()=='0028'
+            assert c.execute(text('SELECT version_num FROM alembic_version')).scalar()=='0029'
     finally:
         db.dispose()
         with admin.connect() as c:c.execute(text('DROP DATABASE '+name+' WITH (FORCE)'))

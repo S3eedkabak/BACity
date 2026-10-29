@@ -136,10 +136,11 @@ def legacy_phase(box,send,key,scraping_client=None):
     box.message('legacy:complete',job['id'],job['lease'],result,data_after=current)
 
 
-def cycle(box,send,key,*,apify_client=None,scraping_client=None):
+def cycle(box,send,key,*,apify_client=None,scraping_client=None,media_capture=None):
     # Known remote work can finish capture even while earlier gateway messages
     # are unavailable. Deliveries are ordered and always drain before new work.
     identity,data=box.load()
+    box.last_kind=data.get('kind') if data else None
     if data:
         if not data.get('done'):
             if data['kind']=='apify':
@@ -151,6 +152,12 @@ def cycle(box,send,key,*,apify_client=None,scraping_client=None):
                 except urllib.error.URLError:pass # Capture known work despite database downtime.
                 from .apify import Client
                 apify_phase(box,send,apify_client or Client(os.environ.get('APIFY_API_TOKEN','')))
+            elif data['kind']=='media':
+                if 'result' not in data:
+                    from .poster import bounded
+                    data['result']=(media_capture or bounded)(data['image']['url']);box.save(data)
+                after=copy.deepcopy(data);after['done']=True
+                box.message('media:complete',data['image']['id'],box.owner,data['result'],data_after=after)
             else:legacy_phase(box,send,key,scraping_client)
         box.flush(send)
         _,current=box.load()
@@ -161,9 +168,18 @@ def cycle(box,send,key,*,apify_client=None,scraping_client=None):
         result=send('/apify/lease',payload={'owner':box.owner,'cleanup_only':os.environ.get('APIFY_ENABLED','false').lower() not in ('true','1')})
         if result['run']:
             box.save({'kind':'apify','batch':result['run']});return cycle(box,send,key,apify_client=apify_client,scraping_client=scraping_client)
-    result=send('/lease',payload={})
+    try:result=send('/lease',payload={})
+    except urllib.error.HTTPError as error:
+        # Processing images already collected does not enable new source jobs.
+        if error.code!=503 or os.environ.get('SOCIAL_MEDIA_ENABLED','false').lower() not in ('true','1'):raise
+        result={'job':None}
     if result['job']:
         box.save({'kind':'legacy','job':result['job']});return cycle(box,send,key,apify_client=apify_client,scraping_client=scraping_client)
+    if os.environ.get('SOCIAL_MEDIA_ENABLED','false').lower() in ('true','1'):
+        result=send('/media/lease',payload={'owner':box.owner})
+        if result['image']:
+            box.save({'kind':'media','image':result['image']})
+            return cycle(box,send,key,media_capture=media_capture)
     return False
 
 
@@ -177,5 +193,5 @@ def run(key,once=False):
                 print('Social delivery paused; local outbox retained. Inspect outbox status and service health.',file=sys.stderr)
                 if once:return
             if once:return
-            time.sleep(30)
+            time.sleep(3 if getattr(box,'last_kind',None)=='media' else 30)
     finally:box.close()

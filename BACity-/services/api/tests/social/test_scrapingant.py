@@ -164,15 +164,15 @@ def test_real_pipeline_using_mocked_provider(provider):
     assert response.status_code==200,response.text
     assert response.json()['new_observations']==2
     with social.factory() as db:
-        assert db.query(Observation).count()==2 and db.query(EventCandidate).count()==2
+        assert db.query(Observation).count()==2 and db.query(EventCandidate).count()==1
         assert all(o.method=='scrapingant' and o.media for o in db.query(Observation))
         assert db.get(CollectionJob,job['id']).metrics['new_reels']==1
         from app.models.event import Event
         assert db.query(Event).count()==0
         for content in result['observations']:assert not stage(db,db.get(Publisher,publisher.id),content,'L4_WORKER',job=db.get(CollectionJob,job['id']))[1]
-        assert db.query(EventCandidate).count()==2
+        assert db.query(EventCandidate).count()==1
     assert worker.post('/jobs/'+job['id']+'/complete',json={**result,'lease':job['lease']}).json()['replayed']
-    ui=owner.get('/api/instagram-collection').json();assert ui['posts_discovered']==2 and ui['reels_discovered']==1 and ui['event_candidates']==2
+    ui=owner.get('/api/instagram-collection').json();assert ui['posts_discovered']==2 and ui['reels_discovered']==1 and ui['event_candidates']==1
     assert 'fixture-key' not in json.dumps(ui) and worker.get('/api/instagram-collection').status_code==404
 
 def test_daily_schedule_flags_suspension_and_expiry(provider,monkeypatch):
