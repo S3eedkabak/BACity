@@ -20,7 +20,8 @@ COMBINATIONS = [(BASE,), (BASE, SOCIAL), (BASE, SOCIAL, RUNTIME),
                 (BASE, SOCIAL, RUNTIME, PUBLIC), (PRODUCTION,)]
 
 
-def main():
+def prepare_compose_project(project):
+    """Copy configuration only; provide every service env_file synthetically."""
     values = {
         'POSTGRES_USER': 'ci_user', 'POSTGRES_PASSWORD': 'ci_password', 'POSTGRES_DB': 'bacity_ci',
         'APP_DOMAIN': 'app.bacity.test', 'API_DOMAIN': 'api.bacity.test',
@@ -33,24 +34,36 @@ def main():
     }
     for role in ['ADMIN', 'GATEWAY', 'RELAY', 'MAINTENANCE', 'PUBLIC_API']:
         values[f'SOCIAL_{role}_DATABASE_URL'] = 'postgresql+psycopg2://ci_user:ci_password@postgres:5432/bacity_ci'
-    # Config is evaluated from copies with no .env, social.env or production env.
+    for name in {name for combination in COMBINATIONS for name in combination}:
+        target = project / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(APP / name, target)
+    payload = ''.join(f'{key}={value}\n' for key, value in values.items())
+    # Compose 2.38 still checks service env_file existence with
+    # --no-env-resolution. Resolve generated fixtures on every version instead.
+    for name in ('ci.env', '.env', '.env.production'):
+        (project / name).write_text(payload)
+    return project / 'ci.env'
+
+
+def compose_environment():
+    environment = {key: os.environ[key] for key in ('PATH', 'HOME', 'TMPDIR', 'SYSTEMROOT') if key in os.environ}
+    environment['COMPOSE_DISABLE_ENV_FILE'] = '1'
+    environment['COMPOSE_PROJECT_NAME'] = 'bacity-ci-validation'
+    return environment
+
+
+def main():
+    # Only generated fixtures are read, never local .env or social.env files.
     # Docker config never starts services or contacts an application database.
     with tempfile.TemporaryDirectory(prefix='bacity-ci-compose-') as directory:
         project = Path(directory)
-        for name in {name for combination in COMBINATIONS for name in combination}:
-            target = project / name
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(APP / name, target)
-        env_file = project / 'ci.env'
-        env_file.write_text(''.join(f'{key}={value}\n' for key, value in values.items()))
-        environment = {key: os.environ[key] for key in ('PATH', 'HOME', 'TMPDIR', 'SYSTEMROOT') if key in os.environ}
-        environment['COMPOSE_DISABLE_ENV_FILE'] = '1'
-        environment['COMPOSE_PROJECT_NAME'] = 'bacity-ci-validation'
+        env_file = prepare_compose_project(project)
         for combination in COMBINATIONS:
             command = ['docker', 'compose', '--env-file', str(env_file), '--project-directory', str(project), '--profile', '*']
             for name in combination:
                 command += ['-f', str(project / name)]
-            subprocess.run(command + ['config', '--no-env-resolution', '--quiet'], env=environment, check=True)
+            subprocess.run(command + ['config', '--quiet'], env=compose_environment(), check=True)
             print('Valid Compose:', ' + '.join(combination), flush=True)
     profile = json.loads((APP / 'infrastructure/social/seccomp_profile.json').read_text())
     if profile['defaultAction'] != 'SCMP_ACT_ERRNO' or not profile['syscalls']:

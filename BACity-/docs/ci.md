@@ -28,6 +28,9 @@ port. Browser availability is checked before pytest; sandbox protections stay on
 Provider acquisition tests use existing mocks/fixtures and need no paid credentials.
 No local `.env`, `social.env`, production database, production secret or deployment
 is used. Compose validation uses copies and a temporary synthetic environment.
+The temporary project also generates synthetic `.env` and `.env.production`
+service files: runner Compose 2.38 checks their existence even when environment
+resolution is disabled. No owner environment file is copied or made optional.
 
 ## Commands
 
