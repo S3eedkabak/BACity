@@ -1,7 +1,8 @@
+import { themedStyles, useThemeRevision } from '../src/theme/appearance';
 import { useMemo, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { AnimatedPressable as Pressable } from '../src/components/motion/Motion';
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from '../src/components/navigation/ContentSafeArea';
 import { router } from "expo-router";
 import { AppIcon } from "../src/components/AppIcon";
 import { groupsApi, GroupSummary } from "../src/api/groups";
@@ -23,6 +24,7 @@ import { TemporalField } from '../src/components/TemporalField';
 const CATEGORIES: EventCategory[] = ["Music", "Culture", "Arts", "Nightlife", "Theatre", "Family", "Community", "Food & Drink"];
 
 function GroupRow({ item }: { item: GroupSummary }) {
+  useThemeRevision();
   return <Pressable onPress={() => router.push(groupRoute(item.id))} style={({ pressed }) => [styles.groupRow, pressed && styles.pressed]}>
     <View style={styles.groupIcon}><AppIcon name="people" size={20} color={colors.primaryDark} /></View>
     <View style={styles.groupCopy}><Text style={styles.groupName} numberOfLines={1}>{item.name}</Text><Text style={styles.groupMeta}>{groupStateLabel(item.status)} · {item.participant_count}/{item.max_participants} people</Text></View>
@@ -31,6 +33,7 @@ function GroupRow({ item }: { item: GroupSummary }) {
 }
 
 export default function GroupsScreen() {
+  useThemeRevision();
   const token = useAuthStore(state => state.token);
   const query = useGroups(!!token);
   const createMutation = useGroupMutation();
@@ -88,9 +91,9 @@ export default function GroupsScreen() {
   </ScrollView></KeyboardAvoidingView></SafeAreaView>;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   safe: { flex: 1, backgroundColor: colors.background }, center: { flex: 1, alignItems: "center", justifyContent: "center" }, content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 40 }, heading: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 28, marginTop: 10 }, subtitle: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, marginTop: 6 },
   card: { marginTop: 18, padding: 15, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: 11 }, cardTitle: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 17 }, helper: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18 }, split: { flexDirection: "row", gap: 9 }, flex: { flex: 1 }, chips: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
   codeBox: { padding: 11, borderRadius: 15, backgroundColor: colors.primarySoft }, codeLabel: { color: colors.textMuted, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 }, code: { color: colors.text, fontFamily: fonts.medium, fontSize: 12, marginTop: 6 }, link: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12, marginTop: 9 }, error: { color: colors.danger, fontFamily: fonts.medium, fontSize: 12, marginTop: 12 },
   section: { color: colors.textMuted, fontFamily: fonts.black, fontWeight: '800', fontSize: 12, letterSpacing: 1.2, marginTop: 24, marginBottom: 8 }, groupRow: { minHeight: 72, padding: 12, borderRadius: 19, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, flexDirection: "row", alignItems: "center", gap: 11, marginBottom: 8 }, pressed: { opacity: .7 }, groupIcon: { width: 42, height: 42, borderRadius: 15, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" }, groupCopy: { flex: 1 }, groupName: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 14 }, groupMeta: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, marginTop: 4 },
-});
+}));

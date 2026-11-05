@@ -69,7 +69,7 @@ def _safe_stats(stats):
 def report_run(api_url, token, seed, started, finished, success, stats, error):
     pages, items, accepted, rejected, extraction_errors, reasons = _safe_stats(stats)
     status = 'healthy' if success and accepted else 'empty' if success else 'timed_out' if error and 'timeout' in error else 'failed'
-    if success and (stats.get('finish_reason','finished') != 'finished' or stats.get('resource/item_limit') or stats.get('resource/page_limit')):
+    if success and (stats.get('finish_reason','finished') != 'finished' or stats.get('resource/item_limit') or stats.get('resource/page_limit') or stats.get('source/pagination_not_found')):
         status = 'partial'  # A quota-limited scan cannot establish upstream absence.
     body = {'name': seed.name, 'domain': seed.domain, 'base_url': seed.base_url, 'event_url': seed.event_url,
             'source_type': seed.source_type, 'language': seed.language, 'parser': seed.parser,
@@ -82,7 +82,7 @@ def report_run(api_url, token, seed, started, finished, success, stats, error):
             'skip_reasons': reasons, 'error': (error or '')[:2000] or None,
             'quality_metrics': {**{k.removeprefix('quality/'):float(v) for k,v in stats.items() if k.startswith('quality/') and isinstance(v,(int,float))},
                                 'crawl_duration_seconds':max(0,finished-started),
-                                **{k:float(stats.get(k,0)) for k in ('pipeline/raw_listings','pipeline/normalized_listings','extraction/raw','ingestion/queued','ingestion/delivered','ingestion/pending','extraction/unsupported_pages','source/request_errors','geocoding/requests','geocoding/errors','geocoding/cache_hit','geocoding/deferred')}}}
+                                **{k:float(stats.get(k,0)) for k in ('pipeline/raw_listings','pipeline/normalized_listings','extraction/raw','ingestion/queued','ingestion/delivered','ingestion/pending','extraction/unsupported_pages','source/request_errors','source/pagination_not_found','geocoding/requests','geocoding/errors','geocoding/cache_hit','geocoding/deferred')}}}
     response = requests.post(f"{api_url.rstrip('/')}/crawler/runs", json=body,
                              headers={'X-Ingestion-Key': token} if token else {}, timeout=20)
     response.raise_for_status()

@@ -8,8 +8,9 @@ import { useFocusEffect } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as eventsApi from "../api/events";
-import { EventListParams, EventListResponse } from "../types/event";
+import { EventListParams, EventListResponse, EventOut } from "../types/event";
 import { useAuthStore } from "../store/authStore";
+import { createActionGate, applySaved } from '../interactions/policy';
 import { withLoadingTestDelay } from '../loading/development';
 
 export function useEvents(params: EventListParams = {}) {
@@ -61,16 +62,44 @@ export function useSavedEvents() {
   });
 }
 
+const saveGates = new WeakMap<object, ReturnType<typeof createActionGate>>();
 export function useToggleSaveEvent() {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, saved }: { id: string; saved: boolean }) =>
-      saved ? eventsApi.unsaveEvent(id) : eventsApi.saveEvent(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["saved-events"] });
-      queryClient.invalidateQueries({ queryKey: ["recommendations"] });
-      queryClient.invalidateQueries({ queryKey: ["tonight"] });
-      queryClient.invalidateQueries({ queryKey: ["event-chains"] });
+  let gate = saveGates.get(queryClient);
+  if (!gate) { gate = createActionGate(); saveGates.set(queryClient, gate); }
+  const mutation = useMutation({
+    mutationKey: ['save-event'],
+    mutationFn: async ({ id, saved, event, desiredSaved }: { id: string; saved: boolean; event?: EventOut; desiredSaved?: boolean }) => {
+      await queryClient.cancelQueries({ queryKey: ['saved-events'] });
+      const prior = queryClient.getQueryData<EventOut[]>(['saved-events']);
+      const previousEvent = prior?.find(item => item.id === id);
+      const currentSaved = prior ? !!previousEvent : saved;
+      const nextSaved = desiredSaved ?? !currentSaved;
+      const item = event ?? previousEvent ?? queryClient.getQueryData<EventOut>(['event', id]);
+      if (item && prior) queryClient.setQueryData(['saved-events'], applySaved(prior, item, nextSaved));
+      try {
+        if (nextSaved) await eventsApi.saveEvent(id); else await eventsApi.unsaveEvent(id);
+        if (!nextSaved && item) queryClient.setQueryData(['saved-undo'], item);
+      } catch (error) {
+        // Undo only this event: concurrent operations on other events survive.
+        if (item && prior) queryClient.setQueryData<EventOut[]>(['saved-events'], (current: EventOut[] | undefined) => applySaved(current, item, currentSaved));
+        throw error;
+      }
+    },
+    onSettled: (_data, _error, variables) => {
+      gate!.leave(variables.id);
+      // The last outstanding mutation reconciles the shared library once.
+      if (queryClient.isMutating({ mutationKey: ['save-event'] }) <= 1) {
+        for (const queryKey of [['saved-events'], ['area-saved'], ['recommendations'], ['tonight'], ['event-chains']]) void queryClient.invalidateQueries({ queryKey });
+      }
     },
   });
+  return { ...mutation,
+    mutate: (...args: Parameters<typeof mutation.mutate>) => { if (gate!.enter(args[0].id)) mutation.mutate(...args); },
+    mutateAsync: (...args: Parameters<typeof mutation.mutateAsync>) => {
+      if (!gate!.enter(args[0].id)) return Promise.resolve();
+      return mutation.mutateAsync(...args);
+    },
+  };
+
 }

@@ -186,3 +186,77 @@ def test_worker_lock_prevents_overlap(tmp_path):
         with pytest.raises(Timeout):
             with FileLock(lock, timeout=0):
                 raise AssertionError('second worker acquired the lock')
+
+
+@pytest.mark.parametrize('address', ['Bratislava', ' Bratislava 1 ', 'Slovakia', None])
+def test_city_only_address_geocodes_named_venue_not_city_negative_cache(tmp_path, monkeypatch, address):
+    monkeypatch.setenv('CRAWLER_STATE_PATH', str(tmp_path / 'geo.db'))
+    spider = SimpleNamespace(settings={'GEOCODER_URL': 'https://geo.example/search', 'GEOCODER_USER_AGENT': 'test'})
+    get = Mock(return_value=Mock(status_code=200, raise_for_status=lambda: None,
+                                json=lambda: [{'lat': '48.15', 'lon': '17.12', 'addresstype': 'theatre'}]))
+    monkeypatch.setattr(requests, 'get', get)
+    pipeline = GeocodePipeline()
+    pipeline.open_spider(spider)
+    with pipeline.state.db:
+        pipeline.state.db.execute("INSERT OR REPLACE INTO geocache VALUES('bratislava',NULL,NULL,NULL)")
+    item = SimpleNamespace(venue_name='Štúdio L + S', address=address, latitude=None, longitude=None)
+    pipeline.process_item(item, spider)
+    assert get.call_args.kwargs['params']['q'] == 'Štúdio L + S, Bratislava'
+    assert (item.latitude, item.longitude) == (48.15, 17.12)
+    pipeline.close_spider(spider)
+
+
+def test_publisher_locality_cannot_be_reinterpreted_as_bratislava_street(tmp_path, monkeypatch):
+    monkeypatch.setenv('CRAWLER_STATE_PATH', str(tmp_path / 'geo.db'))
+    spider = SimpleNamespace(settings={'GEOCODER_URL': 'https://geo.example/search', 'GEOCODER_USER_AGENT': 'test'})
+    get = Mock(return_value=Mock(status_code=200, raise_for_status=lambda: None,
+                                json=lambda: [{'lat': '48.14', 'lon': '17.11', 'addresstype': 'theatre', 'address': {'city': 'Bratislava'}}]))
+    monkeypatch.setattr(requests, 'get', get)
+    pipeline = GeocodePipeline();pipeline.open_spider(spider)
+    item = SimpleNamespace(venue_name='Divadlo', address='Nitra', address_locality='Nitra', latitude=None, longitude=None)
+    pipeline.process_item(item, spider)
+    assert get.call_args.kwargs['params']['q'] == 'Divadlo, Nitra'
+    assert item.latitude is None and item.longitude is None
+    pipeline.close_spider(spider)
+
+
+def test_administrative_centroid_is_never_an_event_location(tmp_path, monkeypatch):
+    monkeypatch.setenv('CRAWLER_STATE_PATH', str(tmp_path / 'geo.db'))
+    spider = SimpleNamespace(settings={'GEOCODER_URL': 'https://geo.example/search', 'GEOCODER_USER_AGENT': 'test'})
+    get = Mock(return_value=Mock(status_code=200, raise_for_status=lambda: None,
+                                json=lambda: [{'lat': '48.14', 'lon': '17.11', 'addresstype': 'city_district'}]))
+    monkeypatch.setattr(requests, 'get', get)
+    pipeline=GeocodePipeline();pipeline.open_spider(spider)
+    item=SimpleNamespace(venue_name='Incheba Expo Aréna',address='Bratislava 5 - Petržalka',latitude=None,longitude=None)
+    pipeline.process_item(item,spider)
+    assert get.call_args.kwargs['params']['q'] == 'Incheba Expo Aréna, Bratislava'
+    assert item.latitude is None
+    pipeline.close_spider(spider)
+
+
+def test_verified_named_venue_resolves_city_only_publisher_address(tmp_path,monkeypatch):
+    monkeypatch.setenv('CRAWLER_STATE_PATH',str(tmp_path/'geo.db'))
+    spider=SimpleNamespace(settings={'GEOCODER_URL':'https://geo.example/search','GEOCODER_USER_AGENT':'test'})
+    get=Mock(return_value=Mock(status_code=200,raise_for_status=lambda:None,json=lambda:[{'lat':'48.15','lon':'17.12','addresstype':'building'}]))
+    monkeypatch.setattr(requests,'get',get)
+    pipeline=GeocodePipeline();pipeline.open_spider(spider)
+    item=SimpleNamespace(venue_name='Veľké koncertné štúdio Slov. rozhlasu',address='Bratislava',latitude=None,longitude=None)
+    pipeline.process_item(item,spider)
+    assert get.call_args.kwargs['params']['q']=='Mýtna 1, Bratislava'
+    assert item.address=='Mýtna 1, Bratislava' and item.latitude==48.15
+    pipeline.close_spider(spider)
+
+
+def test_oaza_uses_its_published_market_address_instead_of_negative_venue_cache(tmp_path,monkeypatch):
+    monkeypatch.setenv('CRAWLER_STATE_PATH',str(tmp_path/'geo.db'))
+    spider=SimpleNamespace(settings={'GEOCODER_URL':'https://geo.example/search','GEOCODER_USER_AGENT':'test'})
+    get=Mock(return_value=Mock(status_code=200,raise_for_status=lambda:None,json=lambda:[{'lat':'48.14','lon':'17.11','addresstype':'building'}]))
+    monkeypatch.setattr(requests,'get',get)
+    pipeline=GeocodePipeline();pipeline.open_spider(spider)
+    with pipeline.state.db:
+        pipeline.state.db.execute("INSERT INTO geocache VALUES(?,NULL,NULL,NULL)",('komunitné centrum oáza, stará tržnica',))
+    item=SimpleNamespace(venue_name='Komunitné centrum Oáza, Stará Tržnica',address=None,latitude=None,longitude=None)
+    pipeline.process_item(item,spider)
+    assert get.call_args.kwargs['params']['q']=='Námestie SNP 25, Bratislava'
+    assert item.latitude==48.14 and item.longitude==17.11
+    pipeline.close_spider(spider)

@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../src/theme/appearance';
 import { useEffect, useState } from 'react';
 import { Text } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
@@ -7,11 +8,13 @@ import { PrivacyRequest } from '../src/api/privacy';
 import { useAuthStore } from '../src/store/authStore';
 
 export default function PrivacyAdmin() {
+  useThemeRevision();
   const owner = useAuthStore(state => state.user?.id);
   return <PrivacyAdminContent key={owner || 'guest'} />;
 }
 
 function PrivacyAdminContent() {
+  useThemeRevision();
   const user = useAuthStore(state => state.user);
   const allowed = user?.role === 'ADMIN';
   const [selected, setSelected] = useState('');

@@ -1,5 +1,6 @@
 """Schema.org microdata fallback for sites without JSON-LD."""
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
+import re
 from bs4 import BeautifulSoup
 from crawler.items import RawEvent
 
@@ -30,8 +31,13 @@ def extract_microdata_events(html, source_url):
         except ValueError:
             pass
         image = value('image')
+        address = value('address')
+        locality = value('addressLocality')
+        # Ticketportal's Event.address is the city label, not a street address.
+        if not locality and (urlsplit(source_url).hostname or '').endswith('ticketportal.sk') and address and not re.search(r'\d', address):
+            locality = address
         events.append(RawEvent(title=title_tag.get_text(' ', strip=True), start_raw=start, end_raw=value('endDate'),
-                               description=value('description'), venue_name=venue, address=value('address'),
+                               description=value('description'), venue_name=venue, address=address, address_locality=locality,
                                latitude=lat, longitude=lng, image_url=urljoin(source_url, image) if image else None,
                                price_raw=' '.join(filter(None, [value('price'), value('priceCurrency')])),
                                source_url=source_url, extraction_method='microdata', extraction_confidence=.85))

@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../../src/theme/appearance';
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Text } from 'react-native';
@@ -5,6 +6,7 @@ import { useState } from 'react';
 import { apiRequest } from '../../src/api/client';
 import { Page, Card, Button, Notice, ui } from '../../src/components/CommunityUI';
 export default function Utility() {
+  useThemeRevision();
   const { id, kind } = useLocalSearchParams<{ id: string; kind?: string }>();
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);

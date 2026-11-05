@@ -1,3 +1,4 @@
+import { themedStyles, useThemeRevision } from '../theme/appearance';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useStartupLoading } from './loading/LoadingExperience';
@@ -6,6 +7,7 @@ import { colors } from '../theme/colors';
 import { tokens } from '../theme/tokens';
 /** No intro/minimum startup duration. Routing/cache readiness remains authoritative. */
 export function StartupScene({ ready, onRetry }: { ready: boolean; onRetry: () => void }) {
+  useThemeRevision();
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   useStartupLoading(!ready && !failed);
@@ -19,4 +21,4 @@ export function StartupScene({ ready, onRetry }: { ready: boolean; onRetry: () =
     <AnimatedPressable accessibilityRole="button" onPress={() => { setFailed(false); setAttempt(value => value + 1); onRetry(); }} style={styles.retry}><Text style={styles.text}>Try again</Text></AnimatedPressable>
   </View>;
 }
-const styles = StyleSheet.create({ error: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', gap: 20, zIndex: 90 }, text: { color: colors.text }, retry: { backgroundColor: colors.primary, borderRadius: 12, padding: 20, minHeight: 48 } });
+const styles = themedStyles(() => ({ error: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', gap: 20, zIndex: 90 }, text: { color: colors.text }, retry: { backgroundColor: colors.primary, borderRadius: 12, padding: 20, minHeight: 48 } }));

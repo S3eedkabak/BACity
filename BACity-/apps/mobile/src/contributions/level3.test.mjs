@@ -11,7 +11,7 @@ test('community source evidence is optional, explicit and transmitted', () => {
 
 test('sourceless events cannot open an empty original link', () => {
   const screen = readFileSync(new URL('../../app/event/[id].tsx', import.meta.url), 'utf8');
-  assert.match(screen, /!!event.source_url && <Pressable/);
+  assert.match(screen, /!!event.source_url\s*&&\s*(?:\(\s*)?<Pressable/);
   assert.match(screen, /Linking.openURL\(event.source_url\)/);
 });
 

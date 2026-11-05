@@ -1,3 +1,6 @@
+import { TabScene } from '../components/navigation/SceneMotion';
+import { AppTextField } from '../components/interactions/AppTextField';
+import { themedStyles, useThemeRevision } from '../theme/appearance';
 import { CITY_NORTH_EAST, CITY_SOUTH_WEST, cityOverviewPadding } from './cityOverview';
 import { restroomImages } from './restroomImage';
 import { useEventTarget } from './eventTarget';
@@ -39,6 +42,7 @@ import {
 } from "./mapCache";
 import { EMPTY_MAP, areaRoute, clusterProperties, clusterCamera, type MapFilters as Filters, type MapProperties } from './area';
 import { MapFilters } from './MapFilters';
+import { appliedFilterLabels, filterSummary } from './filterSummary';
 import { districtBoundaryLines, districtInkExpression } from './districtGeometry';
 import { districtHeaderHeight, morphRings, type ProjectionFrame } from './districtMorphGeometry';
 import { useDistrictMorph } from './districtMorphState';
@@ -100,7 +104,8 @@ function distanceKm(a: Coordinates, b: Coordinates) {
   return 2 * earthRadiusKm * Math.asin(Math.sqrt(haversine));
 }
 
-export default function MapScreen() {
+function MapScreen() {
+  useThemeRevision();
   const queryClient = useQueryClient();
   const focused = useIsFocused();
   const target=useEventTarget(state=>state.target);
@@ -135,7 +140,7 @@ export default function MapScreen() {
   const morphRestore=useDistrictMorph(state=>state.restore);
   const markerPressedAt=useRef(0);
   const districtNavigation=useRef<ReturnType<typeof setTimeout>|null>(null);
-  const [filtersOpen,setFiltersOpen] = useState(false);
+  const [filtersOpen,setFiltersOpen] = useState(false); const [filterEditorOpen,setFilterEditorOpen] = useState(false);
   const initialCamera = useRef(mapSession.camera);
   useEffect(()=>{mapSession.filters=filters;mapSession.selectedDistrict=selectedDistrict;if(!target){mapSession.bounds=mapBounds;mapSession.zoom=zoomLevel;}},[filters,mapBounds,zoomLevel,selectedDistrict,target]);
   const [selectedCluster,setSelectedCluster] = useState<MapProperties|null>(null);
@@ -247,7 +252,7 @@ export default function MapScreen() {
     enabled:nearMeActive&&roundedLocation!=null,staleTime:2*60_000,gcTime:60000});
   const allCityQuery = useQuery({queryKey:['map-identities','all-city',eventFilters],
     queryFn:({signal})=>mapClusters({min_lat:48,max_lat:48.35,min_lng:16.9,max_lng:17.35},0,eventFilters,signal),
-    enabled:filtersOpen&&!nearMeActive,staleTime:30000,gcTime:60000});
+    enabled:filtersOpen&&!nearMeActive,staleTime:30000,gcTime:60000,refetchInterval:focused&&filtersOpen?30000:false});
   const browseSummary=nearMeActive?nearbySummary:allCityQuery;
   const districtQuery = useQuery({queryKey:['map-district-identities',eventFilters],
     queryFn:({signal})=>mapDistricts(eventFilters,signal),enabled:zoomLevel<=14||selectedDistrict!=null,staleTime:30000,gcTime:60000,refetchInterval:focused?60000:false});
@@ -358,7 +363,21 @@ export default function MapScreen() {
     return {...data,features:[...context,...data.features.map(feature=>({...feature,properties:{...feature.properties,
       nearby:nearMeActive||!!currentLocation&&distanceKm(currentLocation,{latitude:feature.geometry.coordinates[1],longitude:feature.geometry.coordinates[0]})<=NEARBY_RADIUS_KM}}))]};
   },[eventViewport.data,filters,activeFilters,currentLocation,nearMeActive,clusterKey,savedClusters]);
+  const appliedLabels = appliedFilterLabels(filters);
+  const filtersApplied = appliedLabels.length > 0;
+  const filterInk = filtersApplied ? colors.textInverse : colors.text;
   const eventTotal=nearMeActive?(nearbySummary.data?.total??0):eventShape.total;
+  const citySummaryBehind = !nearMeActive && browseSummary.data != null && browseSummary.data.total < eventTotal;
+  const syncedViewport = useRef(0);
+  useEffect(()=>{
+    if(filtersOpen && citySummaryBehind && syncedViewport.current !== eventViewport.dataUpdatedAt){
+      syncedViewport.current = eventViewport.dataUpdatedAt;
+      void allCityQuery.refetch();
+    }
+  },[filtersOpen,citySummaryBehind,eventViewport.dataUpdatedAt]);
+  const countLabel = filters!==activeFilters || eventViewport.isPending || eventViewport.isPlaceholderData
+    ? 'Updating events…' : eventViewport.isError && !eventViewport.data && !savedClusters
+      ? 'Event count unavailable' : `${eventTotal} ${eventTotal===1?'event':'events'} in this area`;
   const areaToken=nearMeActive?nearbySummary.data?.area_token:eventShape.area_token;
   const pins = eventShape.features;
   const nearbyPins = pins;
@@ -675,17 +694,30 @@ export default function MapScreen() {
         </>:null}
         </View>
       </Reveal>}
-      <OverflowMenu visible={filtersOpen} title="Map events" onClose={()=>setFiltersOpen(false)}>
-        <MapFilters value={filters} onChange={setFilters}/>
-        <ListItem icon="map-outline" title={filters!==activeFilters||browseSummary.isFetching?'Updating city events…':`Browse all ${browseSummary.data?.total??'city'} events`} onPress={()=>{if(filters===activeFilters&&!browseSummary.isFetching&&browseSummary.data?.area_token){setFiltersOpen(false);router.push(areaRoute(browseSummary.data!.area_token,eventFilters));}}}/>
+      <OverflowMenu visible={filtersOpen} title={filterEditorOpen?"Event filters":"Map events"} onClose={()=>{setFiltersOpen(false);setFilterEditorOpen(false);}}>
+        {filterEditorOpen ? <MapFilters value={filters} onChange={setFilters} onDone={()=>{setFilterEditorOpen(false);setFiltersOpen(false);}}/> : <><AppTextField label="Search events" value={filters.q||''} onChangeText={q=>setFilters({...filters,q})}/><ListItem icon="options-outline" title="Filters" subtitle={filterSummary(filters)} onPress={()=>setFilterEditorOpen(true)}/>{Object.values(filters).some(Boolean)&&<ListItem icon="close" title="Clear event filters" onPress={()=>setFilters({})}/>}<Text style={{color:colors.textMuted,fontSize:13,lineHeight:19}}>The map shows current events with a confirmed location. Explore also includes events awaiting a map location.</Text><ListItem icon="search" title="Explore all current events" onPress={()=>{setFiltersOpen(false);router.push("/(tabs)/explore");}}/>
+        <ListItem icon="map-outline" title={filters!==activeFilters||browseSummary.isFetching||citySummaryBehind?'Updating city events…':`Browse ${browseSummary.data?.total??'city'} mapped events`} onPress={()=>{if(filters===activeFilters&&!browseSummary.isFetching&&!citySummaryBehind&&browseSummary.data?.area_token){setFiltersOpen(false);router.push(areaRoute(browseSummary.data!.area_token,eventFilters));}}}/>
 
-        <ListItem icon="calendar-outline" title={filters!==activeFilters||eventViewport.isFetching?'Updating area events…':`Browse ${eventTotal} events in this area`} onPress={()=>{setFiltersOpen(false);if(filters===activeFilters&&!eventViewport.isFetching&&areaToken)router.push(areaRoute(areaToken,eventFilters));}}/>
-      </OverflowMenu>
+        <ListItem icon="calendar-outline" title={filters!==activeFilters||eventViewport.isFetching?'Updating area events…':`Browse ${eventTotal} ${eventTotal===1?'event':'events'} in this area`} onPress={()=>{setFiltersOpen(false);if(filters===activeFilters&&!eventViewport.isFetching&&areaToken)router.push(areaRoute(areaToken,eventFilters));}}/>
+      </>}</OverflowMenu>
       <OverflowMenu visible={!!selectedCluster} title={`${selectedCluster?.count||0} events near this area`} onClose={()=>setSelectedCluster(null)}>
         <ListItem icon="calendar-outline" title="View events" onPress={()=>{if(selectedCluster)router.push(areaRoute(selectedCluster.area_token,eventFilters));setSelectedCluster(null);}}/>
 
       </OverflowMenu>
 
+      {!target && !showUtilities && <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={"Map event filters and area events" + (filtersApplied ? ". Applied: " + appliedLabels.join(", ") : ". No filters applied")}
+        accessibilityState={{ expanded: filtersOpen }}
+        onPress={()=>{setFilterEditorOpen(false);setFiltersOpen(true);}}
+        style={{position:'absolute',bottom:12,left:16,right:76,minHeight:68,paddingHorizontal:16,paddingVertical:12,borderRadius:18,backgroundColor:filtersApplied?colors.text:colors.background,shadowOpacity:.15,shadowRadius:12,flexDirection:'row',alignItems:'center',gap:12}}>
+        <AppIcon name={filtersApplied ? "options-outline" : "calendar-outline"} size={22} color={filtersApplied ? filterInk : colors.primaryDark}/>
+        <View style={{flex:1}}>
+          <Text style={{color:filterInk,fontWeight:'600',fontSize:16}}>{countLabel}</Text>
+          <Text numberOfLines={1} style={{color:filtersApplied?filterInk:colors.textMuted,fontSize:12,marginTop:4}}>{filtersApplied ? appliedLabels.join(' · ') : 'All events · Filters'}</Text>
+        </View>
+        <AppIcon name="chevron-up" size={18} color={filtersApplied?filterInk:colors.textMuted}/>
+      </Pressable>}
       <View pointerEvents="box-none" style={StyleSheet.absoluteFillObject}>
         <View pointerEvents="box-none" style={[styles.topControls, { top: insets.top + 12 }]}>
           <Pressable
@@ -699,9 +731,6 @@ export default function MapScreen() {
           </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Browse all city utilities" onPress={() => router.push("/utilities")} style={styles.controlButton}>
             <AppIcon name="grid-outline" size={21} color={colors.text} />
-          </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel="Map event filters and area events" onPress={()=>setFiltersOpen(true)} style={[styles.controlButton, Object.values(filters).some(value => value != null && value !== '') && styles.layerButtonActive]}>
-            <AppIcon name="options-outline" size={21} color={colors.text} />
           </Pressable>
         </View>
         <View style={[styles.controls, { bottom: Math.max(24, insets.bottom + 16) }, target && {bottom:insets.bottom+160+previewHeight}]}>
@@ -733,7 +762,7 @@ export default function MapScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   container: { flex: 1, backgroundColor: colors.mapWater },
   topControls: {
     position: "absolute",
@@ -786,4 +815,6 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     paddingVertical: 8,
   },
-});
+}));
+
+export default function AnimatedMapScreen() { return <TabScene><MapScreen /></TabScene>; }

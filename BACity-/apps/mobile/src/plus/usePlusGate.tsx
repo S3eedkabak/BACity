@@ -1,11 +1,14 @@
 import { ReactNode, useCallback } from "react";
-import { router } from "expo-router";
+import { router, useRootNavigationState } from "expo-router";
+import { useAuthStore } from "../store/authStore";
 import { useEntitlements } from "../hooks/useEntitlements";
 import { PlusFeature, resolvePlusAction, resolvePlusGate } from "./policy";
 
 export function usePlusGate() {
   const entitlements = useEntitlements();
-  const decision = resolvePlusGate({
+  const navigation = useRootNavigationState();
+  const restoringSession = useAuthStore(state => state.isLoading);
+  const decision = !navigation?.key || restoringSession ? "loading" : resolvePlusGate({
     authenticated: entitlements.authenticated,
     pending: entitlements.authenticated && entitlements.isPending,
     failed: entitlements.isError,

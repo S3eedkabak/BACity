@@ -69,6 +69,9 @@ def test_a4_html_uses_event_permalink_and_own_header_only():
     raw=extract_source_html(html,url)[0];e=normalize_event(raw)
     assert e.start_time=='2027-10-24T19:00:00+02:00' and e.end_time is None
     assert 'Bratislava' in e.address
+    assert e.address == 'Karpatská 2 (budova YMCA) 811 05 Bratislava 1'
+    polluted = html.replace('<div><p>A4</p>', '<div><nav>Program Novinky Kontakty</nav><p>A4</p>')
+    assert 'Kontakty' not in normalize_event(extract_source_html(polluted, url)[0]).address
     assert extract_source_html(html,'https://a4.sk/news/2027/10/24/story')==[]
     assert extract_source_html(html.replace('sobota o 19:00','sobota'),url)==[]
 
@@ -364,3 +367,59 @@ def test_dns_cache_pins_public_connections_but_revalidates_redirects_and_expiry(
     guard.public_addresses['hall.example']=(0,'93.184.216.34')
     with pytest.raises(IgnoreRequest):
         asyncio.run(guard.process_request(Request('https://hall.example/events/new'),SimpleNamespace()))
+
+
+def test_structured_parser_does_not_impose_candidate_limit_on_scheduled_crawl():
+    from crawler.pipelines import crawl_item_limit
+    source = SimpleNamespace(parser='structured')
+    assert crawl_item_limit(SimpleNamespace(sources=[source])) == 1000
+    assert crawl_item_limit(SimpleNamespace(sources=[source], inspection=False)) == 1000
+    assert crawl_item_limit(SimpleNamespace(sources=[source], inspection=True)) == 100
+
+
+def test_a4_archive_links_cannot_spend_current_crawl_page_budget():
+    from datetime import date, timedelta
+    from zoneinfo import ZoneInfo
+    from datetime import datetime
+    past=datetime.now(ZoneInfo('Europe/Bratislava')).date()-timedelta(days=30)
+    future=past+timedelta(days=60)
+    assert navigation_url(f'https://a4.sk/events/{past:%Y/%m/%d}/archived/', 'a4.sk') is None
+    assert navigation_url(f'https://a4.sk/events/{future:%Y/%m/%d}/current/', 'a4.sk')
+    assert navigation_url('https://a4.sk/en/events/page/2/', 'a4.sk')
+
+
+def test_foreign_publisher_city_is_rejected_before_any_geocoder_request():
+    from crawler.pipelines import PreValidatePipeline
+    from scrapy.exceptions import DropItem
+    stats=Mock();stats.get_value.return_value=0
+    spider=SimpleNamespace(sources=[SimpleNamespace(parser='structured')],crawler=SimpleNamespace(stats=stats))
+    item=SimpleNamespace(address_locality='Nitra',latitude=None,longitude=None)
+    with pytest.raises(DropItem,match='outside Bratislava'):
+        PreValidatePipeline().process_item(item,spider)
+    stats.inc_value.assert_any_call('validation/rejected/no_local_evidence')
+
+
+def test_missing_pagination_reports_partial_coverage_not_source_outage(monkeypatch):
+    from crawler.worker import report_run
+    post=Mock(return_value=Mock(raise_for_status=lambda:None))
+    monkeypatch.setattr('crawler.worker.requests.post',post)
+    report_run('https://api.example','',ACTIVE_SOURCES[0],0,2,True,
+               {'finish_reason':'finished','item_scraped_count':4,'source/pagination_not_found':3},None)
+    body=post.call_args.kwargs['json']
+    assert body['status']=='partial' and body['success'] is True
+    assert body['extraction_errors']==0
+    assert body['quality_metrics']['source/pagination_not_found']==3
+
+
+def test_municipal_calendar_does_not_make_verified_foreign_venue_local():
+    from crawler.items import RawEvent
+    from crawler.pipelines import PreValidatePipeline
+    from scrapy.exceptions import DropItem
+    event=normalize_event(RawEvent(title='A partner performance',start_raw='2027-11-21T19:00',
+                                  venue_name='Rosenfeldov palác',source_url='https://bratislava.sk/program/example',
+                                  extraction_confidence=.9))
+    assert event.address_locality=='Žilina'
+    stats=Mock();stats.get_value.return_value=0
+    spider=SimpleNamespace(sources=[SimpleNamespace(parser='city')],crawler=SimpleNamespace(stats=stats))
+    with pytest.raises(DropItem,match='outside Bratislava'):
+        PreValidatePipeline().process_item(event,spider)

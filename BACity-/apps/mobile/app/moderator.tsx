@@ -1,7 +1,8 @@
+import { themedStyles, useThemeRevision } from '../src/theme/appearance';
 import { useEffect, useState } from "react";
 import { FlatList, StyleSheet, Text, TextInput, View } from "react-native";
 import { externalLinking as Linking } from "../src/api/externalLinking";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from '../src/components/navigation/ContentSafeArea';
 import { apiRequest } from "../src/api/client";
 import { Button, Chip } from "../src/components/CommunityUI";
 import { EmptyState } from "../src/components/EmptyState";
@@ -20,6 +21,7 @@ const PATHS: Record<Mode, string> = {
 };
 
 export default function ModeratorScreen() {
+  useThemeRevision();
   const user = useAuthStore(state => state.user);
   const [mode, setMode] = useState<Mode>("submissions");
   const [items, setItems] = useState<any[]>([]);
@@ -84,4 +86,4 @@ export default function ModeratorScreen() {
   </SafeAreaView>;
 }
 
-const styles = StyleSheet.create({ safe: { flex: 1, backgroundColor: colors.background }, chips: { flexDirection: "row", flexWrap: "wrap", gap: 7, paddingHorizontal: 18, paddingBottom: 10 }, content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 28, flexGrow: 1 }, error: { color: colors.danger, paddingHorizontal: 18 }, input: { minHeight: 80, borderWidth: 1, borderColor: colors.border, borderRadius: 17, backgroundColor: colors.surface, padding: 12, color: colors.text, textAlignVertical: "top", marginVertical: 10 }, item: { paddingBottom: 18 }, detail: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, marginLeft: 56 }, history: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, marginLeft: 56, marginTop: 5 }, link: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12, marginLeft: 56, marginTop: 6 }, actions: { flexDirection: "row", gap: 8, marginTop: 10 }, action: { flex: 1 } });
+const styles = themedStyles(() => ({ safe: { flex: 1, backgroundColor: colors.background }, chips: { flexDirection: "row", flexWrap: "wrap", gap: 7, paddingHorizontal: 18, paddingBottom: 10 }, content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 28, flexGrow: 1 }, error: { color: colors.danger, paddingHorizontal: 18 }, input: { minHeight: 80, borderWidth: 1, borderColor: colors.border, borderRadius: 17, backgroundColor: colors.surface, padding: 12, color: colors.text, textAlignVertical: "top", marginVertical: 10 }, item: { paddingBottom: 18 }, detail: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, marginLeft: 56 }, history: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, marginLeft: 56, marginTop: 5 }, link: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12, marginLeft: 56, marginTop: 6 }, actions: { flexDirection: "row", gap: 8, marginTop: 10 }, action: { flex: 1 } }));

@@ -7,14 +7,18 @@ test('map cleanup retains caching, utility clustering and accessible icon contro
   const source=await read('./MapScreen.tsx');
   assert.match(source,/https:\/\/tiles.openfreemap.org\/styles\/liberty/);
   for(const label of ['Show public toilet map layer','Hide public toilet map layer','Browse all city utilities','Map event filters and area events','Recenter map to show all Bratislava'])assert.ok(source.includes(label),label);
-  for(const removed of ['Search events','Show events near me','Zoom in','Zoom out','events on the map','Find events','Filters / Area'])assert.ok(!source.includes(removed),removed);
+  for(const removed of ['Show events near me','Zoom in','Zoom out','events on the map','Find events','Filters / Area'])assert.ok(!source.includes(removed),removed);
   assert.match(source,/accessibilityState=\{\{ selected: showUtilities \}\}/);
   assert.match(source,/iconImage: "restroom"/);
   assert.doesNotMatch(source,/circleColor: colors.free/);
   assert.match(source,/clusterMaxZoomLevel=\{14\}/);
   assert.match(source,/mergeViewportUtilities/);
   assert.match(source,/OfflineManager.setMaximumAmbientCacheSize/);
-  // Network errors remain visible without a permanent event-count banner.
+  // Search is disclosed inside the events sheet; a compact tray preserves the map.
+  assert.match(source, /<AppTextField label="Search events"/);
+  assert.match(source, /filterEditorOpen/);
+  assert.match(source, /<MapFilters value=\{filters\}/);
+  // Network errors remain visible alongside the collapsed browsing tray.
   assert.match(source,/dataUnavailable \|\| basemapUnavailable \|\| \(isRefreshing && !hasCachedLayer\)/);
   assert.match(source,/cameraRef.current\?\.fitBounds\(/);
 });

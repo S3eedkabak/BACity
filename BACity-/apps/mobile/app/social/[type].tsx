@@ -1,6 +1,7 @@
+import { themedStyles, useThemeRevision } from '../../src/theme/appearance';
 import { useCallback, useEffect, useState } from "react";
 import { FlatList, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from '../../src/components/navigation/ContentSafeArea';
 import { router, useLocalSearchParams } from "expo-router";
 import { follow, getFollows, getProfileHistory, unfollow, type FollowRecord } from "../../src/api/community";
 import { ListItem, ProfileRow, ScreenHeader, SkeletonList } from "../../src/components/SocialUI";
@@ -10,6 +11,7 @@ import { colors } from "../../src/theme/colors";
 
 const PAGE = 20;
 export default function SocialListScreen() {
+  useThemeRevision();
   const { type, userId } = useLocalSearchParams<{ type: "followers" | "following"; userId?: string }>();
   const me = useAuthStore(state => state.user); const targetId = userId || me?.id || "";
   const [items, setItems] = useState<any[]>([]); const [mine, setMine] = useState<FollowRecord[]>([]); const [loading, setLoading] = useState(true); const [more, setMore] = useState(false); const [error, setError] = useState(""); const [busy, setBusy] = useState("");
@@ -29,4 +31,4 @@ export default function SocialListScreen() {
     </>}
   </SafeAreaView>;
 }
-const styles = StyleSheet.create({ safe: { flex: 1, backgroundColor: colors.background }, content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 28, flexGrow: 1 }, error: { marginHorizontal: 18, padding: 12, color: colors.danger, backgroundColor: colors.surface }, more: { color: colors.primaryDark, textAlign: "center", padding: 18 } });
+const styles = themedStyles(() => ({ safe: { flex: 1, backgroundColor: colors.background }, content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 28, flexGrow: 1 }, error: { marginHorizontal: 18, padding: 12, color: colors.danger, backgroundColor: colors.surface }, more: { color: colors.primaryDark, textAlign: "center", padding: 18 } }));

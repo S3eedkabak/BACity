@@ -1,8 +1,13 @@
+import { usePullRefresh } from "../../src/hooks/usePullRefresh";
+import { ContentEntrance } from "../../src/components/navigation/SceneMotion";
+import { TabScene } from '../../src/components/navigation/SceneMotion';
+import { UndoSaveToast } from '../../src/components/interactions/UndoSaveToast';
+import { themedStyles, useThemeRevision } from '../../src/theme/appearance';
 import { AppIcon } from "../../src/components/AppIcon";
 import { FlatList, StyleSheet, Text, View } from "react-native";
 import { AnimatedPressable as Pressable } from '../../src/components/motion/Motion';
 import { useAuthStore } from "../../src/store/authStore";
-import { useSavedEvents, useToggleSaveEvent } from "../../src/hooks/useEvents";
+import { useSavedEvents } from "../../src/hooks/useEvents";
 import { EventCard } from "../../src/components/EventCard";
 import { EmptyState } from "../../src/components/EmptyState";
 import { LoadingState } from "../../src/components/LoadingState";
@@ -10,12 +15,13 @@ import { useMeaningfulLoading } from '../../src/components/loading/LoadingExperi
 import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
 import { router } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from '../../src/components/navigation/ContentSafeArea';
 
-export default function SavedScreen() {
+function SavedScreen() {
+  const pullRefresh = usePullRefresh(() => refetch());
+  useThemeRevision();
   const token = useAuthStore((s) => s.token);
-  const { data, isLoading, isError, isRefetching, refetch } = useSavedEvents();
-  const save = useToggleSaveEvent();
+  const { data, isLoading, isError, refetch } = useSavedEvents();
   useMeaningfulLoading('saved', !!token && isLoading && !data);
 
   if (!token) {
@@ -55,10 +61,10 @@ export default function SavedScreen() {
       data={data ?? []}
       keyExtractor={(item) => item.id}
       showsVerticalScrollIndicator={false}
-      refreshing={isRefetching}
-      onRefresh={() => void refetch()}
+      refreshing={pullRefresh.refreshing}
+      onRefresh={pullRefresh.onRefresh}
       ListHeaderComponent={
-        <View style={styles.header}>
+        <ContentEntrance><View style={styles.header}>
           <View style={styles.headingRow}>
             <Text style={styles.heading}>Saved</Text>
             <View style={styles.countPill}>
@@ -67,20 +73,21 @@ export default function SavedScreen() {
           </View>
           <Text style={styles.headerText}>The events you said yes to.</Text>
           <Pressable accessibilityRole="button" onPress={() => router.push("/collections")}><Text style={styles.headerText}>Browse and create collections →</Text></Pressable>
-        </View>
+        </View></ContentEntrance>
       }
-      renderItem={({ item }) => <EventCard variant="saved" event={item} saved saving={save.isPending && save.variables?.id === item.id} onToggleSave={() => save.mutate({ id: item.id, saved: true })} />}
+      renderItem={({ item }) => <EventCard variant="saved" event={item} />}
       ListEmptyComponent={
         <View style={styles.emptyWrap}>
           <EmptyState scene="saved" title="Your next plan starts here" subtitle="Save an event that catches your eye. Your best finds will collect here." action="Explore events" onAction={() => router.push('/(tabs)/explore')} />
         </View>
       }
     />
+    <UndoSaveToast />
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   safe: { flex: 1, backgroundColor: colors.background },
   container: { flex: 1, backgroundColor: colors.background },
   content: { width: '100%', maxWidth: 760, alignSelf: 'center', padding: 18, paddingTop: 12, paddingBottom: 108 },
@@ -95,7 +102,7 @@ const styles = StyleSheet.create({
   heading: {
     color: colors.text,
     fontFamily: fonts.black, fontWeight: '800',
-    fontSize: 36,
+    fontSize: 26,
     letterSpacing: -1.1,
     marginTop: 2,
   },
@@ -179,4 +186,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: -2,
   },
-});
+}));
+
+export default function AnimatedSavedScreen() { return <TabScene><SavedScreen /></TabScene>; }

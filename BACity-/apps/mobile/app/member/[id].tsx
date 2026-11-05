@@ -1,34 +1,429 @@
+import { SegmentedControl } from "../../src/components/interactions/SegmentedControl";
+import { themedStyles, useThemeRevision } from "../../src/theme/appearance";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { FollowAction } from "../../src/components/interactions/FollowAction";
 import { useEffect, useState } from "react";
 import { FlatList, StyleSheet, Text, TextInput, View } from "react-native";
-import { AnimatedPressable as Pressable } from '../../src/components/motion/Motion';
-import { SafeAreaView } from "react-native-safe-area-context";
+import { AnimatedPressable as Pressable } from "../../src/components/motion/Motion";
+import { SafeAreaView } from "../../src/components/navigation/ContentSafeArea";
 import { AppIcon } from "../../src/components/AppIcon";
 import { router, useLocalSearchParams } from "expo-router";
 import { apiRequest } from "../../src/api/client";
-import { follow, getProfile, getProfileHistory, unfollow, type PublicProfile } from "../../src/api/community";
+import {
+  follow,
+  getProfile,
+  getProfileHistory,
+  unfollow,
+  type PublicProfile,
+} from "../../src/api/community";
 import { Chip } from "../../src/components/CommunityUI";
 import { EmptyState } from "../../src/components/EmptyState";
-import { Avatar, IconButton, ListItem, OverflowMenu, ScreenHeader, SkeletonList, Stat } from "../../src/components/SocialUI";
+import {
+  Avatar,
+  IconButton,
+  ListItem,
+  OverflowMenu,
+  ScreenHeader,
+  SkeletonList,
+  Stat,
+} from "../../src/components/SocialUI";
 import { useAuthStore } from "../../src/store/authStore";
 import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
 
 type Tab = "contributions" | "reviews";
 export default function MemberScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>(); const me = useAuthStore(state => state.user);
-  const [profile, setProfile] = useState<PublicProfile | null>(null); const [tab, setTab] = useState<Tab>("contributions"); const [items, setItems] = useState<any[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState(""); const [more, setMore] = useState(false); const [menu, setMenu] = useState(false); const [reason, setReason] = useState(""); const [role, setRole] = useState("USER"); const [busy, setBusy] = useState(false);
-  async function loadProfile() { try { const result = await getProfile(id); setProfile(result); setRole(result.role); setError(""); } catch (e: any) { setError(e.message); } }
-  async function loadHistory(append = false) { setLoading(true); try { const result = await getProfileHistory(id, tab, append ? items.length : 0, 12); setItems(current => append ? [...current, ...result] : result); setMore(result.length === 12); } catch (e: any) { setError(e.message); } finally { setLoading(false); } }
-  useEffect(() => { void loadProfile(); }, [id]); useEffect(() => { setItems([]); void loadHistory(false); }, [id, tab]);
-  async function toggleFollow() { if (!profile) return; setBusy(true); try { if (profile.follow_id) await unfollow(profile.follow_id); else await follow(profile.role === "GUIDE" ? "guide" : "user", id); await loadProfile(); } catch (e: any) { setError(e.message); } finally { setBusy(false); } }
-  async function safety(path: string, body?: unknown, method: "POST" | "PATCH" = "POST") { setBusy(true); try { await apiRequest(path, { method, auth: true, body }); setMenu(false); setError(""); await loadProfile(); } catch (e: any) { setError(e.message); } finally { setBusy(false); } }
+  useThemeRevision();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const me = useAuthStore((state) => state.user);
+  const profileQuery = useQuery({
+    queryKey: ["profile", me?.id, id],
+    queryFn: () => getProfile(id),
+    enabled: !!me && !!id,
+  });
+  const profile = profileQuery.data;
+  const [tab, setTab] = useState<Tab>("contributions");
+  const [error, setError] = useState("");
+  const [menu, setMenu] = useState(false);
+  const [reason, setReason] = useState("");
+  const [role, setRole] = useState("USER");
+  const [busy, setBusy] = useState(false);
+  async function loadProfile() {
+    await profileQuery.refetch();
+  }
+  const history = useInfiniteQuery({
+    queryKey: ["public-profile-history", me?.id, id, tab],
+    queryFn: ({ pageParam }) => getProfileHistory(id, tab, pageParam, 12),
+    initialPageParam: 0,
+    getNextPageParam: (page, pages) => page.length === 12 ? pages.flat().length : undefined,
+    enabled: !!me && !!profile,
+  });
+  const items = history.data?.pages.flat() ?? [];
+  const loading = history.isFetching;
+  useEffect(() => { setMenu(false); setError(""); }, [id, me?.id]);
+  async function safety(
+    path: string,
+    body?: unknown,
+    method: "POST" | "PATCH" = "POST",
+  ) {
+    setBusy(true);
+    try {
+      await apiRequest(path, { method, auth: true, body });
+      setMenu(false);
+      setError("");
+      await loadProfile();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
   const self = me?.id === id;
-  return <SafeAreaView style={styles.safe} edges={["top", "bottom"]}><FlatList data={items} keyExtractor={(item, index) => item.id || String(index)} contentContainerStyle={styles.content}
-    ListHeaderComponent={<><ScreenHeader title="Profile" right={!self ? <IconButton icon="ellipsis-horizontal" label="Profile options" onPress={() => setMenu(true)} /> : undefined} />{error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}{!profile ? <SkeletonList rows={4} /> : <><View style={styles.hero}><Avatar uri={profile.avatar_url} name={profile.display_name} size={96} /><View style={styles.nameRow}><Text style={styles.name} numberOfLines={2}>{profile.display_name || "BACity member"}</Text>{profile.identity_verified && <AppIcon name="checkmark-circle" size={19} color={colors.free} />}</View><Text style={styles.location}>{profile.neighborhood || profile.city || "Bratislava"}</Text><Text style={styles.reputation}>{profile.role === "GUIDE" ? "Local Guide · " : ""}{profile.reputation_level}</Text>{profile.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}</View><View style={styles.stats}><Stat value={profile.contributions_count || 0} label="Contributions" onPress={() => setTab("contributions")} /><Stat value={profile.followers} label="Followers" onPress={() => router.push({ pathname: "/social/followers", params: { userId: id } })} /><Stat value={profile.following} label="Following" onPress={() => router.push({ pathname: "/social/following", params: { userId: id } })} /></View>{!self && <View style={styles.actions}><Pressable disabled={busy} onPress={toggleFollow} style={({ pressed }) => [styles.primary, profile.is_following && styles.secondary, pressed && styles.pressed]}><Text style={[styles.primaryText, profile.is_following && styles.secondaryText]}>{busy ? "…" : profile.is_following ? "Following" : "Follow"}</Text></Pressable><Pressable onPress={() => router.push(`/messages/${id}`)} style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}><Text style={styles.secondaryText}>Message</Text></Pressable></View>}<View style={styles.tabs}>{(["contributions", "reviews"] as Tab[]).map(value => <Chip key={value} title={value[0].toUpperCase() + value.slice(1)} active={tab === value} onPress={() => setTab(value)} />)}</View>{loading && !items.length ? <SkeletonList rows={3} /> : null}</>}</>}
-    ListEmptyComponent={profile && !loading ? <EmptyState title={`No public ${tab}`} subtitle={`This member hasn't shared any ${tab} yet.`} /> : null}
-    renderItem={({ item }) => <ListItem icon={tab === "reviews" ? "star-outline" : item.kind === "event" ? "calendar-outline" : "location-outline"} title={item.title || item.target_name || item.kind} subtitle={tab === "reviews" ? item.body : new Date(item.created_at).toLocaleDateString()} onPress={item.published_id ? () => item.kind === "event" ? router.push(`/event/${item.published_id}`) : item.kind === "place" ? router.push(`/place/${item.published_id}`) : router.push(`/utility/${item.published_id}`) : item.target_id ? () => item.target_type === "event" ? router.push(`/event/${item.target_id}`) : router.push(`/place/${item.target_id}`) : undefined} />}
-    ListFooterComponent={more ? <Text style={styles.more} onPress={() => loadHistory(true)}>{loading ? "Loading…" : "Load more"}</Text> : null}
-  /><OverflowMenu visible={menu} title="Profile options" onClose={() => setMenu(false)}><TextInput accessibilityLabel="Reason" placeholder="Reason for reporting" placeholderTextColor={colors.textMuted} value={reason} onChangeText={setReason} multiline style={styles.reason} /><ListItem icon="flag-outline" title="Report profile" onPress={() => safety("/community/reports", { target_type: "user", target_id: id, reason })} /><ListItem icon="ban-outline" title="Block member" onPress={() => safety(`/community/blocks/${id}`)} />{me?.role === "ADMIN" && <><Text style={styles.adminTitle}>Admin role</Text><View style={styles.roleChips}>{["USER", "GUIDE", "ORGANIZER", "MODERATOR", "ADMIN"].map(value => <Chip key={value} title={value} active={role === value} onPress={() => setRole(value)} />)}</View><ListItem icon="shield-outline" title={`Apply ${role} role`} subtitle="Requires a reason above" onPress={() => safety(`/community/moderation/users/${id}/role`, { role, reason }, "PATCH")} /></>}</OverflowMenu></SafeAreaView>;
+  if (!me) return <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+    <ScreenHeader title="Profile" />
+    <EmptyState title="Sign in to view this profile" action="Sign in"
+      onAction={() => router.push({ pathname: "/auth", params: { mode: "login" } })} />
+  </SafeAreaView>;
+  return (
+    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+      <FlatList
+        data={items}
+        keyExtractor={(item, index) => item.id || String(index)}
+        contentContainerStyle={styles.content}
+        ListHeaderComponent={
+          <>
+            <ScreenHeader
+              title="Profile"
+              right={
+                !self ? (
+                  <IconButton
+                    icon="ellipsis-horizontal"
+                    label="Profile options"
+                    onPress={() => setMenu(true)}
+                  />
+                ) : undefined
+              }
+            />
+            {error ? (
+              <Text accessibilityRole="alert" style={styles.error}>
+                {error}
+              </Text>
+            ) : null}
+            {!profile ? (
+              profileQuery.isError ? <EmptyState title="Profile couldn't load" subtitle={profileQuery.error.message}
+                action="Try again" onAction={() => void profileQuery.refetch()} /> : <SkeletonList rows={4} />
+            ) : (
+              <>
+                <View style={styles.hero}>
+                  <Avatar
+                    uri={profile.avatar_url}
+                    name={profile.display_name}
+                    size={56}
+                  />
+                  <View style={styles.nameRow}>
+                    <Text style={styles.name} numberOfLines={2}>
+                      {profile.display_name || "BACity member"}
+                    </Text>
+                    {profile.identity_verified && (
+                      <AppIcon
+                        name="checkmark-circle"
+                        size={19}
+                        color={colors.free}
+                      />
+                    )}
+                  </View>
+                  <Text style={styles.location}>
+                    {profile.neighborhood || profile.city || "Bratislava"}
+                  </Text>
+                  <Text style={styles.reputation}>
+                    {profile.role === "GUIDE" ? "Local Guide · " : ""}
+                    {profile.reputation_level}
+                  </Text>
+                  {profile.bio ? (
+                    <Text style={styles.bio}>{profile.bio}</Text>
+                  ) : null}
+                </View>
+                <View style={styles.stats}>
+                  <Stat
+                    value={profile.contributions_count || 0}
+                    label="Contributions"
+                    onPress={() => setTab("contributions")}
+                  />
+                  <Stat
+                    value={profile.followers}
+                    label="Followers"
+                    onPress={() =>
+                      router.push({
+                        pathname: "/social/followers",
+                        params: { userId: id },
+                      })
+                    }
+                  />
+                  <Stat
+                    value={profile.following}
+                    label="Following"
+                    onPress={() =>
+                      router.push({
+                        pathname: "/social/following",
+                        params: { userId: id },
+                      })
+                    }
+                  />
+                </View>
+                {!self && (
+                  <View style={styles.actions}>
+                    <FollowAction
+                      type={profile.role === "GUIDE" ? "guide" : "user"}
+                      id={id}
+                    />
+                    <Pressable
+                      onPress={() => router.push(`/messages/${id}`)}
+                      style={({ pressed }) => [
+                        styles.secondary,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <Text style={styles.secondaryText}>Message</Text>
+                    </Pressable>
+                  </View>
+                )}
+                <SegmentedControl
+                  label="Public profile activity"
+                  options={(["contributions", "reviews"] as Tab[]).map(
+                    (id) => ({ id, label: id[0].toUpperCase() + id.slice(1) }),
+                  )}
+                  value={tab}
+                  onChange={setTab}
+                />
+                {loading && !items.length ? <SkeletonList rows={3} /> : null}
+              </>
+            )}
+          </>
+        }
+        ListEmptyComponent={
+          profile && !loading ? (
+            history.isError ? <EmptyState title="Activity couldn't load" subtitle={history.error.message}
+              action="Try again" onAction={() => void history.refetch()} /> : <EmptyState
+              title={`No public ${tab}`}
+              subtitle={`This member hasn't shared any ${tab} yet.`}
+            />
+          ) : null
+        }
+        renderItem={({ item }) => (
+          <ListItem
+            icon={
+              tab === "reviews"
+                ? "star-outline"
+                : item.kind === "event"
+                  ? "calendar-outline"
+                  : "location-outline"
+            }
+            title={item.title || item.target_name || item.kind}
+            subtitle={
+              tab === "reviews"
+                ? item.body
+                : new Date(item.created_at).toLocaleDateString()
+            }
+            onPress={
+              item.published_id
+                ? () =>
+                    item.kind === "event"
+                      ? router.push(`/event/${item.published_id}`)
+                      : item.kind === "place"
+                        ? router.push(`/place/${item.published_id}`)
+                        : router.push(`/utility/${item.published_id}`)
+                : item.target_id
+                  ? () =>
+                      item.target_type === "event"
+                        ? router.push(`/event/${item.target_id}`)
+                        : router.push(`/place/${item.target_id}`)
+                  : undefined
+            }
+          />
+        )}
+        ListFooterComponent={
+          history.hasNextPage ? (
+            <Text accessibilityRole="button" disabled={loading} style={styles.more} onPress={() => { if (!loading) void history.fetchNextPage(); }}>
+              {loading ? "Loading…" : "Load more"}
+            </Text>
+          ) : null
+        }
+      />
+      <OverflowMenu
+        visible={menu}
+        title="Profile options"
+        onClose={() => setMenu(false)}
+      >
+        <TextInput
+          accessibilityLabel="Reason"
+          placeholder="Reason for reporting"
+          placeholderTextColor={colors.textMuted}
+          value={reason}
+          onChangeText={setReason}
+          multiline
+          style={styles.reason}
+        />
+        <ListItem
+          icon="flag-outline"
+          title="Report profile"
+          onPress={() =>
+            safety("/community/reports", {
+              target_type: "user",
+              target_id: id,
+              reason,
+            })
+          }
+        />
+        <ListItem
+          icon="ban-outline"
+          title="Block member"
+          onPress={() => safety(`/community/blocks/${id}`)}
+        />
+        {me?.role === "ADMIN" && (
+          <>
+            <Text style={styles.adminTitle}>Admin role</Text>
+            <View style={styles.roleChips}>
+              {["USER", "GUIDE", "ORGANIZER", "MODERATOR", "ADMIN"].map(
+                (value) => (
+                  <Chip
+                    key={value}
+                    title={value}
+                    active={role === value}
+                    onPress={() => setRole(value)}
+                  />
+                ),
+              )}
+            </View>
+            <ListItem
+              icon="shield-outline"
+              title={`Apply ${role} role`}
+              subtitle="Requires a reason above"
+              onPress={() =>
+                safety(
+                  `/community/moderation/users/${id}/role`,
+                  { role, reason },
+                  "PATCH",
+                )
+              }
+            />
+          </>
+        )}
+      </OverflowMenu>
+    </SafeAreaView>
+  );
 }
 
-const styles = StyleSheet.create({ safe: { flex: 1, backgroundColor: colors.background }, content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 30, flexGrow: 1 }, error: { color: colors.danger, paddingVertical: 8 }, hero: { alignItems: "center", paddingTop: 10 }, nameRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 13 }, name: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 26, letterSpacing: -.7, textAlign: "center", maxWidth: 280 }, location: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, marginTop: 5 }, reputation: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12, marginTop: 4 }, bio: { color: colors.text, fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, textAlign: "center", marginTop: 12, maxWidth: 320 }, stats: { flexDirection: "row", marginTop: 18, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border }, actions: { flexDirection: "row", gap: 9, marginTop: 14 }, primary: { flex: 1, minHeight: 46, borderRadius: 15, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }, primaryText: { color: colors.white, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 }, secondary: { flex: 1, minHeight: 46, borderRadius: 15, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" }, secondaryText: { color: colors.text, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 }, pressed: { opacity: .72 }, tabs: { flexDirection: "row", gap: 8, marginTop: 20, marginBottom: 7 }, more: { color: colors.primaryDark, textAlign: "center", padding: 18 }, reason: { minHeight: 78, borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, padding: 12, color: colors.text, textAlignVertical: "top" }, adminTitle: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 15, marginTop: 16 }, roleChips: { flexDirection: "row", flexWrap: "wrap", gap: 7, marginVertical: 8 } });
+const styles = themedStyles(() => ({
+  safe: { flex: 1, backgroundColor: colors.background },
+  content: {
+    width: "100%",
+    maxWidth: 760,
+    alignSelf: "center",
+    paddingHorizontal: 18,
+    paddingBottom: 30,
+    flexGrow: 1,
+  },
+  error: { color: colors.danger, paddingVertical: 8 },
+  hero: { alignItems: "center", paddingTop: 10 },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 13,
+  },
+  name: {
+    color: colors.text,
+    fontFamily: fonts.black,
+    fontWeight: "800",
+    fontSize: 26,
+    letterSpacing: -0.7,
+    textAlign: "center",
+    maxWidth: 280,
+  },
+  location: {
+    color: colors.textMuted,
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    marginTop: 5,
+  },
+  reputation: {
+    color: colors.primaryDark,
+    fontFamily: fonts.semibold,
+    fontWeight: "600",
+    fontSize: 12,
+    marginTop: 4,
+  },
+  bio: {
+    color: colors.text,
+    fontFamily: fonts.regular,
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: "center",
+    marginTop: 12,
+    maxWidth: 320,
+  },
+  stats: {
+    flexDirection: "row",
+    marginTop: 18,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  actions: { flexDirection: "row", flexWrap: "wrap", gap: 9, marginTop: 14 },
+  primary: {
+    flex: 1,
+    minHeight: 46,
+    borderRadius: 15,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  primaryText: {
+    color: colors.white,
+    fontFamily: fonts.semibold,
+    fontWeight: "600",
+    fontSize: 12,
+  },
+  secondary: {
+    flex: 1,
+    minHeight: 46,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  secondaryText: {
+    color: colors.text,
+    fontFamily: fonts.semibold,
+    fontWeight: "600",
+    fontSize: 12,
+  },
+  pressed: { opacity: 0.72 },
+  tabs: { flexDirection: "row", gap: 8, marginTop: 20, marginBottom: 7 },
+  more: { color: colors.primaryDark, textAlign: "center", padding: 18 },
+  reason: {
+    minHeight: 78,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    padding: 12,
+    color: colors.text,
+    textAlignVertical: "top",
+  },
+  adminTitle: {
+    color: colors.text,
+    fontFamily: fonts.black,
+    fontWeight: "800",
+    fontSize: 15,
+    marginTop: 16,
+  },
+  roleChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 7,
+    marginVertical: 8,
+  },
+}));

@@ -1,3 +1,12 @@
+import { ContentStages } from "./navigation/SceneMotion";
+import Animated, { LinearTransition, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { useMotionPreference } from './interactions/useMotionPreference';
+import { useEffect } from 'react';
+import { useNavigation } from 'expo-router';
+import { useLayoutEffect } from 'react';
+import { themedStyles, useThemeRevision } from '../theme/appearance';
+import { MorphActionButton } from './interactions/ActionButton';
+import { AppTextField } from './interactions/AppTextField';
 import { ComponentProps, PropsWithChildren, useState } from "react";
 import {
   ActivityIndicator,
@@ -18,30 +27,18 @@ import { fonts } from "../theme/fonts";
 import { tokens } from '../theme/tokens';
 
 export function Page({ title, children }: PropsWithChildren<{ title: string }>) {
+  useThemeRevision();
+  const navigation = useNavigation();
+  useLayoutEffect(() => { navigation.setOptions({ title }); }, [navigation, title]);
   return (
-    <SafeAreaView style={ui.safe} edges={["top", "bottom"]}>
+    <SafeAreaView style={ui.safe} edges={["bottom"]}>
       <KeyboardAvoidingView style={ui.safe} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView
         contentContainerStyle={ui.page}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <View style={ui.topbar}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-            onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)/discover")}
-            style={({ pressed }) => [ui.back, pressed && ui.pressed]}
-          >
-            <AppIcon name="chevron-back" size={20} color={colors.text} />
-          </Pressable>
-          <BrandMark compact />
-          <View style={ui.topbarSpacer} />
-        </View>
-        <Text accessibilityRole="header" style={ui.title}>
-          {title}
-        </Text>
-        {children}
+        <ContentStages>{children}</ContentStages>
       </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -49,12 +46,16 @@ export function Page({ title, children }: PropsWithChildren<{ title: string }>) 
 }
 
 export function Card({ children }: PropsWithChildren) {
+  useThemeRevision();
   return <View style={ui.card}>{children}</View>;
 }
 
 export function Disclosure({ title, icon = 'options-outline', initiallyOpen = false, children }: PropsWithChildren<{ title: string; icon?: ComponentProps<typeof AppIcon>['name']; initiallyOpen?: boolean }>) {
-  const [open, setOpen] = useState(initiallyOpen);
-  return <View style={ui.disclosure}><Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={title} onPress={() => setOpen(value => !value)} style={ui.disclosureHeader}><AppIcon name={icon} size={24} color={colors.primaryDark} /><Text style={ui.disclosureTitle}>{title}</Text><AppIcon name={open ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textMuted} /></Pressable>{open && <View style={ui.disclosureBody}>{children}</View>}</View>;
+  useThemeRevision();
+  const [open, setOpen] = useState(initiallyOpen); const reduced=useMotionPreference(); const rotation=useSharedValue(initiallyOpen?180:0);
+  useEffect(()=>{rotation.value=withTiming(open?180:0,{duration:reduced?0:240});},[open,reduced,rotation]);
+  const chevron=useAnimatedStyle(()=>({transform:[{rotate:`${rotation.value}deg`}]}));
+  return <Animated.View layout={reduced?undefined:LinearTransition.duration(240)} style={ui.disclosure}><Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={title} onPress={() => setOpen(value => !value)} style={ui.disclosureHeader}><AppIcon name={icon} size={24} color={colors.primaryDark} /><Text style={ui.disclosureTitle}>{title}</Text><Animated.View style={chevron}><AppIcon name="chevron-down" size={18} color={colors.textMuted} /></Animated.View></Pressable>{open && <View style={ui.disclosureBody}>{children}</View>}</Animated.View>;
 }
 
 export function Button({
@@ -68,26 +69,8 @@ export function Button({
   busy?: boolean;
   variant?: 'primary' | 'secondary' | 'danger';
 }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      disabled={busy}
-      onPress={onPress}
-      style={({ pressed }) => [
-        ui.button,
-        variant === 'secondary' && ui.buttonSecondary,
-        variant === 'danger' && ui.buttonDanger,
-        pressed && ui.buttonPressed,
-        busy && ui.disabled,
-      ]}
-    >
-      {busy ? (
-        <ActivityIndicator color={variant === 'secondary' ? colors.primaryDark : colors.white} />
-      ) : (
-        <Text style={[ui.buttonText, variant === 'secondary' && ui.buttonSecondaryText]}>{title}</Text>
-      )}
-    </Pressable>
-  );
+  useThemeRevision();
+  return <MorphActionButton title={title} onPress={onPress} state={busy ? 'loading' : 'idle'} variant={variant} />;
 }
 
 export function Field({
@@ -103,21 +86,8 @@ export function Field({
   multiline?: boolean;
   secure?: boolean;
 }) {
-  return (
-    <View style={ui.field}>
-      <Text style={ui.label}>{label}</Text>
-      <TextInput
-        accessibilityLabel={label}
-        value={value}
-        onChangeText={onChange}
-        multiline={multiline}
-        secureTextEntry={secure}
-        autoCapitalize="none"
-        placeholderTextColor={colors.textMuted}
-        style={[ui.input, multiline && ui.inputMultiline]}
-      />
-    </View>
-  );
+  useThemeRevision();
+  return <AppTextField label={label} value={value} onChangeText={onChange} multiline={multiline} secure={secure} autoCapitalize="none" />;
 }
 
 export function Chip({
@@ -129,6 +99,7 @@ export function Chip({
   active?: boolean;
   onPress: () => void;
 }) {
+  useThemeRevision();
   return (
     <Pressable
       accessibilityRole="button"
@@ -146,6 +117,7 @@ export function Chip({
 }
 
 export function Notice({ text }: { text: string | null | undefined }) {
+  useThemeRevision();
   return text ? (
     <View style={ui.noticeBox}>
       <AppIcon name="information-circle-outline" size={17} color={colors.primaryDark} />
@@ -156,9 +128,9 @@ export function Notice({ text }: { text: string | null | undefined }) {
   ) : null;
 }
 
-export const ui = StyleSheet.create({
+export const ui = themedStyles(() => ({
   disclosure: { borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  disclosureHeader: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: 16 },
+  disclosureHeader: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 16 },
   disclosureTitle: { ...tokens.type.action, flex: 1, color: colors.text },
   disclosureBody: { gap: 14, paddingBottom: 24 },
   buttonSecondary: { backgroundColor: colors.surfaceAlt, shadowOpacity: 0 },
@@ -196,8 +168,8 @@ export const ui = StyleSheet.create({
   title: {
     ...tokens.type.hero,
     fontWeight: '800',
-    fontSize: 31,
-    lineHeight: 35,
+    fontSize: 24,
+    lineHeight: 30,
     letterSpacing: -1,
     fontFamily: fonts.black,
     color: colors.text,
@@ -224,7 +196,7 @@ export const ui = StyleSheet.create({
   },
   card: {
     padding: 20,
-    borderRadius: 28,
+    borderRadius: 20,
     backgroundColor: colors.surface,
     gap: 11,
     shadowColor: colors.shadow,
@@ -277,7 +249,7 @@ export const ui = StyleSheet.create({
     textAlign: "center",
   },
   chip: {
-    minHeight: 44,
+    minHeight: 48,
     paddingHorizontal: 14,
     borderRadius: 18,
     backgroundColor: colors.surface,
@@ -313,4 +285,4 @@ export const ui = StyleSheet.create({
     lineHeight: 18,
   },
   row: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-});
+}));

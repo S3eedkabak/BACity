@@ -1,3 +1,4 @@
+import { themedStyles, useThemeRevision } from '../theme/appearance';
 import { StyleProp, StyleSheet, Text, TextStyle, View } from "react-native";
 import { colors } from "../theme/colors";
 import { fonts } from "../theme/fonts";
@@ -11,6 +12,7 @@ export function BrandMark({
   compact?: boolean;
   style?: StyleProp<TextStyle>;
 }) {
+  useThemeRevision();
   return (
     <View style={styles.row} accessibilityLabel="BACity">
       <Text
@@ -28,7 +30,7 @@ export function BrandMark({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   row: { flexDirection: "row", alignItems: "center" },
   wordmark: {
     color: colors.text,
@@ -49,4 +51,4 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   dotCompact: { width: 6, height: 6, marginTop: 8, marginLeft: 3 },
-});
+}));

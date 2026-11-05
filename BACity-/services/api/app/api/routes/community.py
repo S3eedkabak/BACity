@@ -3,7 +3,7 @@ from datetime import datetime, timezone, timedelta
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, func
 from sqlalchemy.orm import Session
 from PIL import Image, ImageOps, UnidentifiedImageError
 from io import BytesIO
@@ -269,6 +269,16 @@ def follows(target_type: str | None = Query(None, max_length=20), offset: int = 
         query = query.filter_by(target_type=target_type)
     return [value for item in query.order_by(Follow.created_at.desc()).offset(offset).limit(limit).all()
             if (value := _follow_record(db, item, user)) is not None]
+
+
+@router.get('/follow-state')
+def follow_state(target_type: str = Query(max_length=20), target_id: str = Query(min_length=1, max_length=200),
+                 user=Depends(get_current_user), db: Session = Depends(get_db)):
+    rate_limit(db, 'ui-read:' + str(user.id), 600, 60)
+    if target_type not in ('user', 'guide', 'organizer', 'venue', 'category', 'neighborhood'):
+        raise HTTPException(422, 'Unsupported follow target type')
+    item = db.query(Follow).filter_by(user_id=user.id, target_type=target_type, target_id=target_id).first()
+    return {'id': item.id if item else None, 'following': item is not None}
 
 
 @router.get('/follow-targets')
@@ -647,6 +657,24 @@ def reviews(target_type: str, identifier: UUID, user=Depends(get_current_user), 
              'helpful': db.query(HelpfulVote).filter_by(review_id=i.id).count()} for i in items]
 
 
+@router.get('/review-summary/{target_type}/{identifier}')
+def review_summary(target_type: str, identifier: UUID, user=Depends(get_current_user), db: Session = Depends(get_db)):
+    rate_limit(db, 'ui-read:' + str(user.id), 600, 60)
+    if target_type not in ('event', 'place'):
+        raise HTTPException(422, 'Unsupported review target')
+    row(db, MODELS[target_type], identifier)
+    # Same visibility as the listing; count all visible rows, not just its first page.
+    query = db.query(Review).filter_by(target_type=target_type, target_id=str(identifier), state='visible').filter(~Review.user_id.in_(blocked_ids(db, user.id)))
+    dimensions = ('worth_attending', 'crowd', 'value', 'accessibility', 'would_attend_again') if target_type == 'event' else ('atmosphere', 'price', 'accessibility', 'cleanliness', 'crowdedness', 'family_friendliness', 'solo_friendliness')
+    values = [func.count(Review.id)]
+    for dimension in dimensions:
+        column = Review.dimensions[dimension].as_integer()
+        values.extend([func.avg(column), func.count(column)])
+    aggregates = query.with_entities(*values).one()
+    return {'count': aggregates[0], 'dimensions': {dimension: {'average': aggregates[1 + index * 2], 'count': aggregates[2 + index * 2]} for index, dimension in enumerate(dimensions) if aggregates[2 + index * 2]}}
+
+
+
 @router.post('/reviews/{identifier}/helpful')
 def helpful(identifier: UUID, user=Depends(require_verified), db: Session = Depends(get_db)):
     item = row(db, Review, identifier)
@@ -733,8 +761,15 @@ def conversation(identifier: UUID, user=Depends(get_current_user), db: Session =
 
 
 @router.get('/notifications')
-def notifications(user=Depends(get_current_user), db: Session = Depends(get_db)):
-    return db.query(Notification).filter_by(user_id=user.id).order_by(Notification.created_at.desc()).limit(100).all()
+def notifications(offset: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=100), user=Depends(get_current_user), db: Session = Depends(get_db)):
+    return db.query(Notification).filter_by(user_id=user.id).order_by(Notification.created_at.desc(), Notification.id.desc()).offset(offset).limit(limit).all()
+
+
+@router.get('/notification-summary')
+def notification_summary(user=Depends(get_current_user), db: Session = Depends(get_db)):
+    rate_limit(db, 'ui-read:' + str(user.id), 600, 60)
+    rows = db.query(Notification.kind, func.count(Notification.id)).filter_by(user_id=user.id, read_at=None).group_by(Notification.kind).all()
+    return {'unread': sum(count for _, count in rows), 'messages': sum(count for kind, count in rows if kind == 'message')}
 
 
 @router.post('/notifications/{identifier}/read')

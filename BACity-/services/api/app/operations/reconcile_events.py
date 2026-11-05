@@ -37,9 +37,15 @@ def plan(db):
     return [(root,groups[root.id]) for root in roots if root.id in groups]
 
 
-def _reconcile_pass(db,apply=False):
+def _reconcile_pass(db,apply=False,reviewed_groups=None):
     if db.bind.dialect.name=='postgresql':db.execute(text('SELECT pg_advisory_xact_lock(82619422)'))
-    groups=plan(db)
+    # Offline, explicitly reviewed publisher links can establish an identity
+    # despite conflicting old geocoding. Retain the normal snapshot/FK path.
+    groups=plan(db) if reviewed_groups is None else reviewed_groups
+    if reviewed_groups is not None:
+        ids=[event.id for root,members in groups for event in [root,*[member for member,_ in members]]]
+        if len(ids)!=len(set(ids)) or any(event.merged_into_id is not None for root,members in groups for event in [root,*[member for member,_ in members]]):
+            raise ValueError('Reviewed groups require distinct unresolved identity roots')
     report={'mode':'apply' if apply else 'dry-run','physical_rows':db.query(Event).count(),
         'identities_before':db.query(Event).filter(Event.merged_into_id.is_(None)).count(),
         'groups':[], 'aliases':0,'ticket_variants':0,'references_moved':0}

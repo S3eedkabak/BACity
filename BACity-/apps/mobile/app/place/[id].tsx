@@ -1,3 +1,4 @@
+import { themedStyles, useThemeRevision } from '../../src/theme/appearance';
 import { AppIcon } from "../../src/components/AppIcon";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
@@ -10,6 +11,7 @@ import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
 
 export default function Place() {
+  useThemeRevision();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [place, setPlace] = useState<any>(null);
   const [error, setError] = useState("");
@@ -96,7 +98,7 @@ export default function Place() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   hero: {
     alignItems: "center",
     paddingVertical: 12,
@@ -195,4 +197,4 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   pressed: { opacity: 0.88 },
-});
+}));

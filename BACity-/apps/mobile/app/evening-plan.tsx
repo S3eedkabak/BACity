@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { themedStyles, useThemeRevision } from '../src/theme/appearance';
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { AnimatedPressable as Pressable } from '../src/components/motion/Motion';
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from '../src/components/navigation/ContentSafeArea';
 import { router } from "expo-router";
 import { AppIcon } from "../src/components/AppIcon";
 import { EveningPlanAlternative } from "../src/api/eveningPlans";
 import { Button, Chip } from "../src/components/CommunityUI";
 import { EmptyState } from "../src/components/EmptyState";
-import { ScreenHeader, SkeletonList } from "../src/components/SocialUI";
+import { ScreenHeader } from "../src/components/SocialUI";
 import { defaultEveningParameters, eveningEventRoute, eveningPlanNotice, isChronologicalPlan, resolveEveningView, validateEveningParameters } from "../src/evening/presentation";
 import { useEveningPlans } from "../src/hooks/useEveningPlans";
 import { plusPaywallRoute } from "../src/plus/policy";
@@ -18,17 +19,21 @@ import { fonts } from "../src/theme/fonts";
 import { EventCategory } from "../src/types/event";
 import { PremiumIntro, PlanStop } from "../src/components/PremiumUI";
 import { TemporalField } from "../src/components/TemporalField";
+import { eveningReceipt } from "../src/receipts/presentation";
+import { PrintedPlanResult } from "../src/components/receipts/PrintedPlanResult";
 import { useBrandedLoading } from "../src/components/loading/LoadingExperience";
 
 const CATEGORIES: EventCategory[] = ["Music", "Culture", "Arts", "Nightlife", "Theatre", "Comedy", "Family", "Community"];
 const STRATEGY_LABELS = { best_match: "Best match", relaxed: "Relaxed", something_different: "Something different" } as const;
 
 function PlanTimeline({ plan }: { plan: EveningPlanAlternative }) {
+  useThemeRevision();
   if (!isChronologicalPlan(plan)) return <EmptyState title="This plan couldn't be displayed safely" />;
   return <View style={styles.timeline}>{plan.items.map((item, index) => <PlanStop key={item.event.id} event={item.event} reason={item.reasons[0]} last={index === plan.items.length - 1} />)}</View>;
 }
 
 export default function EveningPlanScreen() {
+  useThemeRevision();
   const gate = usePlusGate();
   const defaults = useMemo(() => defaultEveningParameters(), []);
   const [date, setDate] = useState(defaults.date);
@@ -42,6 +47,9 @@ export default function EveningPlanScreen() {
   const generation = useEveningPlans();
   useBrandedLoading('plan-generation', generation.isPending);
   const plans = generation.data?.plans ?? [];
+  const submittedLock = useRef(false);
+  const selected = plans[alternative];
+  const printedPlan = useMemo(() => selected && isChronologicalPlan(selected) ? eveningReceipt(selected) : null, [selected]);
   const submitted = generation.data !== undefined || generation.isPending || generation.isError;
   const state = resolveEveningView(gate.decision, submitted, generation.isPending, generation.isError, plans.length);
 
@@ -65,9 +73,11 @@ export default function EveningPlanScreen() {
   }
 
   function generate() {
+    if (submittedLock.current || generation.isPending) return;
     const problem = validateEveningParameters(date, startTime, endTime);
     setValidation(problem);
     if (problem) return;
+    submittedLock.current = true;
     setEditing(false);
     generation.mutate({
       date,
@@ -75,14 +85,13 @@ export default function EveningPlanScreen() {
       end_time: endTime,
       categories,
       ...(location.coordinates ?? {}),
-    });
+    }, { onSettled: () => { submittedLock.current = false; } });
   }
 
   if (state === "guarding") {
     return <SafeAreaView style={styles.safe}><View style={styles.guard}><ActivityIndicator color={colors.primary} /></View></SafeAreaView>;
   }
 
-  const selected = plans[alternative];
   return <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
     <ScreenHeader title="Build My Evening" />
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -104,22 +113,19 @@ export default function EveningPlanScreen() {
       </View>}
 
       {state === "error" ? <EmptyState title="Plans couldn't be generated" subtitle="Your normal BACity discovery remains available." action="Try again" onAction={generate} /> : null}
-      {state === 'loading' ? <SkeletonList rows={3} /> : null}
       {state === "empty" ? <EmptyState title="No realistic plan found" subtitle="BACity won't invent activities or weaken transition constraints." action="Adjust your time or interests" onAction={() => generation.reset()} /> : null}
-      {state === "results" && !editing ? <>
-        <View style={styles.alternatives}>{plans.map((plan, index) => <Pressable key={plan.id} onPress={() => setAlternative(index)} style={[styles.alternative, alternative === index && styles.alternativeActive]}><Text style={[styles.alternativeText, alternative === index && styles.alternativeTextActive]}>{STRATEGY_LABELS[plan.strategy]}</Text></Pressable>)}</View>
-        {selected ? <View style={styles.result}>
-          <Text style={styles.planTitle}>{STRATEGY_LABELS[selected.strategy]}</Text>
-          <Text style={styles.planExplanation}>{selected.explanation}</Text>
-          {eveningPlanNotice(selected.limited) ? <Text style={styles.limited}>{eveningPlanNotice(selected.limited)}</Text> : null}
-          <PlanTimeline plan={selected} />
-        </View> : null}
-      </> : null}
+      {(state === "loading" || state === "results") ? <View style={state === 'results' && editing ? { display: 'none' } : undefined}>
+        <PrintedPlanResult title="Build My Evening" pending={generation.isPending} plan={printedPlan}
+          resultKey={selected ? `${generation.submittedAt}:${selected.id}` : null}
+          notice={selected ? eveningPlanNotice(selected.limited) : null}
+          fallback={selected ? <View style={styles.result}><Text style={styles.planTitle}>{STRATEGY_LABELS[selected.strategy]}</Text><Text style={styles.planExplanation}>{selected.explanation}</Text>{eveningPlanNotice(selected.limited) ? <Text style={styles.limited}>{eveningPlanNotice(selected.limited)}</Text> : null}<PlanTimeline plan={selected} /></View> : undefined} />
+        {state === 'results' ? <View style={styles.alternatives}>{plans.map((plan, index) => <Pressable key={plan.id} onPress={() => setAlternative(index)} style={[styles.alternative, alternative === index && styles.alternativeActive]}><Text style={[styles.alternativeText, alternative === index && styles.alternativeTextActive]}>{STRATEGY_LABELS[plan.strategy]}</Text></Pressable>)}</View> : null}
+      </View> : null}
     </ScrollView></KeyboardAvoidingView>
   </SafeAreaView>;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   safe: { flex: 1, backgroundColor: colors.background }, guard: { flex: 1, alignItems: "center", justifyContent: "center" }, content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 42 },
   kicker: { color: colors.primaryDark, fontFamily: fonts.black, fontWeight: '800', fontSize: 12, letterSpacing: 1.5, marginTop: 10 }, heading: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 28, letterSpacing: -1, marginTop: 6 },
   subtitle: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, marginTop: 7 }, form: { marginTop: 18, gap: 12 }, split: { flexDirection: "row", gap: 9 }, flex: { flex: 1, minWidth: 0 },
@@ -131,4 +137,4 @@ const styles = StyleSheet.create({
   timeline: { gap: 10, marginTop: 10 }, eventRow: { minHeight: 108, flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }, pressed: { opacity: .7 },
   order: { width: 36, height: 36, borderRadius: 14, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }, orderText: { color: colors.white, fontFamily: fonts.black, fontWeight: '800', fontSize: 12 },
   eventCopy: { flex: 1, minWidth: 0 }, eventTime: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 }, eventTitle: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 15, lineHeight: 19, marginTop: 4 }, eventVenue: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, marginTop: 3 }, reason: { color: colors.primaryDark, fontFamily: fonts.medium, fontSize: 12, marginTop: 6 },
-});
+}));

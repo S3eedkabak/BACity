@@ -1,3 +1,4 @@
+import { themedStyles, useThemeRevision } from '../theme/appearance';
 import { AppIcon } from "./AppIcon";
 import { router } from "expo-router";
 import { useRef, useState } from "react";
@@ -47,6 +48,7 @@ function Card({
   total: number;
   onSwiped: (direction: "like" | "pass") => void;
 }) {
+  useThemeRevision();
   const date = formatDate(event.start_time);
   const scale = useRef(new Animated.Value(1)).current;
   const pan = useRef(new Animated.ValueXY()).current;
@@ -93,6 +95,10 @@ function Card({
         } else {
           Animated.spring(pan, {
             toValue: { x: 0, y: 0 },
+            stiffness: 260,
+            damping: 33,
+            mass: 1,
+            overshootClamping: true,
             useNativeDriver: true,
           }).start();
         }
@@ -159,6 +165,7 @@ function Card({
 }
 
 export function EventDeck({ events }: { events: EventOut[] }) {
+  useThemeRevision();
   const [index, setIndex] = useState(0);
 
   if (!events.length || index >= events.length) {
@@ -195,7 +202,7 @@ export function EventDeck({ events }: { events: EventOut[] }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   deck: { height: 560, width: "100%", alignItems: "center", justifyContent: "center" },
   card: {
     position: "absolute",
@@ -301,4 +308,4 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     marginTop: 7,
   },
-});
+}));

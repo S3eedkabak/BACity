@@ -203,6 +203,11 @@ class BratislavaSourcesSpider(scrapy.Spider):
         response = getattr(failure.value, "response", None)
         url = response.url if response is not None else failure.request.url
         self.logger.warning("Source request failed: %s", url)
+        if failure.request.meta.get('pagination') and response is not None and response.status in (404, 410):
+            # A stale next/category page is incomplete coverage, not a failed
+            # extraction of every valid event already delivered by this crawl.
+            self.crawler.stats.inc_value('source/pagination_not_found')
+            return
         optional = failure.request.meta.get('optional_feed') and response is not None and response.status in (404,410)
         self.crawler.stats.inc_value('source/optional_feed_errors' if optional else 'source/request_errors')
         if not optional:

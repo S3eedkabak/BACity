@@ -1,9 +1,11 @@
+import { themedStyles, useThemeRevision } from '../../theme/appearance';
 import { useEffect } from 'react';
 import { AppState, StyleSheet, Text } from 'react-native';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import type { Greeting } from '../../greeting/session';
 import { colors } from '../../theme/colors';
 export function SessionWelcome({ greeting, onComplete }: { greeting: Greeting; onComplete: () => void }) {
+  useThemeRevision();
   const reduced = useReducedMotion();
   const opacity = useSharedValue(1);
   useEffect(() => {
@@ -22,9 +24,9 @@ export function SessionWelcome({ greeting, onComplete }: { greeting: Greeting; o
     {greeting.kind === 'new' && <Text style={styles.subtitle}>Your city awaits.</Text>}
   </Animated.View>;
 }
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   overlay: { ...StyleSheet.absoluteFillObject, zIndex: 10000, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center', gap: 28, padding: 24 },
   title: { color: colors.text, fontSize: 28, fontWeight: '700', textAlign: 'center' },
   subtitle: { color: colors.textMuted, fontSize: 16 },
   brand: { color: colors.primaryDark, fontSize: 48, fontWeight: '800' },
-});
+}));

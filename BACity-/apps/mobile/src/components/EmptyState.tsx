@@ -1,3 +1,4 @@
+import { themedStyles, useThemeRevision } from '../theme/appearance';
 import { AppIcon } from "./AppIcon";
 import { StyleSheet, Text, View } from "react-native";
 import { AnimatedPressable as Pressable } from './motion/Motion';
@@ -13,16 +14,19 @@ export function EmptyState({
   action,
   onAction,
   scene,
+  compact = false,
 }: {
   title: string;
   subtitle?: string;
   action?: string;
   onAction?: () => void;
   scene?: CharacterMood;
+  compact?: boolean;
 }) {
+  useThemeRevision();
   return (
-    <View style={styles.wrap}>
-      {scene ? <Reveal><CharacterScene mood={scene} size={180} /></Reveal> : <View style={styles.icon}>
+    <View style={[styles.wrap, compact && { minHeight: 120, paddingHorizontal: 20, paddingVertical: 20 }]}>
+      {compact ? null : scene ? <Reveal><CharacterScene mood={scene} size={180} /></Reveal> : <View style={styles.icon}>
         <AppIcon name="sparkles-outline" size={24} color={colors.primaryDark} />
       </View>}
       <Text style={styles.title}>{title}</Text>
@@ -36,9 +40,9 @@ export function EmptyState({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   wrap: {
-    minHeight: 280,
+    minHeight: 180,
     paddingHorizontal: 34,
     alignItems: "center",
     justifyContent: "center",
@@ -56,7 +60,7 @@ const styles = StyleSheet.create({
     ...tokens.type.section,
     color: colors.text,
     fontFamily: fonts.black,
-    fontSize: 21,
+    fontSize: 18,
     letterSpacing: -0.5,
     textAlign: "center",
   },
@@ -79,4 +83,4 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   buttonText: { color: colors.white, fontFamily: fonts.semibold, fontSize: 13 },
-});
+}));

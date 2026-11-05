@@ -112,7 +112,7 @@ class DiscoverySpider(BratislavaSourcesSpider):
                     url = navigation_url(url, source.domain)
                 except ValueError:
                     continue
-                if not url or (source.domain in ('visitbratislava.com','novacvernovka.eu','sng.sk','staratrznica.sk') and is_detail(response.url, source.domain) and not structured_feed):
+                if not url or (source.domain in ('visitbratislava.com','novacvernovka.eu','sng.sk','staratrznica.sk','a4.sk','bkis.sk') and is_detail(response.url, source.domain) and not structured_feed):
                     continue
                 if depth >= self.max_crawl_depth and not pagination:
                     continue
@@ -150,7 +150,7 @@ class DiscoverySpider(BratislavaSourcesSpider):
                 self.crawler.stats.inc_value('discovery/sources')
                 continue
             yield scrapy.Request(url, priority=20 if is_detail(url,source.domain) else 15 if structured_feed else 10 if pagination else 0, callback=self.parse, errback=self.errback_source,
-                                 meta={'source': source, 'crawl_depth': depth if pagination else depth + 1, 'optional_feed': structured_feed})
+                                 meta={'source': source, 'crawl_depth': depth if pagination else depth + 1, 'optional_feed': structured_feed, 'pagination': pagination})
             followed += 1
             if followed >= self.max_links_per_page:
                 break

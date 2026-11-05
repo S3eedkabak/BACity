@@ -1,9 +1,10 @@
+import { themedStyles, useThemeRevision } from '../../theme/appearance';
 import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, StyleSheet, Text, View } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { router } from 'expo-router';
 import Animated, { cancelAnimation, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
-import { LoadingContext, loadingRegistry } from '../../loading/registry';
+import { LoadingContext, loadingRegistry, loadingPresentation } from '../../loading/registry';
 import { LoadingPresentation, LOADING_EXIT_MS } from '../../loading/policy';
 import { colors } from '../../theme/colors';
 import { BrandMark } from '../BrandMark';
@@ -19,6 +20,7 @@ type LoadingExperienceApi = {
 const Context = createContext<LoadingExperienceApi | null>(null);
 /** One owner across session cache remounts. Explicit pending-without-data only. */
 export function LoadingExperienceProvider({ children }: PropsWithChildren) {
+  useThemeRevision();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [visible, setVisible] = useState<Entry>();
   const [active, setActive] = useState(AppState.currentState === 'active');
@@ -101,7 +103,7 @@ export function useBrandedLoading(context: LoadingContext, pending: boolean) {
   const focused = useIsFocused();
   const id = useRef(Symbol(context));
   useEffect(() => {
-    if (pending && focused) return provider?.add({ id: id.current, context, graceMs: 0, minimumVisibleMs: 420 });
+    if (pending && focused && loadingPresentation(context) === 'overlay') return provider?.add({ id: id.current, context, graceMs: 0, minimumVisibleMs: 420 });
   }, [provider, context, pending, focused]);
 }
 /** Cross-route major transitions are started by navigation and completed by destination readiness. */
@@ -118,10 +120,10 @@ export function useStartupLoading(pending: boolean) {
   const id = useRef(Symbol('startup'));
   useEffect(() => { if (pending) return provider?.add({ id: id.current, context: 'startup' }); }, [pending, provider]);
 }
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.background, zIndex: 100 },
   stage: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 24 },
   copy: { color: colors.textMuted, fontSize: 16, textAlign: 'center' },
   back: { position: 'absolute', top: 64, left: 20, minHeight: 48, minWidth: 64, justifyContent: 'center' },
   fallback: { width: 96, height: 4, borderRadius: 2, backgroundColor: colors.primaryDark },
-});
+}));

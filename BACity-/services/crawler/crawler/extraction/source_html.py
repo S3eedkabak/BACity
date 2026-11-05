@@ -44,8 +44,10 @@ def extract_source_html(html, url):
         # occur in the title's own header, never in related events or footers.
         header = title.parent if title else None
         clock = re.search(r'\bo\s+(\d{1,2}:\d{2})\b', header.get_text(' ', strip=True)) if header else None
-        address = next((p.parent.get_text(' ',strip=True) for p in soup.select('p')
-                        if 'Karpatská 2' in p.get_text() and 'Bratislava' in p.parent.get_text()), None)
+        # The parent can be the entire navigation/footer wrapper. Read the
+        # address paragraph itself so menu copy never enters geocoding.
+        address = next((' '.join(node.get_text(' ', strip=True) for node in [p, *p.find_next_siblings('p', limit=2)]) for p in soup.select('p')
+                        if 'Karpatská 2' in p.get_text()), None)
         if not day or not clock or not address:
             return []
         return [RawEvent(title=title.get_text(' ',strip=True),

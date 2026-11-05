@@ -1,8 +1,10 @@
+import { useThemeRevision } from '../../theme/appearance';
 import { useEffect, useRef } from 'react';
 import { Asset } from 'expo-asset';
 import { Rive, RuntimeLoader, Fit, Layout } from '@rive-app/canvas';
 import { walkAsset } from '../../loading/registry';
 export function RiveCharacter({ animation, onFailure }: { animation: string; onFailure: () => void }) {
+  useThemeRevision();
   const canvas = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     if (!canvas.current) return;

@@ -1,7 +1,9 @@
+import { usePullRefresh } from "../src/hooks/usePullRefresh";
+import { themedStyles, useThemeRevision } from '../src/theme/appearance';
 import { useEffect, useState } from "react";
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { AnimatedPressable as Pressable } from '../src/components/motion/Motion';
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from '../src/components/navigation/ContentSafeArea';
 import { router, useLocalSearchParams } from "expo-router";
 import { AppIcon } from "../src/components/AppIcon";
 import { EventChainItem, EventChainMode } from "../src/api/eventChains";
@@ -22,10 +24,13 @@ const MODES: { value: EventChainMode; label: string }[] = [
 ];
 
 function ChainEventRow({ item }: { item: EventChainItem }) {
+  useThemeRevision();
   return <PlanStop event={item.event} reason={item.reasons[0]} anchor={item.is_anchor} />;
 }
 
 export default function EventChainsScreen() {
+  const pullRefresh = usePullRefresh(() => query.refetch());
+  useThemeRevision();
   const { anchorEventId } = useLocalSearchParams<{ anchorEventId: string }>();
   const gate = usePlusGate();
   const [mode, setMode] = useState<EventChainMode>("full");
@@ -52,7 +57,7 @@ export default function EventChainsScreen() {
     <ScreenHeader title="Event Chains" />
     <ScrollView
       contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={query.isRefetching} onRefresh={() => void query.refetch()} tintColor={colors.primary} />}
+      refreshControl={<RefreshControl refreshing={pullRefresh.refreshing} onRefresh={pullRefresh.onRefresh} tintColor={colors.primary} />}
     >
       <PremiumIntro icon="git-network-outline" title="One event. A whole evening." subtitle="Explore what fits before and after your selected event, with room to move between venues." />
       <View style={styles.modes}>{MODES.map(option => <Pressable
@@ -77,7 +82,7 @@ export default function EventChainsScreen() {
   </SafeAreaView>;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   safe: { flex: 1, backgroundColor: colors.background }, guard: { flex: 1, alignItems: "center", justifyContent: "center" },
   content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 40, flexGrow: 1 },
   kicker: { color: colors.primaryDark, fontFamily: fonts.black, fontWeight: '800', fontSize: 12, letterSpacing: 1.5, marginTop: 10 },
@@ -93,4 +98,4 @@ const styles = StyleSheet.create({
   eventCopy: { flex: 1, minWidth: 0 }, eventTop: { flexDirection: "row", alignItems: "center", gap: 8 }, eventTime: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
   anchorBadge: { color: colors.primaryDark, fontFamily: fonts.black, fontWeight: '800', fontSize: 7, letterSpacing: .8 }, eventTitle: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 15, lineHeight: 19, marginTop: 4 },
   eventVenue: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, marginTop: 3 }, reason: { color: colors.primaryDark, fontFamily: fonts.medium, fontSize: 12, marginTop: 6 },
-});
+}));

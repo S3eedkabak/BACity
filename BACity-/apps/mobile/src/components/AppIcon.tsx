@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../theme/appearance';
 import Svg, { Circle as SvgCircle, Path } from 'react-native-svg';
 import Activity from 'iconoir-react-native/regular/Activity';
 import Album from 'iconoir-react-native/regular/Album';
@@ -60,6 +61,7 @@ import ShareIos from 'iconoir-react-native/regular/ShareIos';
 import Shield from 'iconoir-react-native/regular/Shield';
 import ShieldCheck from 'iconoir-react-native/regular/ShieldCheck';
 import Sparks from 'iconoir-react-native/regular/Sparks';
+import StarSolid from 'iconoir-react-native/solid/Star';
 import Star from 'iconoir-react-native/regular/Star';
 import SunLight from 'iconoir-react-native/regular/SunLight';
 import ThumbsDown from 'iconoir-react-native/regular/ThumbsDown';
@@ -77,6 +79,7 @@ import { colors } from '../theme/colors';
 import { tokens } from '../theme/tokens';
 
 function Restroom({width, height, color}: {width?: number; height?: number; color?: string}) {
+  useThemeRevision();
   return <Svg width={width} height={height} viewBox="0 0 64 64" fill={color}>
     <SvgCircle cx={18} cy={12} r={5}/><SvgCircle cx={46} cy={12} r={5}/>
     <Path d="M12 21h12v33h-5V36h-2v18h-5V21ZM46 20 34 41h6v13h5V41h2v13h5V41h6L46 20Z"/>
@@ -84,6 +87,7 @@ function Restroom({width, height, color}: {width?: number; height?: number; colo
 }
 
 function CityRecenter({width, height, color, strokeWidth}: {width?: number; height?: number; color?: string; strokeWidth?: number}) {
+  useThemeRevision();
   return <Svg width={width} height={height} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth}>
     <SvgCircle cx={12} cy={12} r={7}/><SvgCircle cx={12} cy={12} r={2}/>
     <Path d="M12 2v3m0 14v3M2 12h3m14 0h3" strokeLinecap="round"/>
@@ -180,6 +184,7 @@ const icons = {
   'sparkles': Sparks,
   'sparkles-outline': Sparks,
   'star-outline': Star,
+  'star': StarSolid,
   'sunny-outline': SunLight,
   'thumbs-down-outline': ThumbsDown,
   'thumbs-up-outline': ThumbsUp,
@@ -188,6 +193,7 @@ const icons = {
 } as const;
 export type AppIconName = keyof typeof icons;
 export function AppIcon({ name, size = tokens.icon.standard, color = colors.text, strokeWidth = 1.7 }: { name: AppIconName; size?: number; color?: string; strokeWidth?: number }) {
+  useThemeRevision();
   const Icon = icons[name];
   return <Icon width={size} height={size} color={color} strokeWidth={strokeWidth} />;
 }

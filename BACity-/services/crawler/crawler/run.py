@@ -60,7 +60,7 @@ def main():
     crawler = process.create_crawler(DiscoverySpider)
     errors = []
     track_pipeline_errors(crawler,errors)
-    deferred = process.crawl(crawler, source=source)
+    deferred = process.crawl(crawler, source=source, inspection=args.inspection)
     deferred.addErrback(lambda failure: errors.append(str(failure.value)))
     process.start()
     stats = crawler.stats.get_stats()

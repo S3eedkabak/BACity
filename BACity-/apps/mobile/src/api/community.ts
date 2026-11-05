@@ -24,7 +24,7 @@ export async function getConversationProfile(id: string) {
   }
 }
 export const getProfileHistory = (id: string, type: "contributions" | "reviews" | "followers" | "following", offset = 0, limit = 20) => apiRequest<any[]>(`/community/profiles/${id}/${type}`, { auth: true, params: { offset, limit } });
-export const getNotifications = () => apiRequest<Notification[]>("/community/notifications", { auth: true });
+export const getNotifications = (offset = 0, limit = 100) => apiRequest<Notification[]>("/community/notifications", { auth: true, params: { offset, limit } });
 export const markNotificationRead = (id: string) => apiRequest(`/community/notifications/${id}/read`, { method: "POST", auth: true });
 export const getConversation = (id: string, offset = 0) => apiRequest<Message[]>(`/community/messages/${id}`, { auth: true, params: { offset } });
 export const sendMessage = (id: string, body: string) => apiRequest<Message>(`/community/messages/${id}`, { method: "POST", auth: true, body: { body } });

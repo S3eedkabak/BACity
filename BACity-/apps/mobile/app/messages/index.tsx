@@ -1,7 +1,9 @@
+import { usePullRefresh } from "../../src/hooks/usePullRefresh";
+import { themedStyles, useThemeRevision } from '../../src/theme/appearance';
 import { useMemo } from "react";
 import { FlatList, StyleSheet, Text, View } from "react-native";
 import { AnimatedPressable as Pressable } from '../../src/components/motion/Motion';
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from '../../src/components/navigation/ContentSafeArea';
 import { router } from "expo-router";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "../../src/store/authStore";
@@ -20,8 +22,9 @@ function when(value?: string) {
 }
 
 export default function InboxScreen() {
+  useThemeRevision();
   const token = useAuthStore(state => state.token);
-  const notifications = useQuery({ queryKey: ["notifications"], queryFn: getNotifications, enabled: !!token });
+  const notifications = useQuery({ queryKey: ["notifications"], queryFn: () => getNotifications(), enabled: !!token });
   const userIds = useMemo(() => Array.from(new Set((notifications.data ?? []).filter(item => item.kind === "message" && item.target_id).map(item => item.target_id!))), [notifications.data]);
   const conversations = useQueries({ queries: userIds.map(userId => ({
     queryKey: ["inbox-thread", userId],
@@ -33,10 +36,8 @@ export default function InboxScreen() {
   })).sort((a, b) => new Date(b.latest?.created_at ?? 0).getTime() - new Date(a.latest?.created_at ?? 0).getTime());
   const loading = notifications.isPending || conversations.some(result => result.isPending);
   const error = notifications.error || conversations.find(result => result.error)?.error;
-  const retry = () => {
-    void notifications.refetch();
-    conversations.forEach(result => { void result.refetch(); });
-  };
+  const retry = () => Promise.all([notifications.refetch(), ...conversations.map(result => result.refetch())]);
+  const pullRefresh = usePullRefresh(retry);
 
   return <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
     <ScreenHeader title="Messages" />
@@ -46,8 +47,8 @@ export default function InboxScreen() {
         keyExtractor={item => item.userId}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        refreshing={notifications.isFetching && !notifications.isPending}
-        onRefresh={retry}
+        refreshing={pullRefresh.refreshing}
+        onRefresh={pullRefresh.onRefresh}
         ListHeaderComponent={<View style={styles.intro}><Text style={styles.heading}>Your city connections</Text><Text style={styles.subtitle}>Make a plan. Keep the conversation going.</Text>{!!error && <Pressable accessibilityRole="button" onPress={retry} style={styles.retry}><Text style={styles.subtitle}>Couldn't refresh all conversations. Tap to retry.</Text></Pressable>}</View>}
         ListEmptyComponent={<EmptyState title="No conversations yet" subtitle="Open a member profile and tap Message to start one." action="Find people" onAction={() => router.push({ pathname: "/(tabs)/explore", params: { domain: "people" } })} />}
         renderItem={({ item }) => <Pressable accessibilityRole="button" accessibilityLabel={`Message ${item.profile.display_name || "BACity member"}${item.unread ? ", unread" : ""}`} onPress={() => router.push(`/messages/${item.userId}`)} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
@@ -60,7 +61,7 @@ export default function InboxScreen() {
   </SafeAreaView>;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   safe: { flex: 1, backgroundColor: colors.background },
   content: { width: "100%", maxWidth: 760, alignSelf: "center", paddingHorizontal: 20, paddingBottom: 32, flexGrow: 1 },
   intro: { paddingTop: 12, paddingBottom: 24, gap: 8 },
@@ -73,4 +74,4 @@ const styles = StyleSheet.create({
   name: { flex: 1, color: colors.text, fontFamily: fonts.semibold, fontWeight: "600", fontSize: 16 }, unread: { fontWeight: "800" },
   preview: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 14, marginTop: 6 }, previewUnread: { color: colors.text, fontWeight: "600" },
   time: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12 }, dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.primary },
-});
+}));

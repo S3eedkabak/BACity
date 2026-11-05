@@ -1,7 +1,8 @@
+import { themedStyles, useThemeRevision } from '../src/theme/appearance';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView } from '../src/components/navigation/ContentSafeArea';
 import Animated, {
   cancelAnimation,
   runOnJS,
@@ -43,10 +44,11 @@ const PAGES: StoryPage[] = [
 ];
 
 function StoryProgress({ state }: { state: 'past' | 'current' | 'future' }) {
+  useThemeRevision();
   const reduced = useReducedMotion();
   const value = useSharedValue(state === 'past' ? 1 : 0);
   useEffect(() => {
-    value.value = state === 'past' ? 1 : state === 'future' ? 0 : withTiming(1, { duration: reduced ? 0 : 430 });
+    value.value = state === 'past' ? 1 : state === 'future' ? 0 : withTiming(1, { duration: reduced ? 0 : 260 });
     return () => cancelAnimation(value);
   }, [reduced, state, value]);
   const fill = useAnimatedStyle(() => ({ opacity: state === 'future' ? 0 : .45 + value.value * .55, transform: [{ scaleX: value.value }] }));
@@ -54,6 +56,7 @@ function StoryProgress({ state }: { state: 'past' | 'current' | 'future' }) {
 }
 
 export default function PlusExperienceScreen() {
+  useThemeRevision();
   const { width } = useWindowDimensions();
   const reduced = useReducedMotion();
   const transition = useSharedValue(1);
@@ -72,13 +75,13 @@ export default function PlusExperienceScreen() {
 
   const incomingStyle = useAnimatedStyle(() => ({
     opacity: reduced ? 1 : .35 + transition.value * .65,
-    transform: [{ translateX: reduced ? 0 : direction.value * (1 - transition.value) * Math.min(width * .28, 120) }, { scale: reduced ? 1 : .97 + transition.value * .03 }],
+    transform: [{ translateY: reduced ? 0 : (1 - transition.value) * 6 }],
   }));
   const outgoingStyle = useAnimatedStyle(() => ({
     opacity: reduced ? 0 : 1 - transition.value,
-    transform: [{ translateX: reduced ? 0 : -direction.value * transition.value * Math.min(width * .2, 90) }, { scale: reduced ? 1 : 1 - transition.value * .035 }],
+    transform: [{ translateY: 0 }],
   }));
-  const atmosphere = useAnimatedStyle(() => ({ transform: [{ translateX: reduced ? 0 : direction.value * (1 - transition.value) * 36 }, { rotate: `${page * 17}deg` }] }));
+  const atmosphere = useAnimatedStyle(() => ({ opacity: 1 }));
 
   function go(next: number) {
     if (next < 0 || next >= PAGES.length || next === page) return;
@@ -86,7 +89,7 @@ export default function PlusExperienceScreen() {
     setOutgoing(page);
     setPage(next);
     transition.value = reduced ? 1 : 0;
-    transition.value = withTiming(1, { duration: reduced ? 0 : 430 }, finished => {
+    transition.value = withTiming(1, { duration: reduced ? 0 : 260 }, finished => {
       if (finished) runOnJS(setOutgoing)(null);
     });
   }
@@ -156,7 +159,7 @@ export default function PlusExperienceScreen() {
   </View>;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   root: { flex: 1, backgroundColor: colors.background, overflow: 'hidden' }, safe: { flex: 1 },
   atmosphere: { position: 'absolute', width: 460, height: 460, borderRadius: 230, backgroundColor: '#4A1530', opacity: .5, top: -170, right: -190 },
   progress: { flexDirection: 'row', gap: 5, paddingHorizontal: 18, paddingTop: 8 }, segment: { flex: 1, height: 3, borderRadius: 2, overflow: 'hidden', backgroundColor: colors.border }, segmentFill: { width: '100%', height: '100%', backgroundColor: colors.primaryDark },
@@ -165,4 +168,4 @@ const styles = StyleSheet.create({
   visual: { alignSelf: 'center', width: 224, height: 224, borderRadius: 72, backgroundColor: colors.primary, transform: [{ rotate: '-5deg' }], alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: .36, shadowRadius: 24, shadowOffset: { width: 0, height: 14 }, elevation: 12 }, visualAlt: { borderRadius: 112, transform: [{ rotate: '4deg' }], backgroundColor: '#702449' }, visualRing: { position: 'absolute', width: 172, height: 172, borderRadius: 86, borderWidth: 1, borderColor: 'rgba(255,255,255,.28)' }, iconDisc: { width: 110, height: 110, borderRadius: 40, backgroundColor: 'rgba(16,14,18,.3)', alignItems: 'center', justifyContent: 'center' }, visualIndex: { position: 'absolute', right: 20, bottom: 14, color: 'rgba(255,255,255,.55)', fontFamily: fonts.black, fontWeight: '800', fontSize: 24 },
   copyBlock: { maxWidth: 560, width: '100%', alignSelf: 'center' }, eyebrow: { color: colors.primaryDark, fontFamily: fonts.black, fontWeight: '800', fontSize: 11, letterSpacing: 2 }, title: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 37, lineHeight: 39, letterSpacing: -1.5, marginTop: 9 }, copy: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, marginTop: 12, maxWidth: 480 }, note: { color: colors.primaryDark, fontFamily: fonts.medium, fontSize: 12, lineHeight: 18, marginTop: 10 },
   footer: { paddingHorizontal: 20, paddingBottom: 8, gap: 9 }, cta: { minHeight: 56, borderRadius: 19, backgroundColor: colors.primary, paddingHorizontal: 19, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, ctaText: { color: colors.white, fontFamily: fonts.black, fontWeight: '800', fontSize: 14 }, hint: { color: colors.textMuted, textAlign: 'center', fontFamily: fonts.medium, fontSize: 11 }, locationAction: { minHeight: 48, borderRadius: 16, backgroundColor: colors.primarySoft, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 10 }, locationText: { flex: 1, color: colors.text, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 13 },
-});
+}));

@@ -8,6 +8,11 @@ export type LoadingContext =
   | 'bacity-plus'
   | 'plan-generation'
   | 'weekend-generation';
+
+/** Planning owns a continuous inline printer surface; other routes keep Rive. */
+export function loadingPresentation(context: LoadingContext): 'inline' | 'overlay' {
+  return context === 'plan-generation' || context === 'weekend-generation' ? 'inline' : 'overlay';
+}
 // Enumerated with @rive-app/canvas 2.44.0 against the supplied, unchanged file.
 // 800x1000 artboard; loop=1; durations are frames at 60fps (2s/4s/2s).
 // State Machine 1 has one NUMBER input "level"; no booleans/triggers.

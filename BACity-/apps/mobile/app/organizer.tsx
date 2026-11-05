@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../src/theme/appearance';
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { Linking, Text, View } from "react-native";
@@ -15,6 +16,7 @@ import {
 import { TemporalField } from '../src/components/TemporalField';
 
 export default function Organizer() {
+  useThemeRevision();
   const [eventDate, setEventDate] = useState('');
   const [eventTime, setEventTime] = useState('18:00');
   const { claim } = useLocalSearchParams<{ claim?: string }>();
@@ -119,7 +121,7 @@ export default function Organizer() {
   return (
     <Page title="Organizer tools">
       <Notice text={notice} />
-      <Button title="Browse organizers" onPress={() => router.push({ pathname: "/(tabs)/explore", params: { domain: "organizers" } })} />
+      <Button variant="secondary" title="Browse organizers" onPress={() => router.push({ pathname: "/(tabs)/explore", params: { domain: "organizers" } })} />
 
       {claimOrganization && <Card><Text style={ui.heading}>Claim {claimOrganization.name}</Text><Text style={ui.text}>Provide a public HTTPS page that proves your relationship to this organization.</Text><Field label="Public ownership evidence URL" value={evidence} onChange={setEvidence} /><Button title="Request ownership review" busy={busy} onPress={async () => { setBusy(true); try { await apiRequest(`/community/organizations/${claimOrganization.id}/claim`, { method: 'POST', auth: true, body: { evidence_url: evidence, reason: 'Please verify my ownership using the supplied public evidence' } }); setNotice('Ownership claim submitted for moderation.'); } catch (e: any) { setNotice(e.message); } finally { setBusy(false); } }} /></Card>}
 

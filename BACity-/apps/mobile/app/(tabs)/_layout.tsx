@@ -1,3 +1,5 @@
+import { useRef } from 'react';
+import { themedStyles, useThemeRevision } from '../../src/theme/appearance';
 import { Tabs } from "expo-router";
 import { AppIcon } from "../../src/components/AppIcon";
 import { TabIcon } from '../../src/components/TabIcon';
@@ -9,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMajorTransition } from '../../src/components/loading/LoadingExperience';
 
 function CreateTabButton(props: any) {
+  useThemeRevision();
   return (
     <Pressable
       accessibilityRole="button"
@@ -26,8 +29,10 @@ function CreateTabButton(props: any) {
 }
 
 export default function TabsLayout() {
+  useThemeRevision();
   const insets = useSafeAreaInsets();
   const major = useMajorTransition();
+  const mapVisited=useRef(false);
   return (
     <Tabs
       screenOptions={{
@@ -67,9 +72,7 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="map"
-        listeners={({ navigation }) => ({
-          tabPress: () => { if (!navigation.isFocused()) major.begin('map'); },
-        })}
+        listeners={{tabPress:()=>{if(!mapVisited.current){mapVisited.current=true;major.begin('map');}}}}
         options={{
           title: "Map",
           tabBarIcon: ({ color, size, focused }) => (
@@ -91,7 +94,7 @@ export default function TabsLayout() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   tabBar: {
     height: 68,
     paddingTop: 7,
@@ -137,4 +140,4 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   pressed: { opacity: 0.82 },
-});
+}));

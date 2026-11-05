@@ -1,9 +1,11 @@
+import { themedStyles, useThemeRevision } from '../theme/appearance';
 import { StyleSheet, View } from 'react-native';
 import { colors } from '../theme/colors';
 import { tokens } from '../theme/tokens';
 import { SkeletonPulse } from './motion/Motion';
 
 export function LoadingState({ variant = 'feed' }: { variant?: 'feed' | 'detail' | 'saved' }) {
+  useThemeRevision();
   return <SkeletonPulse style={styles.page}>
     <View style={[styles.hero, variant === 'detail' && styles.detail]} />
     <View style={styles.lineWide} /><View style={styles.line} />
@@ -11,7 +13,7 @@ export function LoadingState({ variant = 'feed' }: { variant?: 'feed' | 'detail'
       [0, 1].map(item => <View key={item} style={styles.card}><View style={styles.image} /><View style={styles.copy}><View style={styles.lineWide} /><View style={styles.line} /></View></View>)}
   </SkeletonPulse>;
 }
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   page: { backgroundColor: colors.background, padding: tokens.layout.gutter, gap: tokens.space.lg },
   hero: { aspectRatio: tokens.image.feed, width: '100%', borderRadius: tokens.radius.lg, backgroundColor: colors.skeleton },
   detail: { aspectRatio: .95 },
@@ -22,4 +24,4 @@ const styles = StyleSheet.create({
   copy: { flex: 1, padding: tokens.space.md, gap: tokens.space.md },
   metadata: { flexDirection: 'row', gap: tokens.space.md },
   info: { flex: 1, height: 100, borderRadius: tokens.radius.md, backgroundColor: colors.skeleton },
-});
+}));

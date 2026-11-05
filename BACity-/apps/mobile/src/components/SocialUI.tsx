@@ -1,3 +1,9 @@
+import { useNavRow } from './interactions/NavListCard';
+import { AppSheet } from './sheets/AppSheet';
+import { useNavigation, usePathname } from 'expo-router';
+import { useLayoutEffect } from 'react';
+import { themedStyles, useThemeRevision } from '../theme/appearance';
+import { NumberTicker } from './interactions/NumberTicker';
 import { ComponentProps, PropsWithChildren, useEffect, useState } from "react";
 import { Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { AnimatedPressable as Pressable } from './motion/Motion';
@@ -13,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 type IconName = ComponentProps<typeof AppIcon>["name"];
 
 export function Avatar({ uri, name, size = 48 }: { uri?: string | null; name?: string | null; size?: number }) {
+  useThemeRevision();
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [uri]);
   const initials = (name || "BA").split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]?.toUpperCase()).join("");
@@ -24,6 +31,7 @@ export function Avatar({ uri, name, size = 48 }: { uri?: string | null; name?: s
 }
 
 export function IconButton({ icon, label, onPress, badge = false }: { icon: IconName; label: string; onPress: () => void; badge?: boolean }) {
+  useThemeRevision();
   return <Pressable accessibilityRole="button" accessibilityLabel={label} hitSlop={6} onPress={onPress} style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
     <AppIcon name={icon} size={21} color={colors.text} />
     {badge && <View style={styles.badge} />}
@@ -31,6 +39,11 @@ export function IconButton({ icon, label, onPress, badge = false }: { icon: Icon
 }
 
 export function ScreenHeader({ title, back = true, right }: { title: string; back?: boolean; right?: React.ReactNode }) {
+  useThemeRevision();
+  const navigation = useNavigation(); const pathname = usePathname();
+  const inTabs = ['/discover', '/explore', '/profile', '/map', '/saved', '/contribute'].includes(pathname);
+  useLayoutEffect(() => { if (!inTabs) navigation.setOptions({ title, headerRight: () => right ?? null }); }, [navigation, title, right, inTabs]);
+  if (!inTabs) return null;
   return <View style={styles.header}>
     {back ? <IconButton icon="chevron-back" label="Go back" onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)/discover")} /> : <View style={styles.headerSlot} />}
     <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
@@ -39,15 +52,18 @@ export function ScreenHeader({ title, back = true, right }: { title: string; bac
 }
 
 export function SectionHeader({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) {
-  return <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>{title}</Text>{action && onAction && <Pressable accessibilityRole="button" accessibilityLabel={action} onPress={onAction} style={{ minHeight: 44, justifyContent: 'center', paddingLeft: 12 }}><Text style={styles.sectionAction}>{action}</Text></Pressable>}</View>;
+  useThemeRevision();
+  return <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>{title}</Text>{action && onAction && <Pressable accessibilityRole="button" accessibilityLabel={action} onPress={onAction} style={{ minHeight: 48, justifyContent: 'center', paddingLeft: 12 }}><Text style={styles.sectionAction}>{action}</Text></Pressable>}</View>;
 }
 
 export function Stat({ value, label, onPress }: { value: string | number; label: string; onPress?: () => void }) {
-  const content = <><Text style={styles.statValue} numberOfLines={1}>{value}</Text><Text style={styles.statLabel}>{label}</Text></>;
-  return onPress ? <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.stat, pressed && styles.pressed]}>{content}</Pressable> : <View style={styles.stat}>{content}</View>;
+  useThemeRevision();
+  const content = <>{typeof value === 'number' ? <NumberTicker value={value} label={label} style={styles.statValue} /> : <Text style={styles.statValue}>{value}</Text>}<Text style={styles.statLabel}>{label}</Text></>;
+  return onPress ? <Pressable accessibilityRole="button" accessibilityLabel={`${value} ${label}`} onPress={onPress} style={({ pressed }) => [styles.stat, pressed && styles.pressed]}>{content}</Pressable> : <View style={styles.stat}>{content}</View>;
 }
 
 export function ProfileRow({ profile, subtitle, action, onAction, onPress }: { profile: any; subtitle?: string; action?: string; onAction?: () => void; onPress: () => void }) {
+  useThemeRevision();
   return <Pressable accessibilityRole="button" accessibilityLabel={`Open ${profile.display_name || profile.name || 'member'} profile`} onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
     <Avatar uri={profile.avatar_url} name={profile.display_name || profile.name} />
     <View style={styles.rowCopy}><Text style={styles.rowTitle} numberOfLines={1}>{profile.display_name || profile.name || "BACity member"}</Text><Text style={styles.rowSubtitle} numberOfLines={1}>{subtitle || profile.neighborhood || profile.reputation_level || "Bratislava"}</Text></View>
@@ -56,34 +72,27 @@ export function ProfileRow({ profile, subtitle, action, onAction, onPress }: { p
 }
 
 export function ListItem({ icon, title, subtitle, onPress, trailing }: { icon: IconName; title: string; subtitle?: string | null; onPress?: () => void; trailing?: React.ReactNode }) {
+  useThemeRevision();
+  const navRow = useNavRow();
   const content = <>
     <View style={styles.listIcon}><AppIcon name={icon} size={20} color={colors.primaryDark} /></View>
-    <View style={styles.rowCopy}><Text style={styles.rowTitle} numberOfLines={1}>{title}</Text>{subtitle ? <Text style={styles.rowSubtitle} numberOfLines={2}>{subtitle}</Text> : null}</View>
+    <View style={styles.rowCopy}><Text style={styles.rowTitle}>{title}</Text>{subtitle ? <Text style={styles.rowSubtitle} numberOfLines={2}>{subtitle}</Text> : null}</View>
     {trailing ?? (onPress ? <AppIcon name="chevron-forward" size={17} color={colors.textMuted} /> : null)}
   </>;
-  return onPress ? <Pressable accessibilityRole="button" accessibilityLabel={title} onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>{content}</Pressable> : <View style={styles.row}>{content}</View>;
+  return onPress ? <Pressable {...navRow} accessibilityRole="button" accessibilityLabel={title} onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>{content}</Pressable> : <View style={styles.row}>{content}</View>;
 }
 
 export function SkeletonList({ rows = 5 }: { rows?: number }) {
+  useThemeRevision();
   return <SkeletonPulse>{Array.from({ length: rows }).map((_, index) => <View key={index} style={styles.skeletonRow}><View style={styles.skeletonAvatar} /><View style={styles.skeletonCopy}><View style={styles.skeletonWide} /><View style={styles.skeletonShort} /></View></View>)}</SkeletonPulse>;
 }
 
 export function OverflowMenu({ visible, title = "More", onClose, children }: PropsWithChildren<{ visible: boolean; title?: string; onClose: () => void }>) {
-  const reduced = useReducedMotion();
-  const insets = useSafeAreaInsets();
-  return <Modal visible={visible} transparent animationType={reduced ? 'none' : 'slide'} onRequestClose={onClose}>
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-    <Pressable accessible={false} style={styles.overlay} onPress={onClose}>
-      <Pressable accessible={false} style={[styles.sheet, { paddingBottom: Math.max(tokens.space.lg, insets.bottom) }]} onPress={event => event.stopPropagation()}>
-        <View style={styles.sheetHandle} /><View style={styles.sheetTitleRow}><Text style={styles.sheetTitle}>{title}</Text><IconButton icon="close" label="Close menu" onPress={onClose} /></View>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.sheetContent}>{children}</ScrollView>
-      </Pressable>
-    </Pressable>
-    </KeyboardAvoidingView>
-  </Modal>;
+  useThemeRevision();
+  return <AppSheet visible={visible} title={title} onClose={onClose}>{children}</AppSheet>;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   avatar: { backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
   avatarText: { color: colors.white, fontFamily: fonts.black },
   iconButton: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center" },
@@ -95,17 +104,17 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 20, marginBottom: 10 },
   sectionTitle: { color: colors.text, ...tokens.type.section, flexShrink: 1 },
   sectionAction: { color: colors.primaryDark, fontFamily: fonts.semibold, fontSize: 12 },
-  stat: { flex: 1, minWidth: 78, alignItems: "center", paddingVertical: 10 },
-  statValue: { color: colors.text, ...tokens.type.section },
+  stat: { flex: 1, minWidth: 64, alignItems: "center", paddingVertical: 8 },
+  statValue: { color: colors.text, ...tokens.type.action, fontSize: 19 },
   statLabel: { color: colors.textMuted, ...tokens.type.caption, marginTop: 2 },
-  row: { minHeight: 68, flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  row: { minHeight: 56, flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   rowPressed: { backgroundColor: colors.surfaceAlt },
   rowCopy: { flex: 1, minWidth: 0 },
   rowTitle: { color: colors.text, ...tokens.type.action },
   rowSubtitle: { color: colors.textMuted, ...tokens.type.metadata, marginTop: 4 },
-  smallAction: { minHeight: 44, paddingHorizontal: 16, borderRadius: 22, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" },
+  smallAction: { minHeight: 48, paddingHorizontal: 16, borderRadius: 22, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" },
   smallActionText: { color: colors.primaryDark, ...tokens.type.caption },
-  listIcon: { width: 44, height: 44, borderRadius: 16, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" },
+  listIcon: { width: 28, height: 32, alignItems: "center", justifyContent: "center" },
   skeletonRow: { height: 68, flexDirection: "row", alignItems: "center", gap: 12 },
   skeletonAvatar: { width: 48, height: 48, borderRadius: 17, backgroundColor: colors.primarySoft },
   skeletonCopy: { flex: 1, gap: 8 },
@@ -117,4 +126,4 @@ const styles = StyleSheet.create({
   sheetTitleRow: { minHeight: 58, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   sheetTitle: { color: colors.text, fontFamily: fonts.black, fontSize: 20 },
   sheetContent: { paddingBottom: 10 },
-});
+}));

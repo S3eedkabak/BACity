@@ -1,8 +1,9 @@
+import { themedStyles, useThemeRevision } from '../src/theme/appearance';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView } from '../src/components/navigation/ContentSafeArea';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { BrandMark } from '../src/components/BrandMark';
 import { AppIcon } from '../src/components/AppIcon';
@@ -17,6 +18,7 @@ import { tokens } from '../src/theme/tokens';
 
 type Provider = 'google' | 'apple';
 function ProgressTrack({ active }: { active: boolean }) {
+  useThemeRevision();
   const reduced = useReducedMotion();
   const progress = useSharedValue(active ? 1 : 0);
   useEffect(() => { progress.value = withTiming(active ? 1 : 0, { duration: reduced ? 0 : 180 }); }, [active, progress, reduced]);
@@ -24,6 +26,7 @@ function ProgressTrack({ active }: { active: boolean }) {
   return <View style={styles.progressTrack}><Animated.View style={[StyleSheet.absoluteFill, styles.progressActive, fill]} /></View>;
 }
 function CinematicScrim() {
+  useThemeRevision();
   return <View pointerEvents="none" style={StyleSheet.absoluteFill} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
     <Svg width="100%" height="100%">
       <Defs><LinearGradient id="onboarding-scrim" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -47,6 +50,7 @@ const pages: { title: string; copy: string; mood: CharacterMood; label: string }
 ];
 
 export default function WelcomeScreen() {
+  useThemeRevision();
   const [page, setPage] = useState(0);
   const [providerBusy, setProviderBusy] = useState<Provider | null>(null);
   const [providers, setProviders] = useState<authApi.OAuthStatus | null>(null);
@@ -104,7 +108,7 @@ export default function WelcomeScreen() {
     </SafeAreaView>
   </View>;
 }
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   root: { flex: 1, backgroundColor: colors.background },
   safe: { flex: 1, backgroundColor: 'transparent' },
   top: { paddingHorizontal: tokens.layout.gutter, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -128,4 +132,4 @@ const styles = StyleSheet.create({
   link: { minHeight: tokens.icon.touch, justifyContent: 'center', paddingHorizontal: tokens.space.sm },
   linkText: { ...tokens.type.action, color: colors.text },
   muted: { ...tokens.type.metadata, color: colors.textMuted },
-});
+}));

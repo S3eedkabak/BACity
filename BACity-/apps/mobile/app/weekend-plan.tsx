@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { themedStyles, useThemeRevision } from '../src/theme/appearance';
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { AnimatedPressable as Pressable } from '../src/components/motion/Motion';
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from '../src/components/navigation/ContentSafeArea';
 import { router } from "expo-router";
 import { AppIcon } from "../src/components/AppIcon";
 import type { WeekendMode, WeekendPlanAlternative, WeekendPlanDay } from "../src/api/weekendPlans";
 import { Button, Chip } from "../src/components/CommunityUI";
 import { EmptyState } from "../src/components/EmptyState";
-import { ScreenHeader, SkeletonList } from "../src/components/SocialUI";
+import { ScreenHeader } from "../src/components/SocialUI";
 import { useWeekendPlans } from "../src/hooks/useWeekendPlans";
 import { plusPaywallRoute } from "../src/plus/policy";
 import { usePlusGate } from "../src/plus/usePlusGate";
@@ -18,6 +19,8 @@ import type { EventCategory } from "../src/types/event";
 import { defaultWeekendStart, isChronologicalWeekendPlan, resolveWeekendView, validateWeekendStart, weekendEventRoute, weekendPlanNotice } from "../src/weekend/presentation";
 import { PremiumIntro, PlanStop } from "../src/components/PremiumUI";
 import { TemporalField } from "../src/components/TemporalField";
+import { weekendReceipt } from "../src/receipts/presentation";
+import { PrintedPlanResult } from "../src/components/receipts/PrintedPlanResult";
 import { useBrandedLoading } from "../src/components/loading/LoadingExperience";
 
 const CATEGORIES: EventCategory[] = ["Music", "Culture", "Arts", "Theatre", "Exhibitions", "Festivals", "Family", "Community"];
@@ -29,6 +32,7 @@ const MODES: { value: WeekendMode; label: string }[] = [
 const STRATEGY_LABELS = { relaxed: "Relaxed", culture_heavy: "Culture-heavy", something_different: "Something different" } as const;
 
 function DayTimeline({ day }: { day: WeekendPlanDay }) {
+  useThemeRevision();
   return <View style={styles.daySection}>
     <View style={styles.dayHeading}><Text style={styles.dayTitle}>{day.day}</Text><Text style={styles.dayDate}>{day.date}</Text></View>
     {!day.items.length ? <Text style={styles.dayEmpty}>No events safely fit this day.</Text> : day.items.map((item, index) => <PlanStop key={item.event.id} event={item.event} reason={item.reasons[0]} last={index === day.items.length - 1} />)}
@@ -36,6 +40,7 @@ function DayTimeline({ day }: { day: WeekendPlanDay }) {
 }
 
 function WeekendResult({ plan }: { plan: WeekendPlanAlternative }) {
+  useThemeRevision();
   if (!isChronologicalWeekendPlan(plan)) return <EmptyState title="This plan couldn't be displayed safely" />;
   return <View style={styles.result}>
     <Text style={styles.planTitle}>{STRATEGY_LABELS[plan.strategy]}</Text>
@@ -46,6 +51,7 @@ function WeekendResult({ plan }: { plan: WeekendPlanAlternative }) {
 }
 
 export default function WeekendPlanScreen() {
+  useThemeRevision();
   const gate = usePlusGate();
   const initialDate = useMemo(() => defaultWeekendStart(), []);
   const [weekendStart, setWeekendStart] = useState(initialDate);
@@ -58,6 +64,9 @@ export default function WeekendPlanScreen() {
   const generation = useWeekendPlans();
   useBrandedLoading('weekend-generation', generation.isPending);
   const plans = generation.data?.plans ?? [];
+  const submittedLock = useRef(false);
+  const selected = plans[alternative];
+  const printedPlan = useMemo(() => selected && isChronologicalWeekendPlan(selected) ? weekendReceipt(selected) : null, [selected]);
   const submitted = generation.data !== undefined || generation.isPending || generation.isError;
   const state = resolveWeekendView(gate.decision, submitted, generation.isPending, generation.isError, plans.length);
 
@@ -81,23 +90,24 @@ export default function WeekendPlanScreen() {
   }
 
   function generate() {
+    if (submittedLock.current || generation.isPending) return;
     const problem = validateWeekendStart(weekendStart);
     setValidation(problem);
     if (problem) return;
+    submittedLock.current = true;
     setEditing(false);
     generation.mutate({
       weekend_start: weekendStart,
       mode,
       categories,
       ...(location.coordinates ?? {}),
-    });
+    }, { onSettled: () => { submittedLock.current = false; } });
   }
 
   if (state === "guarding") {
     return <SafeAreaView style={styles.safe}><View style={styles.guard}><ActivityIndicator color={colors.primary} /></View></SafeAreaView>;
   }
 
-  const selected = plans[alternative];
   return <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
     <ScreenHeader title="Weekend Generator" />
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -120,17 +130,19 @@ export default function WeekendPlanScreen() {
       </View>}
 
       {state === "error" ? <EmptyState title="Weekend plans couldn't load" subtitle="Normal BACity discovery is still available." action="Try again" onAction={generate} /> : null}
-      {state === 'loading' ? <SkeletonList rows={3} /> : null}
       {state === "empty" ? <EmptyState title="No realistic weekend plan found" subtitle="BACity won't invent events or weaken planning constraints." action="Adjust the weekend or interests" onAction={() => generation.reset()} /> : null}
-      {state === "results" && !editing ? <>
-        <View style={styles.alternatives}>{plans.map((plan, index) => <Pressable key={plan.id} onPress={() => setAlternative(index)} style={[styles.alternative, alternative === index && styles.alternativeActive]}><Text style={[styles.alternativeText, alternative === index && styles.alternativeTextActive]}>{STRATEGY_LABELS[plan.strategy]}</Text></Pressable>)}</View>
-        {selected ? <WeekendResult plan={selected} /> : null}
-      </> : null}
+      {(state === "loading" || state === "results") ? <View style={state === 'results' && editing ? { display: 'none' } : undefined}>
+        <PrintedPlanResult title="Weekend Generator" pending={generation.isPending} plan={printedPlan}
+          resultKey={selected ? `${generation.submittedAt}:${selected.id}` : null}
+          notice={selected ? weekendPlanNotice(selected) : null}
+          fallback={selected ? <WeekendResult plan={selected} /> : undefined} />
+        {state === 'results' ? <View style={styles.alternatives}>{plans.map((plan, index) => <Pressable key={plan.id} onPress={() => setAlternative(index)} style={[styles.alternative, alternative === index && styles.alternativeActive]}><Text style={[styles.alternativeText, alternative === index && styles.alternativeTextActive]}>{STRATEGY_LABELS[plan.strategy]}</Text></Pressable>)}</View> : null}
+      </View> : null}
     </ScrollView></KeyboardAvoidingView>
   </SafeAreaView>;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   safe: { flex: 1, backgroundColor: colors.background }, guard: { flex: 1, alignItems: "center", justifyContent: "center" }, content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 42 },
   kicker: { color: colors.primaryDark, fontFamily: fonts.black, fontWeight: '800', fontSize: 12, letterSpacing: 1.5, marginTop: 10 }, heading: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 28, letterSpacing: -1, marginTop: 6 },
   subtitle: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, marginTop: 7 }, form: { marginTop: 18, gap: 12 }, label: { color: colors.textMuted, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12, letterSpacing: .8 },
@@ -143,4 +155,4 @@ const styles = StyleSheet.create({
   eventRow: { minHeight: 104, flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }, pressed: { opacity: .7 },
   timeBox: { minWidth: 52, height: 38, borderRadius: 14, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }, timeText: { color: colors.white, fontFamily: fonts.black, fontWeight: '800', fontSize: 12 },
   eventCopy: { flex: 1, minWidth: 0 }, eventTitle: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 15, lineHeight: 19 }, eventVenue: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, marginTop: 3 }, reason: { color: colors.primaryDark, fontFamily: fonts.medium, fontSize: 12, marginTop: 6 },
-});
+}));

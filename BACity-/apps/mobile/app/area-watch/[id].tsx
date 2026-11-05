@@ -1,7 +1,8 @@
+import { themedStyles, useThemeRevision } from '../../src/theme/appearance';
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 import { AnimatedPressable as Pressable } from '../../src/components/motion/Motion';
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from '../../src/components/navigation/ContentSafeArea';
 import { router, useLocalSearchParams } from "expo-router";
 import { areaWatchesApi, WatchRadius } from "../../src/api/areaWatches";
 import { Button, Chip } from "../../src/components/CommunityUI";
@@ -18,6 +19,7 @@ const CATEGORIES: EventCategory[] = ["Music", "Culture", "Arts", "Nightlife", "T
 const RADII: WatchRadius[] = [1, 2, 5];
 
 export default function AreaWatchDetailScreen() {
+  useThemeRevision();
   const { id } = useLocalSearchParams<{ id: string }>();
   const gate = usePlusGate();
   const allowed = gate.decision === "allow";
@@ -50,4 +52,4 @@ export default function AreaWatchDetailScreen() {
   </ScrollView></SafeAreaView>;
 }
 
-const styles = StyleSheet.create({ safe: { flex: 1, backgroundColor: colors.background }, center: { flex: 1, alignItems: "center", justifyContent: "center" }, content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 44 }, heading: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 25, marginTop: 10 }, subtitle: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, marginTop: 5 }, panel: { marginTop: 18, padding: 15, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: 10 }, panelTitle: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 16 }, label: { color: colors.textMuted, fontFamily: fonts.black, fontWeight: '800', fontSize: 12, letterSpacing: 1 }, chips: { flexDirection: "row", flexWrap: "wrap", gap: 7 }, section: { color: colors.textMuted, fontFamily: fonts.black, fontWeight: '800', fontSize: 12, letterSpacing: 1.2, marginTop: 24, marginBottom: 10 }, notice: { color: colors.primaryDark, fontFamily: fonts.medium, fontSize: 12, marginTop: 12 }, delete: { alignItems: "center", padding: 15, marginTop: 16 }, deleteText: { color: colors.danger, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 } });
+const styles = themedStyles(() => ({ safe: { flex: 1, backgroundColor: colors.background }, center: { flex: 1, alignItems: "center", justifyContent: "center" }, content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 44 }, heading: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 25, marginTop: 10 }, subtitle: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, marginTop: 5 }, panel: { marginTop: 18, padding: 15, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: 10 }, panelTitle: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 16 }, label: { color: colors.textMuted, fontFamily: fonts.black, fontWeight: '800', fontSize: 12, letterSpacing: 1 }, chips: { flexDirection: "row", flexWrap: "wrap", gap: 7 }, section: { color: colors.textMuted, fontFamily: fonts.black, fontWeight: '800', fontSize: 12, letterSpacing: 1.2, marginTop: 24, marginBottom: 10 }, notice: { color: colors.primaryDark, fontFamily: fonts.medium, fontSize: 12, marginTop: 12 }, delete: { alignItems: "center", padding: 15, marginTop: 16 }, deleteText: { color: colors.danger, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 } }));

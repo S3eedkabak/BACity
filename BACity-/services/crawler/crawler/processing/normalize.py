@@ -74,6 +74,8 @@ def normalize_event(
     raw: RawEvent, *, default_timezone: str = "Europe/Bratislava"
 ) -> Optional[NormalizedEvent]:
     from crawler.extraction.temporal import interval
+    from crawler.venue_addresses import VENUE_LOCALITIES
+    known_locality = VENUE_LOCALITIES.get((raw.venue_name or '').strip().casefold())
     date_end = raw.end_date_raw or (raw.end_raw if re.fullmatch(r'\d{4}-\d{2}-\d{2}', raw.end_raw or '') else None)
     start_dt, end_dt, temporal_evidence = interval(raw.start_raw, None if date_end else raw.end_raw, raw.duration_raw)
     if date_end and end_dt is None:
@@ -99,6 +101,7 @@ def normalize_event(
         description=clean_text(raw.description),
         venue_name=clean_text(raw.venue_name),
         address=clean_text(raw.address),
+        address_locality=clean_text(raw.address_locality) or (known_locality[0] if known_locality else None),
         latitude=raw.latitude,
         longitude=raw.longitude,
         price=price,

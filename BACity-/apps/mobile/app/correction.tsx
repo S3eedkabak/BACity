@@ -1,9 +1,11 @@
+import { useThemeRevision } from '../src/theme/appearance';
 import { useState } from 'react';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Text, View } from 'react-native';
 import { apiRequest } from '../src/api/client';
 import { Page, Card, Field, Button, Chip, Notice, ui } from '../src/components/CommunityUI';
 export default function Correction() {
+  useThemeRevision();
   const { type, id } = useLocalSearchParams<{ type: string; id: string }>();
   const [field, setField] = useState('address');
   const [value, setValue] = useState('');

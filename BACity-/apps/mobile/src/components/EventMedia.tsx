@@ -1,3 +1,4 @@
+import { themedStyles, useThemeRevision } from '../theme/appearance';
 import { ComponentProps, useEffect, useState } from 'react';
 import { Image, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { AppIcon } from "./AppIcon";
@@ -13,6 +14,7 @@ const motifs: Record<string, { color: string; icon: Icon }> = {
 };
 /** Real artwork only. Failures use local vector identity, never invented photography. */
 export function EventMedia({ uri, category, title, style }: { uri?: string | null; category?: string; title?: string; style?: StyleProp<ViewStyle> }) {
+  useThemeRevision();
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const reduced = useReducedMotion();
@@ -32,4 +34,4 @@ export function EventMedia({ uri, category, title, style }: { uri?: string | nul
     {!!uri && !failed && <Animated.Image source={{ uri }} style={[StyleSheet.absoluteFill, reveal]} resizeMode="cover" onLoad={() => setLoaded(true)} onError={() => setFailed(true)} accessibilityIgnoresInvertColors />}
   </View>;
 }
-const styles = StyleSheet.create({ media: { overflow: 'hidden' }, motif: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 }, category: { ...tokens.type.metadata, color: '#FFFFFF', letterSpacing: 2, textTransform: 'uppercase' } });
+const styles = themedStyles(() => ({ media: { overflow: 'hidden' }, motif: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 }, category: { ...tokens.type.metadata, color: '#FFFFFF', letterSpacing: 2, textTransform: 'uppercase' } }));

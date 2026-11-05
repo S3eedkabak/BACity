@@ -32,8 +32,17 @@ def navigation_url(url, domain):
         return None
     if domain == 'bkis.sk' and not p.path.startswith(('/podujatia', '/udalost/')):
         return None
-    if domain == 'a4.sk' and not p.path.startswith('/events/'):
-        return None
+    if domain == 'a4.sk':
+        if not p.path.startswith(('/events/', '/en/events/')):
+            return None
+        dated = re.search(r'/events/(\d{4})/(\d{2})/(\d{2})/', p.path)
+        if dated:
+            try:
+                event_day = date(*(int(part) for part in dated.groups()))
+            except ValueError:
+                return None
+            if event_day < datetime.now(ZoneInfo('Europe/Bratislava')).date() - timedelta(days=1):
+                return None
     return url
 
 

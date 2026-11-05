@@ -1,5 +1,5 @@
-/** Release entry only after the current account's Home route is acknowledged. */
+/** Auth entry resolves to Home; restoring a session preserves a valid destination. */
 export function entryDestination(owner: string | null, currentOwner: string | null, pathname: string) {
   if (!owner || owner !== currentOwner) return 'ignore';
-  return pathname === '/discover' || pathname === '/(tabs)/discover' ? 'complete' : 'home';
+  return ['/', '/auth', '/oauth', '/welcome'].includes(pathname) ? 'home' : 'complete';
 }

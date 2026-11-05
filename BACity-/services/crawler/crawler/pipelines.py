@@ -13,6 +13,12 @@ from crawler.processing.validate import validate_event
 
 logger = logging.getLogger(__name__)
 
+
+def crawl_item_limit(spider):
+    # Parser format is unrelated to qualification. A scheduled, trusted source
+    # must not inherit the small limit used while inspecting a new candidate.
+    return 100 if getattr(spider, 'inspection', False) is True else 1000
+
 _KNOWN_VENUES = {
     "stará tržnica": ("Námestie SNP 25, 811 01 Bratislava", 48.1445782, 17.1112316),
     "stará trznica": ("Námestie SNP 25, 811 01 Bratislava", 48.1445782, 17.1112316),
@@ -94,12 +100,27 @@ class GeocodePipeline(CrawlerPipeline):
             self.count(spider,'coordinates_available')
             return item
 
-        query = item.address or item.venue_name
+        # Publishers often put only the city in PostalAddress. Geocoding that
+        # before the named venue loses the location for every event in the city
+        # and shares the same negative cache entry across unrelated venues.
+        address = (item.address or '').strip()
+        locality = (getattr(item, 'address_locality', None) or '').strip()
+        generic_address = re.fullmatch(r'(?:bratislava(?:\s+[1-5])?(?:\s*[-–]\s*[\w\s]+)?|slovakia|slovensko)', address, re.I)
+        query = item.venue_name if not address or generic_address or (locality and address.casefold() == locality.casefold()) else address
         if not query:
             self.count(spider,'missing_query')
             return item
 
-        cache_key = query.strip().lower()
+        nonlocal_city = locality and not locality.casefold().startswith('bratislava')
+        from crawler.venue_addresses import VENUE_ADDRESSES
+        verified = VENUE_ADDRESSES.get((item.venue_name or '').strip().casefold())
+        if verified and (not address or generic_address or address.startswith('Karpatská 2')):
+            query = verified[0]
+            item.address = verified[0]
+        city = locality or 'Bratislava'
+        request_query = query if re.search(r'\b' + re.escape(city) + r'\b', query, re.I) else f'{query}, {city}'
+
+        cache_key = (query + (', ' + locality if nonlocal_city else '')).strip().lower()
         cached = self.state.db.execute("SELECT latitude,longitude FROM geocache WHERE query=? AND (expires IS NULL OR expires>?)", (cache_key, time.time())).fetchone()
         if cached:
             self.count(spider,'cache_hit')
@@ -121,8 +142,9 @@ class GeocodePipeline(CrawlerPipeline):
             response = requests.get(
                 self.url,
                 params={
-                    "q": f"{query}, Bratislava",
+                    "q": request_query,
                     "format": "jsonv2",
+                    "addressdetails": 1,
                     "limit": 1,
                     "countrycodes": "sk",
                     "viewbox": "16.9,48.35,17.35,48.0",
@@ -143,8 +165,13 @@ class GeocodePipeline(CrawlerPipeline):
             results = response.json()
             if results:
                 coords = (float(results[0]["lat"]), float(results[0]["lon"]))
+                kind = results[0].get('addresstype')
+                place = results[0].get('address') or {}
+                result_city = next((place[k] for k in ('city', 'town', 'village', 'municipality') if place.get(k)), '')
+                city_matches = not nonlocal_city or result_city.casefold() == locality.casefold()
                 if (all(math.isfinite(c) for c in coords) and 48.0 <= coords[0] <= 48.35 and 16.9 <= coords[1] <= 17.35
-                        and results[0].get('addresstype') not in ('city','municipality','suburb','country','state')):
+                        and kind not in ('city','town','village','municipality','suburb','borough','city_district','neighbourhood','quarter','county','country','state')
+                        and results[0].get('category') != 'boundary' and city_matches):
                     self.cache[cache_key] = coords
                     item.latitude, item.longitude = coords
                     with self.state.db:
@@ -170,6 +197,16 @@ class GeocodePipeline(CrawlerPipeline):
 class PreValidatePipeline(CrawlerPipeline):
     def process_item(self, item, spider=None):
         spider = spider or self.crawler.spider
+        if spider.crawler.stats.get_value('quality/events', 0) >= crawl_item_limit(spider):
+            spider.crawler.stats.inc_value('resource/item_limit')
+            raise DropItem('run_item_limit')
+        locality = (getattr(item, 'address_locality', None) or '').strip()
+        if locality and not locality.casefold().startswith('bratislava') and (item.latitude is None or item.longitude is None):
+            # A national publisher's explicit foreign city cannot acquire local
+            # evidence by searching for a similarly named Bratislava street.
+            spider.crawler.stats.inc_value('validation/rejected')
+            spider.crawler.stats.inc_value('validation/rejected/no_local_evidence')
+            raise DropItem('Publisher locality is outside Bratislava; no local coordinates')
         result = validate_event(item)
         if not result.accepted or result.needs_advanced_extraction:
             spider.crawler.stats.inc_value('validation/rejected')
@@ -245,7 +282,7 @@ class QualityAuditPipeline(CrawlerPipeline):
     def process_item(self, item, spider=None):
         spider = spider or self.crawler.spider
         from crawler.quality import quality
-        limit = 100 if any(s.parser == 'structured' for s in getattr(spider, 'sources', [])) else 1000
+        limit = crawl_item_limit(spider)
         if spider.crawler.stats.get_value('quality/events', 0) >= limit:
             spider.crawler.stats.inc_value('resource/item_limit')
             raise DropItem('run_item_limit')

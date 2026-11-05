@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../src/theme/appearance';
 import { useEffect, useState } from 'react';
 import { Share, Text, View } from 'react-native';
 import { router } from 'expo-router';
@@ -9,11 +10,13 @@ import { privacyApi, privacyKinds, PrivacyKind } from '../src/api/privacy';
 import { useAuthStore } from '../src/store/authStore';
 
 export default function Privacy() {
+  useThemeRevision();
   const owner = useAuthStore(state => state.user?.id);
   return <PrivacyContent key={owner || 'guest'} />;
 }
 
 function PrivacyContent() {
+  useThemeRevision();
   const user = useAuthStore(state => state.user);
   const [kind, setKind] = useState<PrivacyKind>('ACCESS');
   const [details, setDetails] = useState('');
@@ -60,7 +63,7 @@ function PrivacyContent() {
         <Button title="Edit profile, privacy preferences or delete account" onPress={() => router.push('/account')} />
         <Button title="Location preferences" onPress={() => router.push('/(tabs)/discover')} />
         <Text style={ui.text}>Home location controls let you turn recommendation location off. Saved Area Watches are separate and can be deleted individually.</Text>
-        <Button title="Manage Area Watches" onPress={() => router.push('/area-watches')} />
+        <Button variant="secondary" title="Manage Area Watches" onPress={() => router.push('/area-watches')} />
         <Button title="Export all account data (JSON)" busy={busy} onPress={() => { void run(() => shareExport('/community/account/export', 'BACity access export')); }} />
         <Button title="Export user-provided data (JSON)" busy={busy} onPress={() => { void run(() => shareExport('/privacy/portability', 'BACity portability data')); }} />
         <Text style={ui.text}>Sharing an export sends it to the app or destination you choose. Keep it private.</Text>

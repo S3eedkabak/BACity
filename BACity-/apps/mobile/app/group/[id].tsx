@@ -1,7 +1,8 @@
+import { themedStyles, useThemeRevision } from '../../src/theme/appearance';
 import { useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 import { AnimatedPressable as Pressable } from '../../src/components/motion/Motion';
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from '../../src/components/navigation/ContentSafeArea';
 import { router, useLocalSearchParams } from "expo-router";
 import { AppIcon } from "../../src/components/AppIcon";
 import { groupsApi, GroupCandidate, VoteValue } from "../../src/api/groups";
@@ -22,6 +23,7 @@ import { PremiumIntro } from '../../src/components/PremiumUI';
 const CATEGORIES: EventCategory[] = ["Music", "Culture", "Arts", "Nightlife", "Theatre", "Family", "Community", "Food & Drink"];
 
 function CandidateCard({ candidate, voting, busy, onVote }: { candidate: GroupCandidate; voting: boolean; busy: boolean; onVote: (value: VoteValue) => void }) {
+  useThemeRevision();
   return <View style={styles.candidate}>
     <Pressable accessibilityRole="button" accessibilityLabel={`Open ${candidate.event.title}`} onPress={() => router.push(groupEventRoute(candidate.event.id))}><EventMedia uri={candidate.event.image_url} category={candidate.event.category} style={{ aspectRatio: 1.5, borderRadius: 20, marginBottom: 16 }} /></Pressable>
     <Pressable onPress={() => router.push(groupEventRoute(candidate.event.id))} style={({ pressed }) => [styles.eventTop, pressed && styles.pressed]}>
@@ -33,6 +35,7 @@ function CandidateCard({ candidate, voting, busy, onVote }: { candidate: GroupCa
 }
 
 export default function GroupDetailScreen() {
+  useThemeRevision();
   const { id } = useLocalSearchParams<{ id: string }>();
   const token = useAuthStore(state => state.token);
   const query = useGroup(id ?? "", !!token);
@@ -83,10 +86,10 @@ export default function GroupDetailScreen() {
   </ScrollView></SafeAreaView>;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   safe: { flex: 1, backgroundColor: colors.background }, center: { flex: 1, alignItems: "center", justifyContent: "center" }, content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 40 }, statusRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 10 }, status: { color: colors.primaryDark, fontFamily: fonts.black, fontWeight: '800', fontSize: 12 }, role: { color: colors.textMuted, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12, letterSpacing: 1 }, date: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 21, marginTop: 8 }, section: { color: colors.textMuted, fontFamily: fonts.black, fontWeight: '800', fontSize: 12, letterSpacing: 1.1, marginBottom: 8 },
   people: { marginTop: 20 }, person: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 9, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border }, avatar: { width: 32, height: 32, borderRadius: 12, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" }, avatarText: { color: colors.primaryDark, fontFamily: fonts.black, fontWeight: '800' }, personName: { flex: 1, color: colors.text, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 }, ready: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 }, waiting: { color: colors.textMuted, fontFamily: fonts.medium, fontSize: 12 },
   panel: { marginTop: 18, padding: 15, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: 11 }, panelTitle: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 17 }, helper: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18 }, label: { color: colors.textMuted, fontFamily: fonts.black, fontWeight: '800', fontSize: 12, letterSpacing: 1 }, chips: { flexDirection: "row", flexWrap: "wrap", gap: 7 }, code: { color: colors.text, backgroundColor: colors.primarySoft, borderRadius: 12, padding: 10, fontFamily: fonts.medium, fontSize: 12 }, inline: { flexDirection: "row" }, link: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12, paddingVertical: 6 },
   round: { marginTop: 22, gap: 10 }, roundHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, progress: { color: colors.textMuted, fontFamily: fonts.medium, fontSize: 12 }, candidate: { padding: 14, borderRadius: 21, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }, eventTop: { flexDirection: "row", alignItems: "center" }, pressed: { opacity: .7 }, eventCopy: { flex: 1 }, eventTime: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 }, eventTitle: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 15, marginTop: 4 }, eventVenue: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, marginTop: 4 }, reason: { color: colors.primaryDark, fontFamily: fonts.medium, fontSize: 12, marginTop: 9 },
   votes: { flexDirection: "row", gap: 7, marginTop: 12 }, vote: { flex: 1, minHeight: 44, borderRadius: 13, backgroundColor: colors.primarySoft, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5 }, voteActive: { backgroundColor: colors.primary }, voteText: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 }, voteTextActive: { color: colors.white }, aggregate: { color: colors.textMuted, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12, marginTop: 10 }, notice: { color: colors.primaryDark, fontFamily: fonts.medium, fontSize: 12, marginTop: 14 }, bottomActions: { alignItems: "center", marginTop: 24 }, danger: { color: colors.danger, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12, padding: 12 },
-});
+}));

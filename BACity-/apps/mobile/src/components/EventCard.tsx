@@ -1,64 +1,54 @@
+import { useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import { AnimatedPressable } from './motion/Motion';
+import { SaveEventAction } from './interactions/SaveEventAction';
+import { AppIcon } from './AppIcon';
+import { EventMedia } from './EventMedia';
+import { OverflowMenu, ListItem } from './SocialUI';
 import { eventCoordinates } from '../map/eventLocation';
 import { useViewOnMap } from '../map/eventTarget';
 import { availabilityLabel } from '../map/eventAvailability';
-import { AppIcon } from "./AppIcon";
-import { Platform, StyleSheet, Text, View } from 'react-native';
-import { AnimatedPressable as Pressable } from './motion/Motion';
-import { EventOut } from '../types/event';
+import { useEventNavigation } from '../hooks/useEventNavigation';
 import { colors } from '../theme/colors';
 import { tokens } from '../theme/tokens';
-import { EventMedia } from './EventMedia';
-import { useState } from 'react';
-import { Reveal } from './motion/Motion';
-import { useEventNavigation } from '../hooks/useEventNavigation';
-
-export type EventCardVariant = 'hero' | 'feed' | 'horizontal' | 'compact' | 'map' | 'saved' | 'planner' | 'premium' | 'organizer';
-export function EventCard({ event, explanation, saved, saving = false, onToggleSave, variant = 'feed', entranceDelay }: {
-  event: EventOut; explanation?: string; saved?: boolean; saving?: boolean; onToggleSave?: () => void; variant?: EventCardVariant; entranceDelay?: number;
-}) {
-  const [initialDelay] = useState(entranceDelay);
-  const openEvent = useEventNavigation();
-  const viewOnMap = useViewOnMap();
-  const compact = ['compact', 'map', 'planner'].includes(variant);
-  const premium = variant === 'premium';
-  const card = <Pressable accessibilityRole="button" accessibilityLabel={`Open ${event.title}`} onPress={() => openEvent(event.id)}
-    style={({ pressed }) => [styles.card, compact && styles.compact, variant === 'horizontal' && styles.rail, premium && styles.premium, pressed && styles.pressed]}>
-    <View style={[styles.mediaWrap, variant === 'hero' && styles.heroMedia, variant === 'horizontal' && styles.railMedia, variant === 'saved' && styles.savedMedia, variant === 'organizer' && styles.organizerMedia, compact && styles.compactMedia]}>
-      <EventMedia uri={event.image_url} category={event.category} style={StyleSheet.absoluteFill} />
-      {!compact && <View style={styles.mediaMeta}><Text style={styles.tag}>{event.category}</Text><Text style={styles.tag}>{event.price === 0 ? 'Free' : event.price == null ? 'Price unknown' : `${event.price} ${event.currency || 'EUR'}`}</Text></View>}
-      {onToggleSave && Platform.OS !== 'web' && <Pressable accessibilityRole="button" accessibilityLabel={saved ? 'Remove from saved events' : 'Save event'} accessibilityState={{ checked: !!saved, disabled: saving }} disabled={saving}
-        onPress={press => { press.stopPropagation(); onToggleSave(); }} style={styles.save}><AppIcon name={saved ? 'bookmark' : 'bookmark-outline'} size={22} color={colors.text} /></Pressable>}
+import { themedStyles, useThemeRevision } from '../theme/appearance';
+import { EventOut } from '../types/event';
+export type EventCardVariant = 'home' | 'hero' | 'feed' | 'horizontal' | 'compact' | 'map' | 'saved' | 'planner' | 'premium' | 'organizer';
+export function EventCard({ event, explanation, variant = 'feed' }: { event: EventOut; explanation?: string; variant?: EventCardVariant; entranceDelay?: number }) {
+  useThemeRevision(); const openEvent = useEventNavigation(); const viewOnMap = useViewOnMap(); const [menu, setMenu] = useState(false);
+  const photoLed = variant === 'home';
+  const feature = photoLed || ((variant === 'hero' || variant === 'horizontal') && !!event.image_url);
+  const price = event.price === 0 ? 'Free' : event.price == null ? 'Price unknown' : `${event.price} ${event.currency || 'EUR'}`;
+  return <View style={[styles.wrap, variant === 'horizontal' && { width: 280, marginRight: 12 }, feature && styles.feature]}>
+    <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+      <AnimatedPressable accessibilityRole="button" accessibilityLabel={`Open ${event.title}`} onPress={() => openEvent(event.id)} onLongPress={() => setMenu(true)} style={[styles.card, feature && { flexDirection: 'column' }]}>
+        <EventMedia uri={event.image_url} category={event.category} style={photoLed ? styles.homeImage : feature ? styles.featureImage : styles.image} />
+        <View style={[styles.body, feature && { padding: photoLed ? 18 : 12 }]}>
+          <Text style={styles.when}>{availabilityLabel(event)}</Text>
+          <Text style={[styles.title, photoLed && styles.homeTitle]} numberOfLines={3}>{event.title}</Text>
+          <Text style={styles.location} numberOfLines={2}>{event.venue?.name || event.address || 'Bratislava'}</Text>
+          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}><Text style={styles.meta}>{event.category}</Text><Text style={[styles.meta, { color: event.price === 0 ? colors.free : colors.textMuted }]}>{price}</Text></View>
+          {!!explanation && <Text style={styles.reason} numberOfLines={1}>{explanation}</Text>}
+        </View>
+      </AnimatedPressable>
+      <View style={[styles.actions, feature && { position: 'absolute', top: 4, right: 4, borderRadius: 24, backgroundColor: colors.surface }]}>
+        <SaveEventAction event={event} />
+        <AnimatedPressable accessibilityRole="button" accessibilityLabel={`More actions for ${event.title}`} onPress={() => setMenu(true)} style={styles.more}><AppIcon name="ellipsis-horizontal" color={colors.textMuted} size={20} /></AnimatedPressable>
+      </View>
     </View>
-    <View style={styles.body}>
-      {explanation && <Text style={[styles.reason, premium && styles.premiumReason]} numberOfLines={2}>{explanation}</Text>}
-      <Text style={[styles.when, premium && styles.light]}>{availabilityLabel(event)}</Text>
-      <Text style={[styles.title, compact && styles.compactTitle, premium && styles.light]} numberOfLines={2}>{event.title}</Text>
-      <View style={styles.location}><AppIcon name="location-outline" size={16} color={premium ? tokens.premium.muted : colors.textMuted} /><Text style={[styles.venue, premium && styles.light]} numberOfLines={1}>{event.venue?.name || event.address || 'Bratislava'}</Text></View>
-    </View>
-  </Pressable>;
-  // Web buttons cannot contain another button. Keep the same save position
-  // as a sibling overlay; native retains its original nested touch handling.
-  const locate = variant !== 'map' && eventCoordinates(event);
-  const content = <View style={variant === 'horizontal' ? { width: styles.rail.width + styles.rail.marginRight } : undefined}>
-    {card}
-    {Platform.OS === 'web' && onToggleSave && <Pressable accessibilityRole="button" accessibilityLabel={saved ? 'Remove from saved events' : 'Save event'} accessibilityState={{ checked: !!saved, disabled: saving }} disabled={saving}
-      onPress={press => { press.stopPropagation(); onToggleSave(); }} style={[styles.save,compact&&{right:undefined,left:44}]}><AppIcon name={saved ? 'bookmark' : 'bookmark-outline'} size={22} color={colors.text}/></Pressable>}
-    {locate && <Pressable accessibilityRole="button" accessibilityLabel={`View ${event.title} on Map`} onPress={()=>viewOnMap(event)}
-      style={{position:'absolute',top:12,left:12,width:36,height:36,borderRadius:18,alignItems:'center',justifyContent:'center',backgroundColor:colors.surface}}>
-      <AppIcon name="map-outline" size={18} color={colors.primary}/>
-    </Pressable>}
+    <OverflowMenu visible={menu} title={event.title} onClose={() => setMenu(false)}>
+      <ListItem icon="calendar-outline" title="Event details" onPress={() => { setMenu(false); openEvent(event.id); }} />
+      {eventCoordinates(event) && <ListItem icon="map-outline" title={`View ${event.title} on Map`} onPress={() => { setMenu(false); viewOnMap(event); }} />}
+    </OverflowMenu>
   </View>;
-  return initialDelay == null ? content : <Reveal delay={initialDelay}>{content}</Reveal>;
 }
-const styles = StyleSheet.create({
-  card: { marginBottom: 24, borderRadius: tokens.radius.lg, backgroundColor: colors.surface, overflow: 'hidden' },
-  heroMedia: { aspectRatio: tokens.image.hero }, railMedia: { aspectRatio: tokens.image.rail }, savedMedia: { aspectRatio: 1.2 }, organizerMedia: { aspectRatio: 2.1 },
-  compact: { flexDirection: 'row', marginBottom: 12 }, rail: { width: 270, marginRight: 14 }, premium: { backgroundColor: tokens.premium.surface },
-  pressed: { opacity: .9 }, mediaWrap: { aspectRatio: tokens.image.feed, position: 'relative' }, compactMedia: { width: 104, aspectRatio: 1 },
-  mediaMeta: { position: 'absolute', bottom: 16, left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-between' },
-  tag: { ...tokens.type.caption, color: '#FFFFFF', backgroundColor: tokens.scrim, paddingVertical: 7, paddingHorizontal: 12, borderRadius: 99 },
-  save: { position: 'absolute', top: 12, right: 12, width: 48, height: 48, borderRadius: 24, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
-  body: { flex: 1, padding: 18, gap: 6 }, reason: { ...tokens.type.caption, color: colors.primaryDark }, when: { ...tokens.type.metadata, color: colors.primaryDark },
-  title: { ...tokens.type.section, color: colors.text }, compactTitle: { ...tokens.type.action }, location: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  venue: { ...tokens.type.metadata, color: colors.textMuted, flex: 1 }, light: { color: tokens.premium.text }, premiumReason: { color: tokens.premium.accent },
-});
+const styles = themedStyles(() => ({
+  wrap: { paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  feature: { borderBottomWidth: 0, backgroundColor: colors.surface, borderRadius: 16, overflow: 'hidden', paddingVertical: 0, marginBottom: 8 },
+  card: { flex: 1, flexDirection: 'row', gap: 12, minWidth: 0 },
+  image: { width: 88, height: 104, borderRadius: 12 }, featureImage: { width: '100%', height: 168 },
+  homeImage: { width: '100%', aspectRatio: tokens.image.feed }, homeTitle: { fontSize: 22, lineHeight: 27, fontWeight: '700' },
+  body: { flex: 1, gap: 4, minWidth: 0 }, title: { fontSize: 17, lineHeight: 23, fontWeight: '600', color: colors.text, letterSpacing: -.3 },
+  when: { ...tokens.type.caption, color: colors.primaryDark }, location: { ...tokens.type.metadata, color: colors.textMuted }, meta: { ...tokens.type.caption, color: colors.textMuted }, reason: { ...tokens.type.caption, color: colors.primaryDark },
+  actions: { width: 48, alignItems: 'center', gap: 4 }, more: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
+}));

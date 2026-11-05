@@ -1,9 +1,10 @@
+import { themedStyles, useThemeRevision } from '../src/theme/appearance';
 import { AppIcon } from "../src/components/AppIcon";
 import { router, useLocalSearchParams } from "expo-router";
 import { Linking, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { AnimatedPressable as Pressable } from '../src/components/motion/Motion';
 import { useEffect, useMemo, useRef, useState } from "react";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from '../src/components/navigation/ContentSafeArea';
 import { colors } from "../src/theme/colors";
 import { fonts } from "../src/theme/fonts";
 import { dismissPlusPaywall, isPlusFeature, PLUS_FEATURES } from "../src/plus/policy";
@@ -21,6 +22,7 @@ import { PremiumIntro } from '../src/components/PremiumUI';
 import { tokens } from '../src/theme/tokens';
 
 export default function PlusPaywallScreen() {
+  useThemeRevision();
   const params = useLocalSearchParams<{ feature?: string | string[]; unavailable?: string; billing?: string | string[] }>();
   const feature = isPlusFeature(params.feature) ? params.feature : null;
   const entitlement = useEntitlements();
@@ -288,7 +290,7 @@ export default function PlusPaywallScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   safe: { flex: 1, backgroundColor: colors.background },
   header: { minHeight: 58, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   headerSpace: { width: 44 }, brand: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 18 },
@@ -307,4 +309,4 @@ const styles = StyleSheet.create({
   buttonText: { color: colors.white, fontFamily: fonts.black, fontWeight: '800', fontSize: 14 }, pressed: { opacity: .75 },
   secondaryButton: { width: "100%", minHeight: 50, borderRadius: 18, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center", marginTop: 10 },
   secondaryText: { color: colors.text, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 14 },
-});
+}));

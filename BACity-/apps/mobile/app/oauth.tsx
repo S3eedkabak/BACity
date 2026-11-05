@@ -1,3 +1,4 @@
+import { themedStyles, useThemeRevision } from '../src/theme/appearance';
 import { AppIcon } from "../src/components/AppIcon";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -9,6 +10,7 @@ import { colors } from "../src/theme/colors";
 import { fonts } from "../src/theme/fonts";
 
 export default function OAuthScreen() {
+  useThemeRevision();
   const { code, error } = useLocalSearchParams<{ code?: string; error?: string }>();
   const completeOAuth = useAuthStore((s) => s.completeOAuth);
   const started = useRef(false);
@@ -37,7 +39,7 @@ export default function OAuthScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -78,4 +80,4 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   buttonText: { color: colors.white, fontFamily: fonts.semibold, fontSize: 13 },
-});
+}));

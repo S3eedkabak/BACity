@@ -1,13 +1,14 @@
+import { usePullRefresh } from "../src/hooks/usePullRefresh";
+import { themedStyles, useThemeRevision } from '../src/theme/appearance';
 import { useEffect, useMemo } from "react";
 import { ActivityIndicator, SectionList, StyleSheet, Text, View } from "react-native";
 import { AnimatedPressable as Pressable } from '../src/components/motion/Motion';
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from '../src/components/navigation/ContentSafeArea';
 import { router } from "expo-router";
 import { AppIcon } from "../src/components/AppIcon";
 import { EmptyState } from "../src/components/EmptyState";
 import { EventCard } from "../src/components/EventCard";
 import { ScreenHeader, SkeletonList } from "../src/components/SocialUI";
-import { useToggleSaveEvent } from "../src/hooks/useEvents";
 import { useTonight } from "../src/hooks/useTonight";
 import { plusPaywallRoute } from "../src/plus/policy";
 import { usePlusGate } from "../src/plus/usePlusGate";
@@ -18,10 +19,11 @@ import { fonts } from "../src/theme/fonts";
 import { PremiumIntro } from "../src/components/PremiumUI";
 
 export default function TonightScreen() {
+  const pullRefresh = usePullRefresh(() => query.refetch());
+  useThemeRevision();
   const gate = usePlusGate();
   const location = useRecommendationLocation(gate.decision === "allow");
   const query = useTonight(gate.decision === "allow", location.coordinates);
-  const save = useToggleSaveEvent();
   const items = query.data?.items ?? [];
   const sections = useMemo(() => groupTonightItems(items), [items]);
   const state = resolveTonightView(gate.decision, query.isPending, query.isError, items.length);
@@ -47,8 +49,8 @@ export default function TonightScreen() {
       sections={state === "results" ? sections : []}
       keyExtractor={item => item.event.id}
       contentContainerStyle={styles.content}
-      refreshing={query.isRefetching}
-      onRefresh={() => void query.refetch()}
+      refreshing={pullRefresh.refreshing}
+      onRefresh={pullRefresh.onRefresh}
       ListHeaderComponent={<>
         <ScreenHeader title="Tonight / Right Now" />
         <PremiumIntro icon="sparkles-outline" title="The city isn't done yet." subtitle="Happening now, starting soon, and still ahead tonight. Real options for the time you have." />
@@ -71,9 +73,6 @@ export default function TonightScreen() {
         variant="premium"
         event={item.event}
         explanation={item.reasons[0]}
-        saved={item.saved}
-        saving={save.isPending && save.variables?.id === item.event.id}
-        onToggleSave={() => save.mutate({ id: item.event.id, saved: item.saved })}
       />}
       ListFooterComponent={<Pressable onPress={() => router.push("/(tabs)/discover")} style={styles.allEvents}><Text style={styles.allEventsText}>Back to normal discovery</Text></Pressable>}
       showsVerticalScrollIndicator={false}
@@ -81,7 +80,7 @@ export default function TonightScreen() {
   </SafeAreaView>;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   safe: { flex: 1, backgroundColor: colors.background }, guard: { flex: 1, alignItems: "center", justifyContent: "center" },
   content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 36, flexGrow: 1 },
   intro: { paddingTop: 16, paddingBottom: 18 }, kicker: { color: colors.primaryDark, fontFamily: fonts.black, fontWeight: '800', fontSize: 12, letterSpacing: 1.5 },
@@ -92,4 +91,4 @@ const styles = StyleSheet.create({
   locationAction: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12, paddingVertical: 10 },
   section: { color: colors.text, backgroundColor: colors.background, fontFamily: fonts.black, fontWeight: '800', fontSize: 19, paddingTop: 20, paddingBottom: 10 },
   allEvents: { minHeight: 48, alignItems: "center", justifyContent: "center", marginTop: 8 }, allEventsText: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
-});
+}));

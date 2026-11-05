@@ -1,3 +1,9 @@
+import { useThemeRevision } from '../theme/appearance';
+import { useQuery } from '@tanstack/react-query';
+import { getReviews, getReviewSummary } from '../api/interactions';
+import { FeedbackComposer } from './interactions/FeedbackComposer';
+import { StarRating } from './interactions/StarRating';
+import { NumberTicker } from './interactions/NumberTicker';
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { router } from 'expo-router';
@@ -9,8 +15,12 @@ import { IconButton, ListItem, OverflowMenu } from './SocialUI';
 import { colors } from '../theme/colors';
 
 export function Discussion({ id, kind }: { id: string; kind: 'event' | 'place' }) {
+  useThemeRevision();
   const token = useAuthStore(s => s.token);
-  const [reviews, setReviews] = useState<any[]>([]);
+  const userId = useAuthStore(s => s.user?.id);
+  const reviewQuery = useQuery({ queryKey: ['reviews', kind, id], queryFn: () => getReviews(kind, id), enabled: !!token });
+  const summary = useQuery({ queryKey: ['review-summary', kind, id], queryFn: () => getReviewSummary(kind, id), enabled: !!token });
+  const reviews = reviewQuery.data ?? [];
   const [comments, setComments] = useState<any[]>([]);
   const [body, setBody] = useState('');
   const [comment, setComment] = useState('');
@@ -21,28 +31,29 @@ export function Discussion({ id, kind }: { id: string; kind: 'event' | 'place' }
   const [report, setReport] = useState<{ type: string; id: string } | null>(null);
   const dimensions = kind === 'event' ? ['worth_attending', 'crowd', 'value', 'accessibility', 'would_attend_again'] : ['atmosphere', 'price', 'accessibility', 'cleanliness', 'crowdedness', 'family_friendliness', 'solo_friendliness'];
   async function load() {
-    try { setReviews(await apiRequest<any[]>(`/community/reviews/${kind}/${id}`, { auth: true })); if (kind === 'event') setComments(await apiRequest<any[]>(`/community/events/${id}/comments`, { auth: true })); }
+    try { await reviewQuery.refetch(); await summary.refetch(); if (kind === 'event') setComments(await apiRequest<any[]>(`/community/events/${id}/comments`, { auth: true })); }
     catch (e: any) { setNotice(e.message); }
   }
   useEffect(() => { if (token) void load(); }, [id, token]);
   async function act(path: string, payload?: unknown) {
-    setBusy(true); setNotice('');
+    if (busy) return; setBusy(true); setNotice('');
     try { await apiRequest(path, { method: 'POST', auth: true, body: payload }); await load(); setNotice('Saved.'); }
     catch (e: any) { setNotice(e.message); } finally { setBusy(false); }
   }
   if (!token) return <Card><Text style={ui.text}>Sign in to read reviews and join the discussion.</Text><Button title="Sign in" onPress={() => router.push({ pathname: '/auth', params: { mode: 'login' } })} /></Card>;
   return <View style={{ gap: 16, padding: 20 }}><Notice text={notice} />
-    <Text style={ui.heading}>Community reviews</Text>{reviews.length === 0 && <Text style={ui.muted}>Be the first to share your experience.</Text>}
+    <Text style={ui.heading}>Community reviews</Text>
+    {summary.data && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><NumberTicker value={summary.data.count} label="public reviews" /><Text style={ui.muted}>public reviews</Text></View>}
+    {summary.data?.dimensions[kind === 'event' ? 'worth_attending' : 'atmosphere'] && <StarRating label={kind === 'event' ? 'Worth attending' : 'Atmosphere'} value={summary.data.dimensions[kind === 'event' ? 'worth_attending' : 'atmosphere'].average} />}
+    {(reviewQuery.isPending || summary.isPending) && <Text style={ui.muted}>Loading reviews…</Text>}
+    {(reviewQuery.isError || summary.isError) && <><Notice text={reviewQuery.error?.message ?? summary.error?.message} /><Button variant="secondary" title="Retry reviews" onPress={load} /></>}
+    {!reviewQuery.isPending && !reviewQuery.isError && reviews.length === 0 && <Text style={ui.muted}>Be the first to share your experience.</Text>}
     {reviews.map(review => <View key={review.id} style={{ paddingVertical: 16, gap: 8, borderBottomWidth: .5, borderColor: colors.border }}>
-      <Text style={ui.text}>{review.body}</Text><Text style={ui.muted}>{Object.entries(review.dimensions).map(([key, value]) => `${key.replaceAll('_', ' ')}: ${value}/5`).join(' · ')}</Text>
+      <Text style={ui.text}>{review.body}</Text>{Object.entries(review.dimensions).map(([key, value]) => <View key={key} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}><Text style={ui.muted}>{key.replaceAll('_', ' ')}</Text><StarRating label={key.replaceAll('_', ' ')} value={value} /></View>)}
       <Text style={ui.muted}>{review.attendance_verified ? 'Attendance verified' : 'Attendance not verified'} · {review.helpful} found this helpful</Text>
       <View style={ui.row}><IconButton icon="thumbs-up-outline" label="Mark review helpful" onPress={() => { if (!busy) void act(`/community/reviews/${review.id}/helpful`); }} /><IconButton icon="person-outline" label="View review contributor" onPress={() => router.push(`/member/${review.user_id}`)} /><IconButton icon="flag-outline" label="Report review" onPress={() => setReport({ type: 'review', id: review.id })} /></View>
     </View>)}
-    <Disclosure title="Share your experience" icon="star-outline">
-      <Field label="Your review (at least 10 characters)" value={body} onChange={setBody} multiline /><Text style={ui.muted}>Rate only the aspects you experienced. Event reviews open after the event.</Text>
-      {dimensions.map(dimension => <View key={dimension} style={{ gap: 8 }}><Text style={ui.text}>{dimension.replaceAll('_', ' ')}</Text><View style={ui.row}>{[1, 2, 3, 4, 5].map(rating => <Chip key={rating} title={String(rating)} active={ratings[dimension] === rating} onPress={() => setRatings({ ...ratings, [dimension]: rating })} />)}</View></View>)}
-      <Button title="Publish or update review" busy={busy} onPress={() => act('/community/reviews', { target_type: kind, target_id: id, body, dimensions: ratings })} />
-    </Disclosure>
+    <FeedbackComposer key={`${kind}/${id}`} id={id} kind={kind} ownReview={reviews.find(review => review.user_id === userId)} />
     {kind === 'event' && <Disclosure title="Conversation" icon="chatbubbles-outline" initiallyOpen>
       {comments.map(item => <View key={item.id} style={{ gap: 8, paddingVertical: 12 }}><Text style={ui.text}>{item.body}</Text><View style={ui.row}><IconButton icon="person-outline" label="View comment contributor" onPress={() => router.push(`/member/${item.user_id}`)} /><IconButton icon="flag-outline" label="Report comment" onPress={() => setReport({ type: 'comment', id: item.id })} /></View></View>)}
       <Field label="Add a comment" value={comment} onChange={setComment} multiline /><Button title="Post comment" busy={busy} onPress={() => act(`/community/events/${id}/comments`, { body: comment })} />

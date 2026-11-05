@@ -1,47 +1,83 @@
-import { availabilityLabel } from '../../src/map/eventAvailability';
-import { eventCoordinates } from '../../src/map/eventLocation';
-import { useViewOnMap } from '../../src/map/eventTarget';
+import { usePullRefresh } from "../../src/hooks/usePullRefresh";
+import { SaveEventAction } from "../../src/components/interactions/SaveEventAction";
+import { SegmentedControl } from "../../src/components/interactions/SegmentedControl";
+import { ContentEntrance, ContentStages, TabScene } from "../../src/components/navigation/SceneMotion";
+import { useNotificationSummary } from "../../src/hooks/useNotifications";
+import { themedStyles, useThemeRevision } from "../../src/theme/appearance";
+import { NotificationBell } from "../../src/components/interactions/NotificationBell";
+import { availabilityLabel } from "../../src/map/eventAvailability";
+import { eventCoordinates } from "../../src/map/eventLocation";
+import { useViewOnMap } from "../../src/map/eventTarget";
 import { AppIcon } from "../../src/components/AppIcon";
 import { router } from "expo-router";
 import { useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, View } from "react-native";
-import { AnimatedPressable as Pressable } from '../../src/components/motion/Motion';
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  ActivityIndicator,
+  FlatList,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { AnimatedPressable as Pressable } from "../../src/components/motion/Motion";
+import { SafeAreaView } from "../../src/components/navigation/ContentSafeArea";
 import { getNotifications } from "../../src/api/community";
 import { apiRequest } from "../../src/api/client";
 import { RecommendationItem } from "../../src/api/recommendations";
 import { BrandMark } from "../../src/components/BrandMark";
 import { EmptyState } from "../../src/components/EmptyState";
 import { EventCard } from "../../src/components/EventCard";
-import { EventMedia } from '../../src/components/EventMedia';
-import { MediaScrim } from '../../src/components/MediaScrim';
+import { EventMedia } from "../../src/components/EventMedia";
+import { MediaScrim } from "../../src/components/MediaScrim";
 import { LoadingState } from "../../src/components/LoadingState";
-import { IconButton, SectionHeader, SkeletonList } from "../../src/components/SocialUI";
-import { useEvents, useToggleSaveEvent } from "../../src/hooks/useEvents";
+import {
+  IconButton,
+  SectionHeader,
+  SkeletonList,
+} from "../../src/components/SocialUI";
+import { useEvents } from "../../src/hooks/useEvents";
 import { useRecommendations } from "../../src/hooks/useRecommendations";
-import { excludeFeaturedEvent, selectFeaturedEvent } from "../../src/recommendations/homeFeed";
+import {
+  excludeFeaturedEvent,
+  selectFeaturedEvent,
+} from "../../src/recommendations/homeFeed";
 import { useRecommendationLocation } from "../../src/recommendations/useRecommendationLocation";
 import { useAuthStore } from "../../src/store/authStore";
 import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
 import { EventOut } from "../../src/types/event";
-import { tokens } from '../../src/theme/tokens';
-import { useEventNavigation } from '../../src/hooks/useEventNavigation';
-import { useMajorTransition } from '../../src/components/loading/LoadingExperience';
+import { tokens } from "../../src/theme/tokens";
+import { useEventNavigation } from "../../src/hooks/useEventNavigation";
+import { useMajorTransition } from "../../src/components/loading/LoadingExperience";
 
 const FILTERS = ["All", "Music", "Culture", "Nightlife", "Free"];
 
 function preferredExplanation(reasons: string[]) {
-  return reasons.find((reason) => reason !== "Matches your interests") ?? reasons[0];
+  return (
+    reasons.find((reason) => reason !== "Matches your interests") ?? reasons[0]
+  );
 }
 
 function dateParts(iso: string) {
   const date = new Date(iso);
   return {
-    day: date.toLocaleDateString(undefined, { timeZone:"Europe/Bratislava", weekday: "short" }).toUpperCase(),
-    date: date.toLocaleDateString(undefined, { timeZone:"Europe/Bratislava", day: "numeric", month: "short" }),
-    time: date.toLocaleTimeString(undefined, { timeZone:"Europe/Bratislava", hour: "2-digit", minute: "2-digit" }),
+    day: date
+      .toLocaleDateString(undefined, {
+        timeZone: "Europe/Bratislava",
+        weekday: "short",
+      })
+      .toUpperCase(),
+    date: date.toLocaleDateString(undefined, {
+      timeZone: "Europe/Bratislava",
+      day: "numeric",
+      month: "short",
+    }),
+    time: date.toLocaleTimeString(undefined, {
+      timeZone: "Europe/Bratislava",
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
   };
 }
 
@@ -52,12 +88,15 @@ function priceLabel(event: EventOut) {
 }
 
 function FeaturedEvent({ event }: { event: EventOut }) {
+  useThemeRevision();
   const openEvent = useEventNavigation();
   const date = dateParts(event.next_occurrence_start??event.start_time);
   const viewOnMap=useViewOnMap();
   return (
     <View>
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={"Open " + event.title}
       onPress={() => openEvent(event.id)}
       style={({ pressed }) => [styles.featured, pressed && styles.pressed]}
     >
@@ -89,21 +128,39 @@ function FeaturedEvent({ event }: { event: EventOut }) {
         </View>
       </View>
     </Pressable>
-    {eventCoordinates(event)&&<View style={{position:'absolute',top:75,right:24}}><IconButton icon="map-outline" label={`View ${event.title} on Map`} onPress={()=>viewOnMap(event)}/></View>}
+    <View style={{position:"absolute",top:70,right:14,backgroundColor:colors.mediaOverlay,borderRadius:24}}><SaveEventAction event={event} /></View>
+    {eventCoordinates(event)&&<View style={{position:'absolute',top:124,right:14,backgroundColor:colors.mediaOverlay,borderRadius:24}}><IconButton icon="map-outline" label={`View ${event.title} on Map`} onPress={()=>viewOnMap(event)}/></View>}
     </View>
   );
 }
 
+
 function PlusEntry({ onOpen }: { onOpen: () => void }) {
-  return <Pressable accessibilityRole="button" accessibilityLabel="Enter BACity Plus" onPress={onOpen} style={({ pressed }) => [styles.plusEntry, pressed && styles.pressed]}>
-    <View style={styles.plusGlow} />
-    <View style={styles.plusMark}><AppIcon name="sparkles" size={24} color={colors.white} /></View>
-    <View style={styles.plusCopy}><Text style={styles.plusLabel}>BACITÝ+</Text><Text style={styles.plusTitle}>Compose your city</Text><Text style={styles.plusText}>Plans made around your time, mood and city.</Text></View>
-    <View style={styles.plusArrow}><AppIcon name="arrow-forward" size={20} color={colors.white} /></View>
-  </Pressable>;
+  useThemeRevision();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Enter BACity Plus"
+      onPress={onOpen}
+      style={({ pressed }) => [styles.plusEntry, pressed && styles.pressed]}
+    >
+      <View style={styles.plusMark}>
+        <AppIcon name="sparkles" size={24} color={colors.white} />
+      </View>
+      <View style={styles.plusCopy}>
+        <Text style={styles.plusLabel}>BACITÝ+</Text>
+        <Text style={styles.plusTitle}>Plans around your time & mood</Text>
+      </View>
+      <View style={styles.plusArrow}>
+        <AppIcon name="arrow-forward" size={20} color={colors.primaryDark} />
+      </View>
+    </Pressable>
+  );
 }
 
-export default function HomeScreen() {
+function HomeScreen() {
+  const pullRefresh = usePullRefresh(refresh);
+  useThemeRevision();
   const revealed = useRef(new Set<string>());
   const user = useAuthStore((state) => state.user);
   const token = useAuthStore((state) => state.token);
@@ -111,139 +168,223 @@ export default function HomeScreen() {
   const major = useMajorTransition();
   const recommendations = useRecommendations(!!token, location.coordinates);
   const fallback = useEvents({ limit: 24 });
-  const activity = useQuery({ queryKey: ["notifications"], queryFn: getNotifications, enabled: !!token, staleTime: 30_000 });
-  const promotions = useQuery({ queryKey: ["promotions"], queryFn: () => apiRequest<any[]>("/promotions"), staleTime: 60_000 });
-  const save = useToggleSaveEvent();
-  const personalized = useMemo(() => recommendations.data?.pages.flat() ?? [], [recommendations.data]);
+  const activity = useNotificationSummary();
+  const promotions = useQuery({
+    queryKey: ["promotions"],
+    queryFn: () => apiRequest<any[]>("/promotions"),
+    staleTime: 60_000,
+  });
+  const personalized = useMemo(
+    () => recommendations.data?.pages.flat() ?? [],
+    [recommendations.data],
+  );
   const generic = useMemo<RecommendationItem[]>(
-    () => (fallback.data?.items ?? []).map((event) => ({ event, reasons: ["Upcoming in Bratislava"], saved: false })),
-    [fallback.data]
+    () =>
+      (fallback.data?.items ?? []).map((event) => ({
+        event,
+        reasons: ["Upcoming in Bratislava"],
+        saved: false,
+      })),
+    [fallback.data],
   );
   const featured = selectFeaturedEvent(fallback.data?.items ?? []);
-  const items = excludeFeaturedEvent(token ? personalized : generic, featured?.id);
+  const items = excludeFeaturedEvent(
+    token ? personalized : generic,
+    featured?.id,
+  );
   const loading = token ? recommendations.isLoading : fallback.isLoading;
   const failed = token ? recommendations.isError : fallback.isError;
-  const refreshing = fallback.isRefetching || (!!token && recommendations.isRefetching && !recommendations.isFetchingNextPage);
-  const unreadActivity = activity.data?.some((item) => !item.read_at && item.kind !== "message") ?? false;
-  const unreadMessages = activity.data?.some((item) => !item.read_at && item.kind === "message") ?? false;
+  const unreadMessages = (activity.data?.messages ?? 0) > 0;
 
   async function refresh() {
-    const requests: Promise<unknown>[] = [fallback.refetch(), promotions.refetch()];
+    const requests: Promise<unknown>[] = [
+      fallback.refetch(),
+      promotions.refetch(),
+    ];
     if (token) requests.push(recommendations.refetch(), activity.refetch());
     await Promise.all(requests);
   }
 
-
-  const header = <>
+  const fixedHeader = (
     <View style={styles.topbar}>
       <BrandMark compact />
       <View style={styles.topActions}>
-        <IconButton icon="search" label="Search and explore" onPress={() => router.push("/(tabs)/explore")} />
-        <IconButton icon="notifications-outline" label="Notifications" badge={unreadActivity} onPress={() => router.push("/notifications")} />
-        <IconButton icon="chatbubble-ellipses-outline" label="Messages" badge={unreadMessages} onPress={() => router.push("/messages")} />
+        <IconButton
+          icon="search"
+          label="Search and explore"
+          onPress={() => router.push("/(tabs)/explore")}
+        />
+        <NotificationBell />
       </View>
     </View>
-    <View style={styles.intro}>
-      <Text style={styles.kicker}>{user ? "YOUR BRATISLAVA" : "LIVE MOMENT"}</Text>
-      <Text style={styles.headline}>Bratislava,<Text style={styles.headlineAccent}>{'\n'}what’s happening?</Text></Text>
-      <Text style={styles.subtitle}>{user ? "A feed shaped by your interests, saves and local follows." : "Fresh events around Bratislava, with or without an account."}</Text>
-    </View>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
-      {FILTERS.map((filter, index) => <Pressable key={filter} accessibilityRole="button" style={[styles.filter, index === 0 && styles.filterActive]} onPress={() => router.push({ pathname: '/(tabs)/explore', params: filter === 'Free' ? { free_only: '1' } : filter === 'All' ? {} : { category: filter } })}>
-        <Text style={[styles.filterText, index === 0 && styles.filterTextActive]}>{filter}</Text>
-      </Pressable>)}
-    </ScrollView>
-    {fallback.isError && !featured ? <EmptyState
-      title="The city feed is offline"
-      subtitle="Check the API connection and try again."
-      action="Try again"
-      onAction={() => void fallback.refetch()}
-    /> : featured ? <FeaturedEvent event={featured} /> : !fallback.isLoading ? <EmptyState
-      title="The city is quiet"
-      subtitle="Fresh events will appear here as soon as BACity finds them."
-    /> : <LoadingState />}
-    <PlusEntry onOpen={() => { major.begin('bacity-plus'); router.push('/plus-experience'); }} />
-    <SectionHeader title={token ? "For you" : "Happening in Bratislava"} action="Explore" onAction={() => router.push("/(tabs)/explore")} />
-    {loading ? <SkeletonList rows={5} /> : null}
-    {failed && !items.length ? <EmptyState title="Your city feed is offline" subtitle="Cached content will remain when available. Check your connection and retry." action="Try again" onAction={() => void refresh()} /> : null}
-    {!loading && !failed && !items.length ? <EmptyState title="Nothing upcoming yet" subtitle="BACity will show fresh Bratislava events here as they arrive." action="Explore events" onAction={() => router.push("/(tabs)/explore")} /> : null}
-  </>;
+  );
 
-  const footer = <>
-    {recommendations.isFetchingNextPage ? <ActivityIndicator style={styles.pageLoader} color={colors.primary} /> : null}
-    {recommendations.isFetchNextPageError ? <Pressable style={styles.retryPage} onPress={() => void recommendations.fetchNextPage()}><Text style={styles.locationLink}>Couldn’t load more · Retry</Text></Pressable> : null}
-    {!!promotions.data?.length ? <>
-      <SectionHeader title="Supported local picks" />
-      {promotions.data.slice(0, 2).map((item) => <EventCard key={item.event.id} event={item.event} explanation={item.label} />)}
-    </> : null}
-    <Pressable style={styles.communityBanner} onPress={() => router.push("/(tabs)/contribute")}>
-      <View style={styles.communityIcon}><AppIcon name="people-outline" size={20} color={colors.primaryDark} /></View>
-      <View style={styles.communityCopy}><Text style={styles.communityTitle}>Know something we don’t?</Text><Text style={styles.communityText}>Add an event or local tip and help the city stay current.</Text></View>
-      <AppIcon name="arrow-forward" size={18} color={colors.text} />
-    </Pressable>
-  </>;
+  const header = (
+    <>
+      <ContentEntrance><View style={styles.intro}>
+        <Text style={styles.kicker}>{user ? "YOUR BRATISLAVA" : "LIVE MOMENT"}</Text>
+        <Text style={styles.headline}>Bratislava,<Text style={styles.headlineAccent}>{'\n'}what’s happening?</Text></Text>
+        <Text style={styles.subtitle}>{user ? "A feed shaped by your interests, saves and local follows." : "Fresh events around Bratislava, with or without an account."}</Text>
+      </View></ContentEntrance>
+      <SegmentedControl
+        label="Event interests"
+        options={FILTERS.map((id) => ({ id, label: id }))}
+        value="All"
+        onChange={(filter) =>
+          router.push({
+            pathname: "/(tabs)/explore",
+            params:
+              filter === "Free"
+                ? { free_only: "1" }
+                : filter === "All"
+                  ? {}
+                  : { category: filter },
+          })
+        }
+      />
+      {fallback.isError && !featured ? (
+        <EmptyState
+          title="The city feed is offline"
+          subtitle="Check the API connection and try again."
+          action="Try again"
+          onAction={() => void fallback.refetch()}
+        />
+      ) : featured ? (
+        <ContentEntrance index={1}><FeaturedEvent event={featured} /></ContentEntrance>
+      ) : !fallback.isLoading ? (
+        <EmptyState
+          title="The city is quiet"
+          subtitle="Fresh events will appear here as soon as BACity finds them."
+        />
+      ) : (
+        <LoadingState />
+      )}
+      <SectionHeader
+        title={token ? "For you" : "Happening in Bratislava"}
+        action="Explore"
+        onAction={() => router.push("/(tabs)/explore")}
+      />
+      {loading ? <SkeletonList rows={5} /> : null}
+      {failed && !items.length ? (
+        <EmptyState
+          title="Your city feed is offline"
+          subtitle="Cached content will remain when available. Check your connection and retry."
+          action="Try again"
+          onAction={() => void refresh()}
+        />
+      ) : null}
+      {!loading && !failed && !items.length ? (
+        <EmptyState
+          title="Nothing upcoming yet"
+          subtitle="BACity will show fresh Bratislava events here as they arrive."
+          action="Explore events"
+          onAction={() => router.push("/(tabs)/explore")}
+        />
+      ) : null}
+    </>
+  );
 
-  return <SafeAreaView style={styles.safe} edges={["top"]}>
-    <FlatList
-      data={loading && !items.length ? [] : items}
-      keyExtractor={(item) => item.event.id}
-      renderItem={({ item, index }) => {
-        const entranceDelay = index < 3 && !revealed.current.has(item.event.id) ? index * tokens.motion.stagger : undefined;
-        revealed.current.add(item.event.id);
-        return <EventCard
-        entranceDelay={entranceDelay}
-        event={item.event}
-        explanation={preferredExplanation(item.reasons)}
-        saved={item.saved}
-        saving={save.isPending && save.variables?.id === item.event.id}
-        onToggleSave={token ? () => save.mutate({ id: item.event.id, saved: item.saved }) : undefined}
-      />; }}
-      ListHeaderComponent={header}
-      ListFooterComponent={footer}
-      contentContainerStyle={styles.content}
-      style={styles.container}
-      showsVerticalScrollIndicator={false}
-      refreshing={refreshing}
-      onRefresh={() => void refresh()}
-      onEndReachedThreshold={0.45}
-      initialNumToRender={6}
-      maxToRenderPerBatch={6}
-      windowSize={7}
-      onEndReached={() => {
-        if (token && recommendations.hasNextPage && !recommendations.isFetchingNextPage) void recommendations.fetchNextPage();
-      }}
-    />
-  </SafeAreaView>;
+  const footer = (
+    <>
+      <PlusEntry
+        onOpen={() => {
+          router.push("/plus-experience");
+        }}
+      />
+
+      {recommendations.isFetchingNextPage ? (
+        <ActivityIndicator style={styles.pageLoader} color={colors.primary} />
+      ) : null}
+      {recommendations.isFetchNextPageError ? (
+        <Pressable
+          style={styles.retryPage}
+          onPress={() => void recommendations.fetchNextPage()}
+        >
+          <Text style={styles.locationLink}>Couldn’t load more · Retry</Text>
+        </Pressable>
+      ) : null}
+      {!!promotions.data?.length ? (
+        <>
+          <SectionHeader title="Supported local picks" />
+          {promotions.data.slice(0, 2).map((item) => (
+            <EventCard
+              key={item.event.id}
+              event={item.event}
+              variant="home"
+              explanation={item.label}
+            />
+          ))}
+        </>
+      ) : null}
+      <Pressable
+        style={styles.communityBanner}
+        onPress={() => router.push("/(tabs)/contribute")}
+      >
+        <View style={styles.communityIcon}>
+          <AppIcon name="people-outline" size={20} color={colors.primaryDark} />
+        </View>
+        <View style={styles.communityCopy}>
+          <Text style={styles.communityTitle}>Know something we don’t?</Text>
+          <Text style={styles.communityText}>
+            Add an event or local tip and help the city stay current.
+          </Text>
+        </View>
+        <AppIcon name="arrow-forward" size={18} color={colors.text} />
+      </Pressable>
+    </>
+  );
+
+  return (
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      <View style={{ paddingHorizontal: 18 }}>{fixedHeader}</View>
+      <FlatList
+        data={loading && !items.length ? [] : items}
+        keyExtractor={(item) => item.event.id}
+        renderItem={({ item, index }) => {
+          const entranceDelay =
+            index < 3 && !revealed.current.has(item.event.id)
+              ? index * tokens.motion.stagger
+              : undefined;
+          revealed.current.add(item.event.id);
+          return (
+            <EventCard
+              variant="home"
+              entranceDelay={entranceDelay}
+              event={item.event}
+              explanation={preferredExplanation(item.reasons)}
+            />
+          );
+        }}
+        ListHeaderComponent={header}
+        ListFooterComponent={footer}
+        contentContainerStyle={styles.content}
+        style={styles.container}
+        showsVerticalScrollIndicator={false}
+        refreshing={pullRefresh.refreshing}
+        onRefresh={pullRefresh.onRefresh}
+        onEndReachedThreshold={0.45}
+        initialNumToRender={6}
+        maxToRenderPerBatch={6}
+        windowSize={7}
+        onEndReached={() => {
+          if (
+            token &&
+            recommendations.hasNextPage &&
+            !recommendations.isFetchingNextPage
+          )
+            void recommendations.fetchNextPage();
+        }}
+      />
+    </SafeAreaView>
+  );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
-  container: { flex: 1, backgroundColor: colors.background },
-  content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 18, paddingTop: 12, paddingBottom: 112 },
-  plusEntry: { minHeight: 142, overflow: 'hidden', borderRadius: 26, backgroundColor: '#50162F', padding: 19, marginTop: 22, marginBottom: 22, flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1, borderColor: '#7D3153' },
-  plusGlow: { position: 'absolute', width: 180, height: 180, borderRadius: 90, right: -45, top: -70, backgroundColor: colors.primary, opacity: .46 },
-  plusMark: { width: 48, height: 48, borderRadius: 17, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  plusCopy: { flex: 1, minWidth: 0 }, plusLabel: { color: colors.primaryDark, fontFamily: fonts.black, fontWeight: '800', fontSize: 11, letterSpacing: 1.6 }, plusTitle: { color: colors.white, fontFamily: fonts.black, fontWeight: '800', fontSize: 22, letterSpacing: -.7, marginTop: 5 }, plusText: { color: '#D4C0CA', fontFamily: fonts.regular, fontSize: 12, lineHeight: 17, marginTop: 4 },
-  plusArrow: { width: 42, height: 42, borderRadius: 15, backgroundColor: 'rgba(16,14,18,.32)', alignItems: 'center', justifyContent: 'center' },
-  topbar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 26 },
-  topActions: { flexDirection: "row", alignItems: "center", gap: 0 },
+const styles = themedStyles(() => ({
   intro: { marginBottom: 17 },
   kicker: { color: colors.primaryDark, fontFamily: fonts.black, fontWeight: '800', fontSize: 12, letterSpacing: 1.7 },
   headline: { color: colors.text, fontFamily: fonts.regular, fontSize: 38, lineHeight: 41, letterSpacing: -1.7, marginTop: 5 },
   headlineAccent: { fontFamily: fonts.black, fontWeight: '800', fontStyle: "italic" },
   subtitle: { color: colors.textMuted, ...tokens.type.metadata, marginTop: 12, maxWidth: 335 },
-  filters: { gap: 8, paddingRight: 10, paddingBottom: 16 },
-  filter: { paddingHorizontal: 16, minHeight: 44, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
-  filterActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  filterText: { color: colors.textMuted, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
-  filterTextActive: { color: colors.white },
-  tonightEntry: { width: 270, minHeight: 150, flexDirection: 'column', alignItems: 'flex-start', gap: 12, backgroundColor: colors.surfaceAlt, borderRadius: tokens.radius.lg, padding: tokens.space.lg },
-  tonightDisabled: { opacity: .65 }, tonightIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
-  eveningIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
-  weekendIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
-  groupsIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
-  areaWatchIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
-  tonightCopy: { flex: 1 }, tonightTitle: { color: colors.text, fontWeight: '700', fontSize: 19 }, tonightText: { color: colors.textMuted, ...tokens.type.metadata, marginTop: 6 },
   featured: {
     height: 408,
     borderRadius: 28,
@@ -255,7 +396,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 9 },
     elevation: 6,
   },
-  pressed: { opacity: 0.95 },
   featuredImage: { width: "100%", height: "100%" },
   featuredShade: {
     ...StyleSheet.absoluteFillObject,
@@ -311,24 +451,113 @@ const styles = StyleSheet.create({
     maxWidth: 190,
   },
   metaDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.65)", marginHorizontal: 3 },
-  locationCard: { marginTop: 18, padding: 14, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 10 },
-  locationIcon: { width: 42, height: 42, borderRadius: 15, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" },
-  locationCopy: { flex: 1, minWidth: 210 },
-  locationTitle: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 12 },
-  locationText: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, marginTop: 2 },
-  locationActions: { width: "100%", flexDirection: "row", gap: 8 },
-  locationPrimary: { minHeight: 44, borderRadius: 14, paddingHorizontal: 14, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
-  locationPrimaryText: { color: colors.white, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
-  locationSecondary: { minHeight: 44, borderRadius: 14, paddingHorizontal: 14, backgroundColor: colors.surfaceAlt, alignItems: "center", justifyContent: "center" },
-  locationSecondaryText: { color: colors.text, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
-  locationStatus: { marginTop: 18, minHeight: 48, borderRadius: 17, paddingHorizontal: 12, backgroundColor: colors.primarySoft, flexDirection: "row", alignItems: "center", gap: 7 },
-  locationStatusText: { flex: 1, color: colors.textMuted, fontFamily: fonts.medium, fontSize: 12 },
-  locationLink: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
+  safe: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: colors.background },
+  content: {
+    width: "100%",
+    maxWidth: 760,
+    alignSelf: "center",
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 112,
+  },
+  plusEntry: {
+    minHeight: 80,
+    borderRadius: 20,
+    backgroundColor: colors.primarySoft,
+    padding: 16,
+    marginTop: 16,
+    marginBottom: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  plusMark: {
+    width: 48,
+    height: 48,
+    borderRadius: 17,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  plusCopy: { flex: 1, minWidth: 0 },
+  plusLabel: {
+    color: colors.primaryDark,
+    fontFamily: fonts.black,
+    fontWeight: "800",
+    fontSize: 11,
+    letterSpacing: 1.6,
+  },
+  plusTitle: {
+    color: colors.text,
+    fontFamily: fonts.semibold,
+    fontWeight: "600",
+    fontSize: 15,
+    marginTop: 4,
+  },
+  plusArrow: {
+    width: 42,
+    height: 42,
+    borderRadius: 15,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  topbar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 26,
+  },
+  topActions: { flexDirection: "row", alignItems: "center", gap: 0 },
+  pressed: { opacity: 0.95 },
+  locationLink: {
+    color: colors.primaryDark,
+    fontFamily: fonts.semibold,
+    fontWeight: "600",
+    fontSize: 12,
+  },
   pageLoader: { paddingVertical: 18 },
   retryPage: { alignItems: "center", paddingVertical: 16 },
-  communityBanner: { marginTop: 18, padding: 14, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, flexDirection: "row", alignItems: "center", gap: 11 },
-  communityIcon: { width: 44, height: 44, borderRadius: 15, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" },
+  communityBanner: {
+    marginTop: 18,
+    padding: 14,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 11,
+  },
+  communityIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 15,
+    backgroundColor: colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   communityCopy: { flex: 1 },
-  communityTitle: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 12 },
-  communityText: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, marginTop: 2 },
-});
+  communityTitle: {
+    color: colors.text,
+    fontFamily: fonts.black,
+    fontWeight: "800",
+    fontSize: 12,
+  },
+  communityText: {
+    color: colors.textMuted,
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 2,
+  },
+}));
+
+export default function AnimatedHomeScreen() {
+  return (
+    <TabScene>
+      <HomeScreen />
+    </TabScene>
+  );
+}

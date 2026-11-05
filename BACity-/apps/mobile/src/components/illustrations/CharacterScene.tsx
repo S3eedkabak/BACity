@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../../theme/appearance';
 import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Svg, { Circle, Ellipse, G, Path, Rect } from 'react-native-svg';
@@ -11,6 +12,7 @@ export type CharacterMood = 'intro' | 'waiting' | 'ready' | 'error' | 'saved' | 
  * A bounded SVG tree replaces raster frames and independently animated RN limbs.
  */
 export function CharacterScene({ mood = 'ready', size = 240 }: { mood?: CharacterMood; size?: number }) {
+  useThemeRevision();
   const reduced = useReducedMotion();
   const breath = useSharedValue(0);
   useEffect(() => {

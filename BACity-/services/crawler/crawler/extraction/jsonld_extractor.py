@@ -109,12 +109,14 @@ def extract_jsonld_events(html: str, source_url: str) -> list[RawEvent]:
                 location = location[0]
             venue_name = _text(location) if isinstance(location, dict) else _text(location)
             address = None
+            locality = None
             latitude = None
             longitude = None
             if isinstance(location, dict):
                 addr = location.get("address")
                 address = _text(addr)
                 if isinstance(addr, dict):
+                    locality = _text(addr.get('addressLocality'))
                     address = ', '.join(str(addr[k]) for k in ('streetAddress', 'postalCode', 'addressLocality', 'addressRegion') if addr.get(k)) or address
                 geo = location.get("geo") or {}
                 if isinstance(geo, dict):
@@ -135,6 +137,7 @@ def extract_jsonld_events(html: str, source_url: str) -> list[RawEvent]:
                 description=_text(node.get("description")),
                 venue_name=venue_name,
                 address=address,
+                address_locality=locality,
                 latitude=latitude,
                 longitude=longitude,
                 price_raw="0 EUR" if node.get("isAccessibleForFree") is True else (f"{price_raw} {currency or 'EUR'}".strip() if price_raw is not None else None),

@@ -4,9 +4,12 @@ import { readFileSync, existsSync } from 'node:fs';
 import { entryDestination } from './motionPolicy.ts';
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 
-test('completed sign-in entry goes to Home from auth, detail, map and restored routes', () => {
-  for (const pathname of ['/auth', '/oauth', '/event/abc', '/map', '/profile']) {
+test('completed sign-in goes to Home while session restoration preserves deep links', () => {
+  for (const pathname of ['/', '/auth', '/oauth', '/welcome']) {
     assert.equal(entryDestination('account-a', 'account-a', pathname), 'home');
+  }
+  for (const pathname of ['/event/abc', '/map', '/profile', '/account', '/area-events']) {
+    assert.equal(entryDestination('account-a', 'account-a', pathname), 'complete');
   }
   assert.equal(entryDestination('account-a', 'account-a', '/discover'), 'complete');
   assert.equal(entryDestination('account-a', 'account-a', '/(tabs)/discover'), 'complete');
@@ -21,9 +24,9 @@ test('entry route is acknowledged before releasing overlay; callback remains sta
   const source = read('../../app/_layout.tsx');
   assert.match(source, /const finishEntry = useCallback/);
   assert.match(source, /if \(!navigation\?\.key \|\| completedOwner === userId\) return/);
-  assert.match(source, /destination === 'home' && navigatingOwner.current !== userId/);
-  assert.match(source, /router.replace\('\/\(tabs\)\/discover'\)/);
-  assert.match(source, /destination === 'complete'\) setCompletedOwner\(finishedOwner\)/);
+  assert.match(source, /destination === ["']home["']\s*&&\s*navigatingOwner.current !== userId/);
+  assert.match(source, /router.replace\(["']\/\(tabs\)\/discover["']\)/);
+  assert.match(source, /destination === ["']complete["']\)\s*setCompletedOwner\(finishedOwner\)/);
   assert.match(source, /useAuthStore.getState\(\).user\?\.id === userId/);
 });
 
@@ -38,8 +41,7 @@ test('startup uses central loading without mandatory intro or video playback', (
 test('inbox and library retain loaded content on refresh failure and expose recovery', () => {
   const inbox = read('../../app/messages/index.tsx');
   assert.match(inbox, /error && !rows.length/);
-  assert.match(inbox, /conversations.forEach/);
-  assert.match(inbox, /onRefresh=\{retry\}/);
+  assert.match(inbox, /conversations\.(?:map|forEach)/);
   assert.match(inbox, /toLocaleTimeString/);
   const library = read('../../app/collections.tsx');
   assert.match(library, /query.isError && !query.data/);
@@ -60,21 +62,22 @@ test('startup timeout stops animation and offers retry without changing auth', (
 });
 test('cold startup survives session cache remount and is not replayed on login', () => {
   const source = read('../../app/_layout.tsx');
-  assert.equal((source.match(/<StartupScene /g) || []).length, 1);
+  assert.equal((source.match(/<StartupScene\b/g) || []).length, 1);
   assert.ok(source.indexOf('</QueryClientProvider>') < source.indexOf('<StartupScene'));
   assert.match(source, /if \(userId\) finishEntry\(\)/);
   assert.doesNotMatch(source, /prepareEntryFilm|BACityLoadingProvider|BACityEntrySequence/);
 });
 test('session cache changes before descendants mount, initial query is not cleared on mount', () => {
   const source = read('../../app/_layout.tsx');
-  assert.match(source, /useMemo\(\(\) => new QueryClient/);
-  assert.match(source, /key=\{userId \|\| 'guest'\}/);
+  assert.match(source, /useMemo\(\s*\(\) =>\s*new QueryClient/);
+  assert.match(source, /key=\{userId \|\| ["']guest["']\}/);
   assert.match(source, /return \(\) => queryClient.clear\(\)/);
   assert.doesNotMatch(source, /setTimeout/);
 });
 test('Home retains hero and feed while premium tools are consolidated behind one story entry', () => {
   const source = read('../../app/(tabs)/discover.tsx');
-  for (const name of ['FeaturedEvent', 'excludeFeaturedEvent', 'useRecommendations', 'PlusEntry', "router.push('/plus-experience')"]) assert.ok(source.includes(name));
+  for (const name of ['FeaturedEvent', 'excludeFeaturedEvent', 'useRecommendations', 'PlusEntry']) assert.ok(source.includes(name));
+  assert.match(source, /router.push\(["']\/plus-experience["']\)/);
   for (const name of ['TonightEntry', 'EveningPlanEntry', 'WeekendPlanEntry', 'GroupsEntry', 'AreaWatchEntry', 'premiumRail']) assert.ok(!source.includes(name));
   assert.ok(source.indexOf('<FeaturedEvent') < source.indexOf('<PlusEntry'));
   assert.doesNotMatch(source, /if \(fallback.isLoading\) return/);

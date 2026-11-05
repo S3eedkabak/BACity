@@ -32,6 +32,7 @@ class RawEvent:
     publisher_event_id: Optional[str] = None
     identity_kind: str = "single"
     start_precision: str = "time"
+    address_locality: Optional[str] = None
 
 
 @dataclass
@@ -66,3 +67,4 @@ class NormalizedEvent:
     publisher_event_id: Optional[str] = None
     identity_kind: str = "single"
     start_precision: str = "time"
+    address_locality: Optional[str] = None

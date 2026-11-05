@@ -246,3 +246,22 @@ def test_date_only_precision_survives_canonical_serialization(client):
     item=client.post('/events',json=payload(start_time='2027-01-02T00:00:00+01:00',start_precision='date')).json()
     assert item['start_precision']=='date'
     assert client.get('/events/'+item['id']).json()['start_precision']=='date'
+
+
+def test_reviewed_publisher_link_reconciliation_preserves_alias_and_source_evidence(client,db_session):
+    from app.operations.reconcile_events import _reconcile_pass
+    import uuid
+    a=client.post('/events',json=payload(source_url='https://tourism.example/concert',venue_name='Arena',latitude=48.1362,longitude=17.1035)).json()
+    b=client.post('/events',json=payload(source_url='https://tickets.example/concert',venue_name='Arena, Hall C',latitude=48.12409,longitude=17.11142)).json()
+    assert a['id']!=b['id']
+    root=db_session.get(Event,uuid.UUID(a['id']));alias=db_session.get(Event,uuid.UUID(b['id']))
+    reviewed=[(root,[(alias,('verified_publisher_ticket_link',1.0))])]
+    assert _reconcile_pass(db_session,False,reviewed)['aliases']==1
+    assert alias.merged_into_id is None
+    assert _reconcile_pass(db_session,True,reviewed)['aliases']==1
+    db_session.commit()
+    assert db_session.query(Event).count()==2
+    assert alias.merged_into_id==root.id
+    assert db_session.query(EventSource).filter_by(event_id=root.id).count()==2
+    assert db_session.query(EventReconciliation).filter_by(alias_id=alias.id).one().before['latitude']==48.12409
+    assert client.get('/events/'+b['id']).json()['id']==a['id']

@@ -50,3 +50,11 @@ test("Home keeps the original first event as hero and removes it from the feed",
   assert.equal(hero?.id, "first");
   assert.deepEqual(feed.map((item) => item.event.id), ["second"]);
 });
+
+test("Home prefers real photography and excludes that featured identity only", () => {
+  const events = [{ id: "without", image_url: null }, { id: "photo", image_url: "https://events.example/photo.jpg" }, { id: "next", image_url: "https://events.example/next.jpg" }];
+  const hero = selectFeaturedEvent(events);
+  assert.equal(hero.id, "photo");
+  assert.deepEqual(excludeFeaturedEvent(events.map(event => ({ event })), hero.id).map(item => item.event.id), ["without", "next"]);
+  assert.equal(selectFeaturedEvent([]), undefined);
+});

@@ -29,7 +29,7 @@ test('both map surfaces use complete aggregation, native cluster actions, and bo
   const area=await readFile(new URL('../../app/area-events.tsx',import.meta.url),'utf8');
   assert.match(native,/clusterCamera/);assert.match(native,/setSelectedCluster/);
   assert.match(native,/mapClusters/);assert.match(native,/areaRoute/);assert.match(native,/signal/);assert.match(web,/latest.current.mapStyle/);assert.match(web,/queryRenderedFeatures/);
-  assert.match(area,/useInfiniteQuery/);assert.match(area,/next_cursor/);assert.match(area,/EventCard/);assert.match(area,/onToggleSave/);assert.match(area,/router.back/);
+  assert.match(area,/useInfiniteQuery/);assert.match(area,/next_cursor/);assert.match(area,/EventCard/);assert.match(await readFile(new URL('../components/EventCard.tsx',import.meta.url),'utf8'),/SaveEventAction event=\{event\}/);assert.match(area,/router.back/);
 });
 
 test('web layers preserve native paint/layout and omit an absent optional filter',()=>{
@@ -89,4 +89,18 @@ test('date-only listings never acquire an invented midnight clock',async()=>{
   assert.ok(!availabilityLabel(event).includes('00:00'));
   assert.ok(!availabilityLabel({...event,identity_kind:'recurring'}).match(/00:00|12:00/));
   assert.match(availabilityLabel({...event,start_precision:'time'}),/00:00|12:00/);
+});
+
+
+test('ongoing recurring programmes never call their historical start the next availability',async()=>{
+ const {availabilityLabel}=await import('./eventAvailability.ts');
+ const now=new Date('2026-11-04T12:00:00Z');
+ const event={identity_kind:'recurring',start_time:'2025-09-27T10:00:00Z',next_occurrence_start:'2025-09-27T10:00:00Z',end_time:'2026-12-31T22:59:00Z'};
+ const label=availabilityLabel(event,now);
+ assert.match(label,/Programme through/);assert.ok(!label.includes('2025'));assert.ok(!label.includes('Next availability'));
+ assert.match(availabilityLabel({...event,next_occurrence_start:'2026-11-06T10:00:00Z'},now),/Next availability/);
+});
+test('recurring listings without a known current or future occurrence request the schedule',async()=>{
+ const {availabilityLabel}=await import('./eventAvailability.ts');
+ assert.match(availabilityLabel({identity_kind:'recurring',start_time:'2025-09-27T10:00:00Z'},new Date('2026-11-04T12:00:00Z')),/See scheduled dates/);
 });

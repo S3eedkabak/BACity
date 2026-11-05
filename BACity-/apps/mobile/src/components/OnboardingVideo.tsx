@@ -1,3 +1,4 @@
+import { themedStyles, useThemeRevision } from '../theme/appearance';
 import { useEffect, useState } from 'react';
 import { AppState, Image, StyleSheet, View } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
@@ -5,6 +6,7 @@ import { Video, ResizeMode } from 'expo-av';
 import Animated, { cancelAnimation, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 /** Onboarding ONLY. A full-bleed cinematic background, never an embedded player. */
 export function OnboardingVideo() {
+  useThemeRevision();
   const focused = useIsFocused();
   const reduced = useReducedMotion();
   const [active, setActive] = useState(AppState.currentState === 'active');
@@ -30,4 +32,4 @@ export function OnboardingVideo() {
     </Animated.View>}
   </View>;
 }
-const styles = StyleSheet.create({ frame: { ...StyleSheet.absoluteFillObject, overflow: 'hidden', backgroundColor: '#100E12' } });
+const styles = themedStyles(() => ({ frame: { ...StyleSheet.absoluteFillObject, overflow: 'hidden', backgroundColor: '#100E12' } }));

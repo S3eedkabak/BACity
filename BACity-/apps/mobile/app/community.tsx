@@ -1,5 +1,6 @@
+import { useThemeRevision } from '../src/theme/appearance';
 import { useEffect } from "react";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, useRootNavigationState } from "expo-router";
 import { LoadingState } from "../src/components/LoadingState";
 
 const DESTINATIONS: Record<string, string> = {
@@ -12,7 +13,11 @@ const DESTINATIONS: Record<string, string> = {
 
 /** Compatibility route for old links. Community capabilities now live in focused screens. */
 export default function CommunityRedirect() {
+  useThemeRevision();
   const { section } = useLocalSearchParams<{ section?: string }>();
-  useEffect(() => { router.replace((DESTINATIONS[section || ""] || "/(tabs)/discover") as any); }, [section]);
+  const navigation = useRootNavigationState();
+  useEffect(() => {
+    if (navigation?.key) router.replace((DESTINATIONS[section || ""] || "/(tabs)/discover") as any);
+  }, [section, navigation?.key]);
   return <LoadingState />;
 }

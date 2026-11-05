@@ -1,3 +1,9 @@
+import { useActionFeedback } from '../src/components/interactions/ActionFeedback';
+import { PasswordStrengthIndicator } from '../src/components/interactions/PasswordStrengthIndicator';
+import { HoldToConfirm } from '../src/components/interactions/HoldToConfirm';
+import { AppearanceSettings } from '../src/components/interactions/AppearanceSettings';
+import { useRef } from 'react';
+import { themedStyles, useThemeRevision } from '../src/theme/appearance';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Share, StyleSheet, Switch, Text, View } from 'react-native';
 import { AnimatedPressable as Pressable } from '../src/components/motion/Motion';
@@ -15,6 +21,7 @@ const INTERESTS = ['Music', 'Culture', 'Nightlife', 'Arts', 'Family', 'Community
 type ResetLinkState = 'loading' | 'valid' | 'invalid' | 'expired' | 'used' | 'submitting' | 'success' | 'error';
 
 function ForgotPassword() {
+  useThemeRevision();
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -37,7 +44,7 @@ function ForgotPassword() {
     return <Card>
       <Text style={ui.heading}>Check your email</Text>
       <Text style={ui.text}>If an account exists for that address, BACity has sent a password-reset link. The link expires after 30 minutes.</Text>
-      <Button title="Back to login" onPress={() => router.replace({ pathname: '/auth', params: { mode: 'login' } })} />
+      <Button variant="secondary" title="Back to login" onPress={() => router.replace({ pathname: '/auth', params: { mode: 'login' } })} />
       <Pressable accessibilityRole="button" onPress={() => setSubmitted(false)} style={styles.textAction}>
         <Text style={styles.textActionLabel}>Try another email address</Text>
       </Pressable>
@@ -57,6 +64,8 @@ function ForgotPassword() {
 }
 
 function ResetPassword({ token }: { token: string }) {
+  useThemeRevision();
+  const resetLock = useRef(false);
   const [state, setState] = useState<ResetLinkState>('loading');
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
@@ -85,6 +94,7 @@ function ResetPassword({ token }: { token: string }) {
   useEffect(() => { void inspectToken(); }, [token]);
 
   async function submit() {
+    if (resetLock.current) return;
     setNotice('');
     if (password.length < 8 || !password.trim()) {
       setNotice('Use at least 8 characters; the password cannot contain only spaces.');
@@ -94,7 +104,7 @@ function ResetPassword({ token }: { token: string }) {
       setNotice('The passwords do not match.');
       return;
     }
-    setState('submitting');
+    resetLock.current = true; setState('submitting');
     try {
       await apiRequest('/auth/reset-password', { method: 'POST', body: { token, password } });
       setPassword('');
@@ -115,7 +125,7 @@ function ResetPassword({ token }: { token: string }) {
       }
       setNotice(error?.message ?? 'Could not reset your password. Please try again.');
       setState('error');
-    }
+    } finally { resetLock.current = false; }
   }
 
   if (state === 'loading') {
@@ -125,7 +135,7 @@ function ResetPassword({ token }: { token: string }) {
     return <Card>
       <Text style={ui.heading}>Password changed</Text>
       <Text style={ui.text}>Your password was updated and existing BACity sessions were signed out.</Text>
-      <Button title="Log in with your new password" onPress={() => router.replace({ pathname: '/auth', params: { mode: 'login' } })} />
+      <Button variant="secondary" title="Log in with your new password" onPress={() => router.replace({ pathname: '/auth', params: { mode: 'login' } })} />
     </Card>;
   }
   if (state === 'invalid' || state === 'expired' || state === 'used') {
@@ -147,7 +157,7 @@ function ResetPassword({ token }: { token: string }) {
   return <Card>
     <Text style={ui.heading}>Choose a new password</Text>
     <Text style={ui.text}>Use at least 8 characters. Spaces, Unicode, and long passphrases are supported.</Text>
-    <Field label="New password" secure={!showPasswords} value={password} onChange={setPassword} />
+    <Field label="New password" secure={!showPasswords} value={password} onChange={setPassword} /><PasswordStrengthIndicator password={password} />
     <Field label="Confirm password" secure={!showPasswords} value={confirmation} onChange={setConfirmation} />
     <Pressable accessibilityRole="button" onPress={() => setShowPasswords((current) => !current)} style={styles.textAction}>
       <Text style={styles.textActionLabel}>{showPasswords ? 'Hide passwords' : 'Show passwords'}</Text>
@@ -159,6 +169,8 @@ function ResetPassword({ token }: { token: string }) {
 }
 
 export default function Account() {
+  useThemeRevision();
+  const actionFeedback=useActionFeedback();
   const { action, token } = useLocalSearchParams<{ action?: string; token?: string }>();
   const { user, refreshUser, logout } = useAuthStore();
   const [name, setName] = useState(user?.display_name ?? '');
@@ -170,9 +182,11 @@ export default function Account() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
+  const actionLock = useRef(false);
   async function run(fn: () => Promise<unknown>, success: string) {
+    if (actionLock.current) return; actionLock.current = true;
     setBusy(true); setNotice('');
-    try { await fn(); setNotice(success); } catch (e: any) { setNotice(e.message); } finally { setBusy(false); }
+    try { await fn(); setNotice(success); } catch (e: any) { setNotice(e.message); } finally { actionLock.current = false; setBusy(false); }
   }
   async function chooseAvatar() {
     setBusy(true); setNotice('');
@@ -211,17 +225,19 @@ export default function Account() {
 
   return <Page title="Your account">
     <Notice text={notice} />
-    <Button title="Privacy & account rights" onPress={() => router.push('/privacy')} />
+    <AppearanceSettings />
+    <Button variant="secondary" title="Privacy & account rights" onPress={() => router.push('/privacy')} />
     {!user.email_verified && <Card><Text style={ui.text}>Verify your email before submitting, following, or messaging.</Text><Button title="Resend verification email" busy={busy} onPress={() => run(() => apiRequest('/auth/request-verification', { method: 'POST', auth: true }), 'Verification email queued.')} /><Button title="I verified my email — refresh" busy={busy} onPress={() => run(refreshUser, 'Account refreshed.')} /></Card>}
 <Disclosure title="Profile photo" icon="camera-outline"><Text style={ui.text}>Choose a photo, then crop and position it in the square editor.</Text><Button title="Choose and crop photo" busy={busy} onPress={chooseAvatar} /></Disclosure>
       <Disclosure title="Identity & interests" icon="person-outline" initiallyOpen><Field label="Display name" value={name} onChange={setName} /><Field label="Bio" value={bio} onChange={setBio} multiline /><Field label="Neighborhood" value={neighborhood} onChange={setNeighborhood} /><Text style={ui.heading}>Your city interests</Text><InterestPicker choices={INTERESTS} selected={interests.split(',').map(value => value.trim()).filter(Boolean)} onToggle={category => { const current = interests.split(',').map(value => value.trim()).filter(Boolean); setInterests((current.includes(category) ? current.filter(value => value !== category) : [...current, category]).join(', ')); }} /><Disclosure title="Other interests" icon="add-outline"><Field label="Other interests (comma separated)" value={interests} onChange={setInterests} /></Disclosure><Text style={ui.text}>Public profile</Text><Switch accessibilityLabel="Public profile" value={isPublic} onValueChange={setPublic} /><Text style={ui.text}>Allow messages from people you do not follow</Text><Switch accessibilityLabel="Allow general messages" value={messages} onValueChange={setMessages} /><Button title="Save preferences" busy={busy} onPress={() => run(async () => { await apiRequest('/community/profile', { method: 'PATCH', auth: true, body: { display_name: name || null, bio, neighborhood, interests: interests.split(',').map(i => i.trim()).filter(Boolean), public_profile: isPublic, allow_general_messages: messages } }); await refreshUser(); }, 'Preferences saved.')} /></Disclosure>
 <Disclosure title="Your data" icon="download-outline"><Text style={ui.text}>Export a portable JSON copy of your profile, activity, contributions, messages, and linked sign-in providers.</Text><Button title="Export my data" busy={busy} onPress={() => run(async () => { const data = await apiRequest('/community/account/export', { auth: true }); await Share.share({ title: 'BACity account export', message: JSON.stringify(data, null, 2) }); }, 'Account export prepared.')} /></Disclosure>
-<Disclosure title="Delete account" icon="warning-outline"><Text style={ui.text}>This disables your account, removes private messages and profile details, and retains published contributions under a deleted-account identity.</Text>{confirmDelete ? <><Button title="Delete my account permanently" busy={busy} onPress={() => run(async () => { await apiRequest('/community/account', { method: 'DELETE', auth: true, body: { reason: 'User requested account deletion' } }); await logout(); }, 'Account deleted.')} /><Button title="Keep account" onPress={() => setConfirmDelete(false)} /></> : <Button title="Review account deletion" onPress={() => setConfirmDelete(true)} />}</Disclosure>
+<Disclosure title="About BACity" icon="information-circle-outline"><Button variant="secondary" title="Open source licenses" onPress={()=>router.push('/licenses')}/></Disclosure>
+<Disclosure title="Delete account" icon="warning-outline"><Text style={ui.text}>This disables your account, removes private messages and profile details, and retains published contributions under a deleted-account identity.</Text>{confirmDelete ? <><HoldToConfirm title="Delete my account permanently" description="This disables your account, deletes private messages and profile details, and keeps published contributions under a deleted-account identity. Existing server and subscription checks still apply." disabled={busy} onConfirm={async () => { await apiRequest('/community/account', { method: 'DELETE', auth: true, body: { reason: 'User requested account deletion' } }); actionFeedback('Account deleted.'); await logout(); }} /><Button variant="secondary" title="Keep account" onPress={() => setConfirmDelete(false)} /></> : <Button variant="secondary" title="Review account deletion" onPress={() => setConfirmDelete(true)} />}</Disclosure>
   </Page>;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   loading: { minHeight: 92, alignItems: 'center', justifyContent: 'center', gap: 12 },
   textAction: { minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   textActionLabel: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
-});
+}));

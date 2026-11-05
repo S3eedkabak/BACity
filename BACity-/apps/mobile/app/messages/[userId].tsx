@@ -1,7 +1,8 @@
+import { themedStyles, useThemeRevision } from '../../src/theme/appearance';
 import { useEffect, useRef, useState } from "react";
 import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from "react-native";
 import { AnimatedPressable as Pressable } from '../../src/components/motion/Motion';
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from '../../src/components/navigation/ContentSafeArea';
 import { AppIcon } from "../../src/components/AppIcon";
 import { useLocalSearchParams, router } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -15,6 +16,7 @@ import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
 
 export default function ConversationScreen() {
+  useThemeRevision();
   const list = useRef<FlatList>(null);
   const { userId } = useLocalSearchParams<{ userId: string }>();
   const me = useAuthStore(state => state.user);
@@ -22,7 +24,7 @@ export default function ConversationScreen() {
   const [body, setBody] = useState(""); const [notice, setNotice] = useState(""); const [menu, setMenu] = useState(false); const [reason, setReason] = useState("");
   const profile = useQuery({ queryKey: ["conversation-profile", me?.id, userId], queryFn: () => getConversationProfile(userId), enabled: !!userId && !!me });
   const thread = useQuery({ queryKey: ["conversation", userId], queryFn: () => getConversation(userId), enabled: !!userId });
-  const notifications = useQuery({ queryKey: ["notifications"], queryFn: getNotifications });
+  const notifications = useQuery({ queryKey: ["notifications"], queryFn: () => getNotifications() });
   useEffect(() => {
     const unread = (notifications.data ?? []).filter(item => item.kind === "message" && item.target_id === userId && !item.read_at);
     if (!unread.length) return;
@@ -52,7 +54,7 @@ export default function ConversationScreen() {
   </KeyboardAvoidingView></SafeAreaView>;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   safe: { flex: 1, backgroundColor: colors.background }, loading: { padding: 18 }, messages: { flexGrow: 1, paddingHorizontal: 14, paddingVertical: 12, justifyContent: "flex-end" },
   messageRow: { flexDirection: "row", alignItems: "flex-end", gap: 7, marginVertical: 4 }, messageRowMine: { justifyContent: "flex-end" },
   bubble: { maxWidth: "78%", paddingHorizontal: 13, paddingTop: 9, paddingBottom: 6, borderRadius: 18 }, bubbleMine: { backgroundColor: colors.primary, borderBottomRightRadius: 6 }, bubbleTheirs: { backgroundColor: colors.surface, borderBottomLeftRadius: 6 },
@@ -61,4 +63,4 @@ const styles = StyleSheet.create({
   input: { flex: 1, maxHeight: 110, minHeight: 44, paddingHorizontal: 15, paddingVertical: 11, borderRadius: 20, backgroundColor: colors.surfaceAlt, color: colors.text, fontFamily: fonts.regular, fontSize: 14 },
   send: { width: 44, height: 44, borderRadius: 16, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }, pressed: { opacity: .75 }, disabled: { opacity: .45 },
   reason: { minHeight: 76, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, padding: 12, color: colors.text, textAlignVertical: "top", marginBottom: 6 },
-});
+}));

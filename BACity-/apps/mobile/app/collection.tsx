@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../src/theme/appearance';
 import { useEffect, useState } from 'react';
 import { Text, Switch } from 'react-native';
 import { AppIcon } from "../src/components/AppIcon";
@@ -9,6 +10,7 @@ import { Page, Card, Field, Button, Notice, ui } from '../src/components/Communi
 
 type Item = { type: string; id: string; name: string };
 export default function Collection() {
+  useThemeRevision();
   const params = useLocalSearchParams<{ type?: string; id?: string }>();
   const [items, setItems] = useState<Item[]>([]);
   const [selected, setSelected] = useState<string[]>([]);

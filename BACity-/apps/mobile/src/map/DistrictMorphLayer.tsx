@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../theme/appearance';
 import { useCallback, useEffect, useRef } from 'react';
 import { AppState, Platform, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
@@ -17,6 +18,7 @@ const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 /** One overlay above the root stack keeps the same geographic surface visible across routes. */
 export function DistrictMorphLayer() {
+  useThemeRevision();
   const host = useRef<View>(null);
   const insets = useSafeAreaInsets();
   const phase = useDistrictMorph(state => state.phase);
