@@ -6,6 +6,8 @@
 
 **Outage recovery:** See [social_outage_recovery.md](docs/social_outage_recovery.md) for durable social buffering and automatic delivery after PostgreSQL returns.
 
+**Automated regression checks:** Every branch push runs the four-job [GitHub Actions CI](docs/ci.md). No pull request or production credentials are required.
+
 ## Current state: iOS Functional MVP
 
 **Branch:** `ios-functional-mvp`  
