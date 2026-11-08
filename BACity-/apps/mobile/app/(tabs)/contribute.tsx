@@ -1,0 +1,67 @@
+import { ContentStages } from "../../src/components/navigation/SceneMotion";
+import { SegmentedControl } from '../../src/components/interactions/SegmentedControl';
+import { SectionTransition } from '../../src/components/navigation/SceneMotion';
+import { TabScene } from '../../src/components/navigation/SceneMotion';
+import { themedStyles, useThemeRevision } from '../../src/theme/appearance';
+import { useState } from "react";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { AnimatedPressable as Pressable } from '../../src/components/motion/Motion';
+import { AppIcon } from "../../src/components/AppIcon";
+import { TemporalField } from "../../src/components/TemporalField";
+import { AreaWatchMapPicker } from "../../src/components/AreaWatchMapPicker";
+import { SafeAreaView } from '../../src/components/navigation/ContentSafeArea';
+import { router } from "expo-router";
+import { apiRequest } from "../../src/api/client";
+import { Button, Chip, Disclosure, Field, Notice } from "../../src/components/CommunityUI";
+import { useAuthStore } from "../../src/store/authStore";
+import { colors } from "../../src/theme/colors";
+import { fonts } from "../../src/theme/fonts";
+
+type Kind = "events" | "places" | "utilities";
+const CATEGORIES = ["Community", "Music", "Culture", "Nightlife", "Sports", "Food & Drink", "Markets", "Family", "Other"];
+const UTILITIES = [{ id: "toilet", label: "Public toilet" }, { id: "water_fountain", label: "Water fountain" }, { id: "bike_repair", label: "Bike repair" }, { id: "charging", label: "Charging" }, { id: "wifi", label: "Public Wi‑Fi" }, { id: "bench", label: "Bench" }, { id: "playground", label: "Playground" }, { id: "dog_park", label: "Dog park" }, { id: "recycling", label: "Recycling" }, { id: "accessible_entrance", label: "Accessible entrance" }, { id: "parking", label: "Parking" }, { id: "locker", label: "Locker" }];
+
+function ContributeScreen() {
+  useThemeRevision();
+  const [step, setStep] = useState(0);
+  const user = useAuthStore(state => state.user); const [kind, setKind] = useState<Kind>("events"); const [fields, setFields] = useState<Record<string, string>>({ category: "Community", utility: "toilet" }); const [free, setFree] = useState(false); const [accessible, setAccessible] = useState(false); const [busy, setBusy] = useState(false); const [notice, setNotice] = useState("");
+  const field = (key: string, label: string, multiline = false) => <Field key={key} label={label} value={fields[key] || ""} onChange={value => setFields(current => ({ ...current, [key]: value }))} multiline={multiline} />;
+  function dateTime(date: string | undefined, time: string | undefined, optional = false) { if (!date && !time && optional) return null; if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !time || !/^\d{2}:\d{2}$/.test(time)) throw new Error("Enter the date as YYYY-MM-DD and time as HH:MM."); const parsed = new Date(`${date}T${time}`); if (Number.isNaN(parsed.getTime())) throw new Error("Enter a valid date and time."); return parsed.toISOString(); }
+  async function submit() { setBusy(true); setNotice(""); try { const hasLatitude = !!fields.latitude?.trim(); const hasLongitude = !!fields.longitude?.trim(); if (hasLatitude !== hasLongitude) throw new Error("Add both latitude and longitude, or leave both blank for an event."); const coords = { latitude: hasLatitude ? Number(fields.latitude) : null, longitude: hasLongitude ? Number(fields.longitude) : null }; if ((hasLatitude && (!Number.isFinite(coords.latitude) || !Number.isFinite(coords.longitude))) || (kind !== "events" && !hasLatitude)) throw new Error("Add valid map latitude and longitude for this location."); let body: Record<string, unknown>;
+    if (kind === "events") body = { ...coords, title: fields.name, description: fields.description, address: fields.address, start_time: dateTime(fields.start_date, fields.start_clock), end_time: dateTime(fields.end_date, fields.end_clock, true), category: fields.category, source_url: fields.source_url || '', public_source_url: fields.public_source_url || null, image_url: fields.image_url || null, ticket_url: fields.ticket_url || null, price: fields.price ? Number(fields.price) : null, neighborhood: fields.neighborhood || null };
+    else if (kind === "places") body = { ...coords, name: fields.name, description: fields.description, address: fields.address, category: fields.category, neighborhood: fields.neighborhood || null, website: fields.source_url || null, accessibility: { wheelchair: accessible } };
+    else body = { ...coords, name: fields.name, kind: fields.utility, address: fields.address, source_url: fields.source_url || null, opening_hours: fields.opening_hours || null, free, wheelchair_accessible: accessible };
+    await apiRequest(`/community/submissions/${kind}`, { method: "POST", auth: true, body }); setNotice("Submitted for review. You can follow the decision in Your activity."); setFields({ category: "Community", utility: "toilet" });
+  } catch (e: any) { setNotice(e.message); } finally { setBusy(false); } }
+  return <SafeAreaView style={styles.safe} edges={["top"]}><KeyboardAvoidingView style={styles.safe} behavior={Platform.OS === "ios" ? "padding" : undefined}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"><ContentStages>
+    <Text style={styles.eyebrow}>YOUR CITY, MADE BETTER</Text><Text style={styles.title}>Share a good find.</Text><Text style={styles.intro}>An event, a place, a useful city spot. Help someone discover it.</Text>
+    <SegmentedControl label="Contribution type" value={kind} options={[{id:"events",label:"Event"},{id:"places",label:"Place"},{id:"utilities",label:"Utility"}]} onChange={value=>{setKind(value);setStep(0);}}/>
+    {!user?.email_verified ? <View style={styles.panel}><Text style={styles.panelTitle}>Verify your account first</Text><Text style={styles.intro}>Verified email is required before contributing.</Text><Button variant="secondary" title="Account settings" onPress={() => router.push("/account")} /></View> : <>
+      <SegmentedControl label="Contribution step" value={String(step)} options={["The find","When & where","Review"].map((label,index)=>({id:String(index),label:`${index+1} · ${label}`}))} onChange={value=>setStep(Number(value))}/>
+      <SectionTransition identity={String(step)}>
+      {step === 0 && <View style={styles.section}><Text style={styles.sectionTitle}>What did you discover?</Text>{field("name", kind === "events" ? "Event title" : "Name")}{kind !== "utilities" && field("description", "Tell us about it", true)}
+        <Disclosure title={kind==="utilities"?`Utility type · ${UTILITIES.find(item=>item.id===fields.utility)?.label||"Choose"}`:`Category · ${fields.category||"Choose"}`} icon="options-outline">{kind !== "utilities" ? <View style={styles.options}>{CATEGORIES.map(value => <Chip key={value} title={value} active={fields.category === value} onPress={() => setFields(current => ({ ...current, category: value }))} />)}</View> : <View style={styles.options}>{UTILITIES.map(value => <Chip key={value.id} title={value.label} active={fields.utility === value.id} onPress={() => setFields(current => ({ ...current, utility: value.id }))} />)}</View>}</Disclosure>
+        <Button title="Next: when & where" onPress={() => setStep(1)} />
+      </View>}
+      {step === 1 && <View style={styles.section}><Text style={styles.sectionTitle}>Help people find it.</Text>{field("address", "Street address in Bratislava")}{kind !== "utilities" && field("neighborhood", "Neighborhood (optional)")}
+        {kind === "events" && <><TemporalField label="Start date" value={fields.start_date || ""} onChange={value => setFields(current => ({ ...current, start_date: value }))} /><TemporalField label="Start time" mode="time" value={fields.start_clock || ""} onChange={value => setFields(current => ({ ...current, start_clock: value }))} />{field("end_date", "End date (optional, YYYY-MM-DD)")}{field("end_clock", "End time (optional, HH:MM)")}</>}
+        <Text style={styles.hint}>{kind === "events" ? "Map coordinates are optional for events." : "Choose a map location for this city spot."} No location is collected automatically.</Text>
+        {Platform.OS !== 'web' && <AreaWatchMapPicker latitude={fields.latitude && Number.isFinite(Number(fields.latitude)) ? Number(fields.latitude) : 48.1486} longitude={fields.longitude && Number.isFinite(Number(fields.longitude)) ? Number(fields.longitude) : 17.1077} radiusKm={0} hint="Tap to select the contribution's location. The initial city centre is not submitted unless selected." onChange={(latitude, longitude) => setFields(current => ({ ...current, latitude: String(latitude), longitude: String(longitude) }))} />}
+        <View style={styles.split}><View style={styles.flex}>{field("latitude", "Latitude")}</View><View style={styles.flex}>{field("longitude", "Longitude")}</View></View>
+        {kind === "utilities" && <>{field("opening_hours", "Opening hours (optional)")}<Toggle label="Free to use" value={free} onChange={setFree} /></>}
+        {kind !== "events" && <Toggle label="Wheelchair accessible" value={accessible} onChange={setAccessible} />}
+        <Button title="Next: review & details" onPress={() => setStep(2)} />
+      </View>}
+      {step === 2 && <View style={styles.section}><View style={styles.review}><AppIcon name={kind === "events" ? "calendar-outline" : "location-outline"} size={32} color={colors.primary} /><Text style={styles.sectionTitle}>{fields.name || "Your contribution"}</Text><Text style={styles.intro}>{fields.address || "Address not yet supplied"}</Text><Text style={styles.hint}>Every contribution is reviewed. You don't need a crawlable website to share an event.</Text></View>
+        {field("source_url", kind === "events" ? "Original event website (optional, HTTPS)" : "Source website (optional, HTTPS)")}
+        {kind === "events" && <>{field("public_source_url", "Public organizer/calendar website (optional)")}{field("image_url", "Image website (optional, HTTPS)")}{field("ticket_url", "Ticket website (optional, HTTPS)")}{field("price", "Price in EUR (leave blank if unknown)")}</>}
+        <Button title="Submit for review" busy={busy} onPress={submit} />
+      </View>}
+    </SectionTransition></>}<Notice text={notice} /><Pressable accessibilityRole="button" onPress={() => router.push("/activity")} style={styles.activity}><Text style={styles.activityText}>Your contribution activity</Text></Pressable>
+  </ContentStages></ScrollView></KeyboardAvoidingView></SafeAreaView>;
+}
+function Toggle({ label, value, onChange }: { label: string; value: boolean; onChange: (value: boolean) => void }) {
+  useThemeRevision(); return <View style={styles.toggle}><Text style={styles.toggleText}>{label}</Text><Switch accessibilityLabel={label} value={value} onValueChange={onChange} trackColor={{ true: colors.primarySoft }} thumbColor={value ? colors.primary : colors.textMuted} /></View>; }
+const styles = themedStyles(() => ({ progress: { flexDirection: 'row', gap: 8, marginBottom: 12 }, progressItem: { flex: 1, padding: 12, borderRadius: 20, backgroundColor: colors.surface }, progressActive: { backgroundColor: colors.primarySoft }, progressNumber: { fontSize: 22, fontWeight: '800', color: colors.primaryDark }, progressLabel: { fontSize: 12, color: colors.text, marginTop: 4 }, review: { gap: 12, padding: 24, backgroundColor: colors.surface, borderRadius: 28 }, activityText: { color: colors.primaryDark, fontSize: 14 }, safe: { flex: 1, backgroundColor: colors.background }, content: { width: '100%', maxWidth: 760, alignSelf: 'center', padding: 18, paddingBottom: 92 }, eyebrow: { color: colors.primaryDark, fontFamily: fonts.black, fontWeight: '800', fontSize: 12, letterSpacing: 1.6 }, title: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 26, letterSpacing: -.6, marginTop: 4 }, intro: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, marginTop: 7 }, types: { flexDirection: "row", gap: 8, marginVertical: 18 }, section: { paddingVertical: 17, gap: 13, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }, panel: { padding: 17, borderRadius: 20, backgroundColor: colors.surface, gap: 12 }, panelTitle: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 18 }, sectionTitle: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 19 }, label: { color: colors.textMuted, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12, letterSpacing: .6 }, options: { flexDirection: "row", flexWrap: "wrap", gap: 7 }, split: { flexDirection: "row", gap: 9 }, flex: { flex: 1, minWidth: 0 }, hint: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18 }, toggle: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, toggleText: { color: colors.text, fontFamily: fonts.medium, fontSize: 13 }, activity: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', textAlign: "center", padding: 16 } }));
+
+export default function AnimatedContributeScreen() { return <TabScene><ContributeScreen /></TabScene>; }

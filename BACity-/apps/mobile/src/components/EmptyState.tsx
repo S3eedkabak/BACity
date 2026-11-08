@@ -1,38 +1,86 @@
-import { Ionicons } from "@expo/vector-icons";
+import { themedStyles, useThemeRevision } from '../theme/appearance';
+import { AppIcon } from "./AppIcon";
 import { StyleSheet, Text, View } from "react-native";
+import { AnimatedPressable as Pressable } from './motion/Motion';
 import { colors } from "../theme/colors";
 import { fonts } from "../theme/fonts";
+import { tokens } from '../theme/tokens';
+import { CharacterScene, CharacterMood } from './illustrations/CharacterScene';
+import { Reveal } from './motion/Motion';
 
-export function EmptyState({ title, subtitle }: { title: string; subtitle?: string }) {
+export function EmptyState({
+  title,
+  subtitle,
+  action,
+  onAction,
+  scene,
+  compact = false,
+}: {
+  title: string;
+  subtitle?: string;
+  action?: string;
+  onAction?: () => void;
+  scene?: CharacterMood;
+  compact?: boolean;
+}) {
+  useThemeRevision();
   return (
-    <View style={styles.container}>
-      <View style={styles.icon}>
-        <Ionicons name="sparkles-outline" size={20} color={colors.primary} />
-      </View>
+    <View style={[styles.wrap, compact && { minHeight: 120, paddingHorizontal: 20, paddingVertical: 20 }]}>
+      {compact ? null : scene ? <Reveal><CharacterScene mood={scene} size={180} /></Reveal> : <View style={styles.icon}>
+        <AppIcon name="sparkles-outline" size={24} color={colors.primaryDark} />
+      </View>}
       <Text style={styles.title}>{title}</Text>
-      {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+      {!!subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+      {!!action && !!onAction && (
+        <Pressable accessibilityRole="button" style={({ pressed }) => [styles.button, pressed && { opacity: .8 }]} onPress={onAction}>
+          <Text style={styles.buttonText}>{action}</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { paddingVertical: 48, alignItems: "center", gap: 7 },
+const styles = themedStyles(() => ({
+  wrap: {
+    minHeight: 180,
+    paddingHorizontal: 34,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   icon: {
-    width: 46,
-    height: 46,
-    borderRadius: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 20,
     backgroundColor: colors.primarySoft,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 3,
+    marginBottom: 16,
   },
-  title: { color: colors.text, fontFamily: fonts.black, fontSize: 15 },
+  title: {
+    ...tokens.type.section,
+    color: colors.text,
+    fontFamily: fonts.black,
+    fontSize: 18,
+    letterSpacing: -0.5,
+    textAlign: "center",
+  },
   subtitle: {
+    ...tokens.type.body,
     color: colors.textMuted,
     fontFamily: fonts.regular,
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 13,
+    lineHeight: 19,
     textAlign: "center",
-    paddingHorizontal: 32,
+    marginTop: 7,
   },
-});
+  button: {
+    marginTop: 18,
+    minHeight: 46,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  buttonText: { color: colors.white, fontFamily: fonts.semibold, fontSize: 13 },
+}));

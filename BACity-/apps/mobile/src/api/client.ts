@@ -5,9 +5,12 @@
  * auth store here. This intentionally removes the client -> store -> auth
  * -> client circular dependency.
  */
-import { getSessionToken } from "../store/tokenSession";
+import { getSessionToken, getSessionRevision } from "../store/tokenSession";
+import { Platform } from "react-native";
+import { resolveApiUrl } from "./apiUrl";
+import { serializeRequestBody } from "./requestBody";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8000";
+export const API_URL = resolveApiUrl(process.env.EXPO_PUBLIC_API_URL, Platform.OS);
 
 export class ApiError extends Error {
   status: number;
@@ -19,6 +22,7 @@ export class ApiError extends Error {
 }
 
 interface RequestOptions {
+  signal?: AbortSignal;
   method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
   auth?: boolean;
@@ -38,6 +42,7 @@ export async function apiRequest<T>(
   options: RequestOptions = {}
 ): Promise<T> {
   const { method = "GET", body, auth = false, params } = options;
+  const sessionRevision = getSessionRevision();
 
   const headers: Record<string, string> = { "Content-Type": "application/json" };
 
@@ -46,17 +51,35 @@ export async function apiRequest<T>(
     if (token) headers.Authorization = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_URL}${path}${buildQuery(params)}`, {
-    method,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  const abort = () => controller.abort();
+  options.signal?.addEventListener("abort", abort);
+  if (options.signal?.aborted) controller.abort();
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}${buildQuery(params)}`, {
+      method,
+      headers,
+      body: serializeRequestBody(body),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+    options.signal?.removeEventListener("abort", abort);
+  }
+
+  if (auth && sessionRevision !== getSessionRevision()) {
+    throw new ApiError(401, "Session changed; please retry");
+  }
 
   if (!res.ok) {
     let detail = res.statusText;
     try {
       const errBody = await res.json();
-      detail = errBody.detail ?? detail;
+      detail = Array.isArray(errBody.detail)
+        ? errBody.detail.map((error: { loc?: string[]; msg?: string }) => `${error.loc?.slice(1).join('.') ?? 'Input'}: ${error.msg ?? 'Invalid value'}`).join('\n')
+        : errBody.detail ?? detail;
     } catch {
       // Keep the HTTP status text when the body is not JSON.
     }
@@ -64,5 +87,9 @@ export async function apiRequest<T>(
   }
 
   if (res.status === 204) return undefined as T;
-  return res.json() as Promise<T>;
+  const result = await res.json() as T;
+  if (auth && sessionRevision !== getSessionRevision()) {
+    throw new ApiError(401, "Session changed; please retry");
+  }
+  return result;
 }

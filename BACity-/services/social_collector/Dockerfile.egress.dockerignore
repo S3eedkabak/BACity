@@ -1,0 +1,4 @@
+**
+!services/
+!services/social_collector/
+!services/social_collector/egress.py

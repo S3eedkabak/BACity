@@ -9,6 +9,8 @@ from dateutil import parser as dateutil_parser
 DEFAULT_TZ = pytz.timezone("Europe/Bratislava")
 
 _MONTHS = {
+    "januára": 1, "februára": 2, "apríla": 4, "mája": 5,
+    "júna": 6, "júla": 7, "októbra": 10,
     "január": 1, "januara": 1, "jan": 1,
     "február": 2, "februara": 2, "feb": 2,
     "marec": 3, "marca": 3, "mar": 3,
@@ -32,7 +34,7 @@ _MONTH_NAME_RE = "|".join(sorted(map(re.escape, _MONTHS), key=len, reverse=True)
 _SK_NAMED_DATE_RE = re.compile(
     rf"(?P<day>\d{{1,2}})\.\s*(?:–|-|až)?\s*"
     rf"(?:(?P<end_day>\d{{1,2}})\.\s*)?"
-    rf"(?P<month>{_MONTH_NAME_RE})"
+    rf"(?P<month>{_MONTH_NAME_RE})\b"
     rf"(?:\s+(?P<year>\d{{4}}))?"
     rf"(?:[,\s]+(?P<hour>\d{{1,2}})(?:[:.](?P<minute>\d{{2}})))?",
     re.IGNORECASE,
@@ -47,13 +49,14 @@ _ISO_RE = re.compile(r"^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?.*)?$")
 
 def _strip_noise(text: str) -> str:
     cleaned = text.replace("\xa0", " ").replace("@", " ")
+    cleaned = re.sub(r'\bo\s+(?=\d{1,2}[:.])', '', cleaned)
     for day in _DAY_NAMES:
         cleaned = re.sub(rf"\b{re.escape(day)}\b", " ", cleaned, flags=re.IGNORECASE)
     return re.sub(r"\s+", " ", cleaned).strip(" ,")
 
 
 def _localize(dt: datetime, tz):
-    return dt if dt.tzinfo else tz.localize(dt)
+    return dt if dt.tzinfo else tz.localize(dt, is_dst=None)
 
 
 def parse_event_datetime(
@@ -69,7 +72,7 @@ def parse_event_datetime(
         try:
             parsed = dateutil_parser.isoparse(cleaned)
             return _localize(parsed, tz)
-        except ValueError:
+        except (ValueError, pytz.InvalidTimeError):
             pass
 
     match = _SK_NAMED_DATE_RE.search(cleaned)
@@ -80,9 +83,9 @@ def parse_event_datetime(
             year = int(match.group("year") or reference_year)
             hour = int(match.group("hour") or 0)
             minute = int(match.group("minute") or 0)
-            return tz.localize(datetime(year, month, day, hour, minute))
-        except (KeyError, ValueError):
-            pass
+            return tz.localize(datetime(year, month, day, hour, minute), is_dst=None)
+        except (KeyError, ValueError, pytz.InvalidTimeError):
+            return None
 
     match = _SK_DOT_DATE_RE.search(cleaned)
     if match:
@@ -94,17 +97,27 @@ def parse_event_datetime(
                     int(match.group("day")),
                     int(match.group("hour") or 0),
                     int(match.group("minute") or 0),
-                )
+                ), is_dst=None
             )
-        except ValueError:
-            pass
+        except (ValueError, pytz.InvalidTimeError):
+            return None
 
     try:
-        parsed = dateutil_parser.parse(cleaned, dayfirst=True, fuzzy=True)
+        # Fuzzy parsing must not fill a missing month/day from today's date:
+        # numbered titles such as "26. Zápisky" are not event dates.
+        parsed = dateutil_parser.parse(cleaned, dayfirst=True, fuzzy=True,
+                                       default=datetime(reference_year, 1, 1))
+        alternate = dateutil_parser.parse(cleaned, dayfirst=True, fuzzy=True,
+                                          default=datetime(reference_year, 2, 2))
+        if (parsed.month, parsed.day) != (alternate.month, alternate.day):
+            return None
     except (ValueError, OverflowError, TypeError):
         return None
 
-    return _localize(parsed, tz)
+    try:
+        return _localize(parsed, tz)
+    except pytz.InvalidTimeError:
+        return None
 
 
 def parse_price(raw: Optional[str]) -> tuple[Optional[float], Optional[str]]:
@@ -125,5 +138,5 @@ def parse_price(raw: Optional[str]) -> tuple[Optional[float], Optional[str]]:
         return None, None
 
     amount = float(match.group(1).replace(",", "."))
-    currency = "EUR" if ("€" in text or "eur" in text) else None
+    currency = "EUR" if ("€" in text or "eur" in text) else next((c.upper() for c in ('usd', 'czk', 'gbp') if c in text), None)
     return amount, currency

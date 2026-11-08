@@ -1,0 +1,56 @@
+# Private social control: operator and co-founder guide
+
+Status: local implementation, default disabled. No deployment has been performed. Read `social-control-center.md` for measured results and incomplete platform capabilities.
+
+## Deployment gates
+
+1. Keep all three flags in `infrastructure/social/environment.example` false. Use the existing PostgreSQL/PostGIS database; SQLite is only for disposable tests. Run Alembic through 0024 as the migration owner in a separately authorized maintenance window. Migration 0024 is additive; downgrade deliberately retains its tables and evidence. Back up first.
+2. Apply `infrastructure/social/roles.sql` as database owner. Provision separate non-owner, non-superuser LOGIN identities inheriting only the corresponding NOLOGIN group: staff, gateway, relay and maintenance. Give the public API a separate login inheriting `bacity_public_runtime`. Never grant application logins migration-owner membership. No application audit UPDATE/DELETE/TRUNCATE grants are allowed.
+3. The existing deployment may run the public API as database owner and automatically migrate at startup. That configuration is incompatible with protecting private staff data. Review `infrastructure/social/public-api-runtime.override.yml`: run migrations separately, then switch the public API and existing maintenance service to the legacy-only runtime login. Verify **the actual deployed connection identity**, legacy API functionality, and denial of SELECT on every `l4_` table. The new guard checks the declared role, but cannot prove that a separate deployed API really uses it. This is a release gate.
+4. Copy the environment example to an operator-owned file outside Git, mode 0600. Generate independent random database passwords and a 32+ character worker key. Set the exact final private HTTPS hostname before enrolling keys. Do not put credentials in commands, URLs, screenshots, logs or a frontend environment file. No Instagram/Facebook/TikTok account credentials are needed or supported.
+5. Configure self-hosted WireGuard on the target host with one peer key per staff device and a private address range, for example 10.88.0.0/24. Restrict the host firewall to the WireGuard interface/address for 8443; do not publish PostgreSQL, 8011, 8012 or 3128. Bind `SOCIAL_BIND_ADDRESS` to loopback for local checks or the WireGuard address, never 0.0.0.0. Configure private DNS and trust Caddy's private CA on authorized staff devices through an authenticated channel. Test from a public network that the panel is unreachable.
+6. Review the optional `compose.social.yml` overlay with the existing base Compose file. Select the `social` profile explicitly only after authorization to deploy. The default base stack remains unchanged. Caddy overwrites source forwarding headers; only its fixed private peer address is trusted. Check Docker subnet conflicts before use. There is no public signup, external identity provider, hosted AI or paid scraping service.
+7. Verify PostgreSQL guards using each deployed login; verify container non-root execution, read-only filesystems, network isolation, resource limits, sandbox and emergency stop on the target Linux kernel. The collector image contains acquisition code only, no database/admin code. Its parent holds a staging-only machine key; its browser child receives neither that key nor database credentials. The egress proxy permits only explicit destination hosts and HTTPS. There is no no-sandbox fallback.
+8. Set `SOCIAL_L4_ENABLED=true` only after these gates pass. Leave collection and publication false during enrollment and initial shadow review. Physical passkey enrollment, backup-key recovery, final HTTPS/VPN isolation, public runtime privilege migration and backup restoration still require target-host validation. Do not call this production-ready before that validation.
+
+## Staff onboarding and recovery
+
+On the private host, with the staff database role configured, run `python -m app.social.operator bootstrap-owner --email <individual-email> --name <name>` once. Deliver the one-use 15-minute invitation privately, never in a URL. The owner opens the final HTTPS origin over WireGuard, enters the invitation and enrolls a passkey/security key with user presence and user verification. No password fallback exists.
+
+Enroll a second independent authenticator under My security. Owner invitations create individual staff accounts with the minimum role. Editors propose/correct; reviewers independently check evidence; social admins approve publishers and request publication; viewers read status; owners manage staff and emergency controls. Consumer accounts and BACity+ grants never authorize staff access. High-risk operations require recent passkey authentication. Sessions expire after 15 minutes idle or eight hours absolute; reauthentication rotates the session.
+
+Offboard through Staff immediately: suspend the identity, revoke sessions/credentials and remove its WireGuard peer key. Lost-key recovery requires another owner to revoke old authenticators and issue an invitation. Last-owner recovery is deliberately host-only: `python -m app.social.operator recover-owner --email <individual-email>` invalidates old keys, sessions and invitations. Restrict and audit host access. Hardware-backed authenticators and two available owners are operational recommendations, not features proven by fixture tests.
+
+## Co-founder workflow
+
+Paste a supported publisher or direct post URL under Publishers. Preview identifies only URL-derived platform/identity; it does not claim verified metadata or fetch the page. Save the proposal, choose type, Bratislava relevance, priority and interval. Approval, access authorization and monitoring are separate states. Approving a publisher does not grant platform permission. An owner records a current permission basis and permitted acquisition method; never attest permission merely to bypass a blocked platform.
+
+Profile URLs can be registered but automatic profile enumeration is unsupported. Use an authorized individual post target where technically accessible, or submit permitted caption evidence through the panel. Submitted evidence is labeled user submission, never live collection. Monitoring begins only for an approved, eligible, authorized target with collection enabled. Retry respects backoff; access-denied, login-required, robots-denied and rate-limited targets stop for review. Suspension cancels queued/running jobs. No social-login cookies, CAPTCHA solving or proxy rotation are provided.
+
+Candidates are extracted automatically from acquired text. Missing/ambiguous dates, uncertain venue, past/non-event material remain private. Review the original evidence, date/time, verified Bratislava venue and duplicate suggestions. Correct metadata if needed; corrections invalidate previous approval. A distinct reviewer must approve before a separate owner/social admin requests publication. Enable the publication flag and separate relay profile only after an authorized review of measured quality. There is currently no unattended automatic publication. Collection failure never cancels or deletes canonical events.
+
+## Limits, retention and audit
+
+Global concurrency is one job, stricter than per-platform caps. Polling is conservative with deduplicated intervals, 90-second leases, exponential backoff and bounded jobs/storage. A browser child has a 40-second hard lifetime; its network budget is 12 requests, 4 MiB and 35 seconds. Browser processes are killed as a group on cancellation/crash. Default registry/observation/job caps are 250/5000/5000. Audit capacity is 100000 events; exhaustion fails mutations closed, so monitor capacity before reaching it.
+
+Raw evidence defaults to 14 days, configurable up to 30. Schedule the `social-retention` one-shot profile through the host's existing scheduler, with its maintenance login and consumer-role guard configured; each invocation deletes a bounded batch of up to 100 expired observations and associated staging reviews/candidates. Run additional batches as needed. It never deletes canonical events or audit records. Use no consumer or migration-owner credentials. This repository does not install a host timer automatically.
+
+Export and verify audits with `python -m app.social.operator export-audit` and `verify-audit` on the restricted host. Export is audited. Arrange a separate backup host to pull exports over a dedicated, restricted SSH identity into dated, owner-only storage; use umask 077, atomic temporary-file rename, read-only retained snapshots and independently stored sequence/head digests. The application container must not have write access to those backups. Test restore and chain verification. This is a documented self-hosted backup procedure, not a deployed backup service. A database administrator can forge a complete local chain or truncate both chain and head; independent historical snapshots are essential. Host/root compromise remains outside the chain's guarantee.
+
+Rotate worker keys on both gateway and collector together; stop collection first and verify old-key rejection. Rotate database login secrets independently and revoke old grants/connections. Revoke staff keys/sessions through the panel. Retain no third-party credentials. Backups contain staff identifiers and source evidence: encrypt storage/transport with established host tools and restrict access. Hosting, hardware, storage and bandwidth still cost resources even though required software is free.
+
+## Emergency stop and validation
+
+The owner's Emergency stop disables monitoring, cancels jobs and withdraws queued publications. For host-level shutdown, stop the optional social profiles and set all three flags false. No base crawler service needs changing. Validate that the gateway denies leases, browser children exit, public events remain intact, and existing API/crawler health remains normal.
+
+Before any release, rerun the documented test suites with a disposable PostGIS database, `infrastructure/social/verify-container.sh`, Compose validation and final private-origin hardware-passkey checks. Perform dependency/image vulnerability scanning and independent security review on the release build. Do not expose the panel temporarily on a public origin for testing.
+
+## Reproduce local verification
+
+Use the repository's Python 3.12 virtual environment with `services/api/requirements-social.txt` installed. Set `TEST_POSTGRES_URL` to an operator-created **disposable** PostGIS server that permits temporary database creation. Never point migration tests at production. From `services/api`, run:
+
+```sh
+DATABASE_URL=sqlite:////tmp/bacity-social-import.db ../../.venv/bin/python -m pytest tests -q
+```
+
+With `TEST_POSTGRES_URL` exported, this includes real PostgreSQL migration, map and L4 privilege tests. Without it, those tests explicitly skip. From `services/crawler`, run `../../.venv/bin/python -m pytest tests -q`. From the application root, run `sh infrastructure/social/verify-container.sh` for the network-disabled synthetic Chromium container proof, and `node --check services/api/app/social/static/app.js` for JavaScript syntax. These commands do not enroll a physical key, collect live social content or deploy the system.

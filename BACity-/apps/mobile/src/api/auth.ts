@@ -5,19 +5,60 @@ export interface UserOut {
   email: string;
   display_name: string | null;
   interests: string[];
+  role: string;
+  email_verified: boolean;
+  identity_verified: boolean;
+  reputation: number;
+  bio: string | null;
+  city: string;
+  neighborhood: string | null;
+  avatar_url: string | null;
+  public_profile: boolean;
+  allow_general_messages: boolean;
 }
 
-interface TokenResponse {
+export interface TokenResponse {
   access_token: string;
   token_type: string;
 }
 
+export interface OAuthStatus {
+  google: boolean;
+  google_native?: boolean;
+  apple: boolean;
+  apple_native?: boolean;
+}
+
+export function nativeOAuth(provider: "google" | "apple", identityToken: string, authorizationCode?: string | null, displayName?: string | null): Promise<TokenResponse> {
+  return apiRequest<TokenResponse>("/auth/oauth/native", {
+    method: "POST",
+    body: { provider, identity_token: identityToken, authorization_code: authorizationCode, display_name: displayName },
+  });
+}
+
 export function register(email: string, password: string, display_name?: string): Promise<UserOut> {
-  return apiRequest<UserOut>("/auth/register", { method: "POST", body: { email, password, display_name } });
+  return apiRequest<UserOut>("/auth/register", {
+    method: "POST",
+    body: { email, password, display_name },
+  });
 }
 
 export function login(email: string, password: string): Promise<TokenResponse> {
-  return apiRequest<TokenResponse>("/auth/login", { method: "POST", body: { email, password } });
+  return apiRequest<TokenResponse>("/auth/login", {
+    method: "POST",
+    body: { email, password },
+  });
+}
+
+export function exchangeOAuth(code: string): Promise<TokenResponse> {
+  return apiRequest<TokenResponse>("/auth/oauth/exchange", {
+    method: "POST",
+    body: { code },
+  });
+}
+
+export function oauthStatus(): Promise<OAuthStatus> {
+  return apiRequest<OAuthStatus>("/auth/oauth/status");
 }
 
 export function getMe(): Promise<UserOut> {
@@ -25,5 +66,9 @@ export function getMe(): Promise<UserOut> {
 }
 
 export function updateInterests(interests: string[]): Promise<UserOut> {
-  return apiRequest<UserOut>("/users/me", { method: "PATCH", auth: true, body: { interests } });
+  return apiRequest<UserOut>("/users/me", {
+    method: "PATCH",
+    auth: true,
+    body: { interests },
+  });
 }

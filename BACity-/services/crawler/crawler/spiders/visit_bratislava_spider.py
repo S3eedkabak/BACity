@@ -40,6 +40,9 @@ class VisitBratislavaSpider(scrapy.Spider):
     def _extract(self, response):
         events = extract_jsonld_events(response.text, response.url)
         if not events:
+            from crawler.extraction.visit_extractor import extract_visit_events
+            events = extract_visit_events(response.text, response.url)
+        if not events:
             events = extract_best_effort(response.text, response.url)
 
         for event in events:

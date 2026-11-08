@@ -1,15 +1,29 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.staticfiles import StaticFiles
+from pydantic import ValidationError
+from sqlalchemy.exc import IntegrityError
+from app.core.http import RequestMiddleware
+from app.core.encryption import EncryptionError
+import json
+from pathlib import Path
 
 from app.config import get_settings
-from app.database import Base, engine
-from app.api.routes import events, venues, auth, users
+from app.database import Base, engine, get_db
+from app.api.routes import events, venues, auth, users, community, discovery, billing, consumer_billing, google_play_billing, crawler, groups, area_watches
+from app.api.routes import privacy
 
 # Import models so they're registered on Base.metadata before create_all
 # (used only for the SQLite dev/test path; Postgres uses Alembic migrations).
 from app import models  # noqa: F401
 
 settings = get_settings()
+Path(settings.media_root).mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(
     title="Bratislava Event Discovery API",
@@ -25,11 +39,53 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RequestMiddleware)
+if settings.environment != "development":
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_host_list)
+app.mount("/media", StaticFiles(directory=settings.media_root), name="media")
+
+
+@app.exception_handler(EncryptionError)
+async def private_data_error(request, exc):
+    # Do not return corrupted storage, key IDs, ciphertext or cryptographic errors.
+    return JSONResponse(status_code=503, content={'detail': 'Private data temporarily unavailable'})
+
+
+@app.exception_handler(ValidationError)
+async def validation_error(request, exc):
+    return JSONResponse(status_code=422, content={'detail': json.loads(exc.json(include_input=False, include_context=False))})
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_error(request, exc):
+    # FastAPI's default includes rejected passwords, tokens and request bodies.
+    return JSONResponse(status_code=422, content={'detail': [
+        {key: value for key, value in error.items() if key in ('type', 'loc', 'msg')}
+        for error in exc.errors()
+    ]})
+
+
+@app.exception_handler(IntegrityError)
+async def duplicate_error(request, exc):
+    return JSONResponse(status_code=409, content={'detail': 'This record already exists or changed concurrently; refresh and try again'})
 
 app.include_router(auth.router)
+app.include_router(privacy.router)
+app.include_router(community.router)
+app.include_router(discovery.router)
+app.include_router(billing.router)
+app.include_router(consumer_billing.router)
+app.include_router(google_play_billing.router)
 app.include_router(users.router)
+from app.api.routes import map_events
+app.include_router(map_events.router)
+app.include_router(map_events.router, prefix="/v1")
 app.include_router(events.router)
 app.include_router(venues.router)
+app.include_router(crawler.router)
+app.include_router(groups.router)
+app.include_router(area_watches.router)
+app.include_router(events.router, prefix='/v1')
 
 
 @app.on_event("startup")
@@ -40,5 +96,6 @@ def on_startup():
 
 
 @app.get("/health")
-def health():
+def health(db: Session = Depends(get_db)):
+    db.execute(text('SELECT 1'))
     return {"status": "ok"}

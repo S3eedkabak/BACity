@@ -1,22 +1,22 @@
-import { Ionicons } from "@expo/vector-icons";
+import { themedStyles, useThemeRevision } from '../theme/appearance';
+import { AppIcon } from "./AppIcon";
 import { router } from "expo-router";
 import { useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
-  Image,
   PanResponder,
-  Pressable,
   StyleSheet,
   Text,
-  View,
-} from "react-native";
+  View } from "react-native";
+import { AnimatedPressable as Pressable } from './motion/Motion';
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as eventsApi from "../api/events";
 import { EventOut } from "../types/event";
 import { useAuthStore } from "../store/authStore";
 import { colors } from "../theme/colors";
-import { imageForCategory } from "../theme/categoryImages";
+import { EventMedia } from './EventMedia';
+import { MediaScrim } from './MediaScrim';
 import { fonts } from "../theme/fonts";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -48,6 +48,7 @@ function Card({
   total: number;
   onSwiped: (direction: "like" | "pass") => void;
 }) {
+  useThemeRevision();
   const date = formatDate(event.start_time);
   const scale = useRef(new Animated.Value(1)).current;
   const pan = useRef(new Animated.ValueXY()).current;
@@ -94,6 +95,10 @@ function Card({
         } else {
           Animated.spring(pan, {
             toValue: { x: 0, y: 0 },
+            stiffness: 260,
+            damping: 33,
+            mass: 1,
+            overshootClamping: true,
             useNativeDriver: true,
           }).start();
         }
@@ -111,12 +116,8 @@ function Card({
       ]}
     >
       <View style={styles.imageWrap}>
-        <Image
-          source={{ uri: event.image_url || imageForCategory(event.category) }}
-          style={styles.image}
-          resizeMode="cover"
-        />
-        <View style={styles.imageShade} />
+        <EventMedia uri={event.image_url} category={event.category} style={styles.image} />
+        <MediaScrim />
 
         <View style={styles.topRow}>
           <View style={styles.categoryPill}>
@@ -136,7 +137,7 @@ function Card({
         <View style={styles.imageBottom}>
           <Text style={styles.title} numberOfLines={2}>{event.title}</Text>
           <View style={styles.locationLine}>
-            <Ionicons name="location-outline" size={15} color="#fff" />
+            <AppIcon name="location-outline" size={15} color="#fff" />
             <Text style={styles.location} numberOfLines={1}>
               {event.venue?.name ?? event.address ?? "Bratislava"}
             </Text>
@@ -154,7 +155,7 @@ function Card({
           <Text style={styles.hint}>Right to save · left to pass</Text>
         </View>
         <Pressable style={styles.details} onPress={() => router.push("/event/" + event.id)}>
-          <Ionicons name="arrow-forward" size={19} color={colors.white} />
+          <AppIcon name="arrow-forward" size={19} color={colors.white} />
         </Pressable>
       </View>
 
@@ -164,13 +165,14 @@ function Card({
 }
 
 export function EventDeck({ events }: { events: EventOut[] }) {
+  useThemeRevision();
   const [index, setIndex] = useState(0);
 
   if (!events.length || index >= events.length) {
     return (
       <View style={styles.done}>
         <View style={styles.doneIcon}>
-          <Ionicons name="checkmark" size={27} color={colors.white} />
+          <AppIcon name="checkmark" size={27} color={colors.white} />
         </View>
         <Text style={styles.doneTitle}>You're all caught up</Text>
         <Text style={styles.doneText}>
@@ -200,7 +202,7 @@ export function EventDeck({ events }: { events: EventOut[] }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   deck: { height: 560, width: "100%", alignItems: "center", justifyContent: "center" },
   card: {
     position: "absolute",
@@ -306,4 +308,4 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     marginTop: 7,
   },
-});
+}));

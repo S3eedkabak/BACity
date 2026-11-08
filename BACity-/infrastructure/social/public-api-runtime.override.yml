@@ -1,0 +1,11 @@
+# Explicit, separately reviewed deployment overlay. Run migrations as their owner first.
+# Required before enabling staff services if the public API currently uses the DB owner.
+# Existing base Compose files and default startup commands are deliberately unchanged.
+services:
+  api:
+    environment:
+      DATABASE_URL: ${SOCIAL_PUBLIC_API_DATABASE_URL:?Set a legacy-only public runtime login}
+    command: [uvicorn, app.main:app, --host, 0.0.0.0, --port, '8000', --no-access-log]
+  maintenance:
+    environment:
+      DATABASE_URL: ${SOCIAL_PUBLIC_API_DATABASE_URL:?Set a legacy-only public runtime login}

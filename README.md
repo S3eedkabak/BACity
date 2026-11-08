@@ -1,8 +1,6 @@
 
 # BACity
 
-[![Crawler Tests](https://github.com/S3eedkabak/BACity/actions/workflows/crawler-tests.yml/badge.svg?branch=main)](https://github.com/S3eedkabak/BACity/actions/workflows/crawler-tests.yml)
-[![Crawler E2E](https://github.com/S3eedkabak/BACity/actions/workflows/crawler-e2e.yml/badge.svg?branch=main)](https://github.com/S3eedkabak/BACity/actions/workflows/crawler-e2e.yml)
 [![Python](https://img.shields.io/badge/Python-3.x-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React Native](https://img.shields.io/badge/React%20Native-0.74-61DAFB?logo=react&logoColor=black)](https://reactnative.dev/)

@@ -5,10 +5,12 @@
     "scheme": "bratislava-events",
     "version": "0.1.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",
     "splash": {
-      "backgroundColor": "#FFF8F5"
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#100E12"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -16,17 +18,43 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.bratislavaevents.app",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
-      "package": "com.bratislavaevents.app"
+      "package": "com.bratislavaevents.app",
+      "blockedPermissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.ACTIVITY_RECOGNITION",
+        "com.google.android.gms.permission.ACTIVITY_RECOGNITION"
+      ]
     },
     "plugins": [
+      ["expo-build-properties", { "ios": { "deploymentTarget": "14.0" } }],
+      "./plugins/withRiveAsset",
       "expo-router",
       "expo-secure-store",
+      "react-native-iap",
+      "expo-apple-authentication",
       "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow BACity to choose and crop your profile photo.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow BACity to use your approximate location for nearby event recommendations."
+        }
+      ],
       "@maplibre/maplibre-react-native"
     ],
     "extra": {

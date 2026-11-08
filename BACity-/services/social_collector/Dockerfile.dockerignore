@@ -1,0 +1,9 @@
+**
+!services/
+!services/api/
+!services/api/app/
+!services/api/app/social/
+!services/api/app/social/acquisition/
+!services/api/app/social/acquisition/**
+**/__pycache__
+**/*.pyc

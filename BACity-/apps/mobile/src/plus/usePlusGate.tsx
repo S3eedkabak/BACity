@@ -1,0 +1,38 @@
+import { ReactNode, useCallback } from "react";
+import { router, useRootNavigationState } from "expo-router";
+import { useAuthStore } from "../store/authStore";
+import { useEntitlements } from "../hooks/useEntitlements";
+import { PlusFeature, resolvePlusAction, resolvePlusGate } from "./policy";
+
+export function usePlusGate() {
+  const entitlements = useEntitlements();
+  const navigation = useRootNavigationState();
+  const restoringSession = useAuthStore(state => state.isLoading);
+  const decision = !navigation?.key || restoringSession ? "loading" : resolvePlusGate({
+    authenticated: entitlements.authenticated,
+    pending: entitlements.authenticated && entitlements.isPending,
+    failed: entitlements.isError,
+    active: entitlements.plus?.active === true,
+  });
+
+  const run = useCallback((feature: PlusFeature, onAllowed: () => void) => {
+    const action = resolvePlusAction(decision, feature);
+    if (action.kind === "allow") onAllowed();
+    else if (action.kind === "paywall") router.push(action.route);
+  }, [decision]);
+
+  return { decision, run, refresh: entitlements.refresh };
+}
+
+export function PlusGateAction({
+  feature,
+  onAllowed,
+  children,
+}: {
+  feature: PlusFeature;
+  onAllowed: () => void;
+  children: (props: { onPress: () => void; loading: boolean }) => ReactNode;
+}) {
+  const gate = usePlusGate();
+  return <>{children({ onPress: () => gate.run(feature, onAllowed), loading: gate.decision === "loading" })}</>;
+}

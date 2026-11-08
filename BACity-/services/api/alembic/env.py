@@ -5,6 +5,7 @@ from sqlalchemy import engine_from_config, pool
 from app.config import get_settings
 from app.database import Base
 from app import models  # noqa: F401  -- registers all model tables
+from app.social import models as social_models  # noqa: F401 -- additive L4 tables share Base
 
 config = context.config
 settings = get_settings()

@@ -1,0 +1,89 @@
+import { themedStyles, useThemeRevision } from '../src/theme/appearance';
+import { useEffect, useState } from "react";
+import { FlatList, StyleSheet, Text, TextInput, View } from "react-native";
+import { externalLinking as Linking } from "../src/api/externalLinking";
+import { SafeAreaView } from '../src/components/navigation/ContentSafeArea';
+import { apiRequest } from "../src/api/client";
+import { Button, Chip } from "../src/components/CommunityUI";
+import { EmptyState } from "../src/components/EmptyState";
+import { ListItem, ScreenHeader, SkeletonList } from "../src/components/SocialUI";
+import { useAuthStore } from "../src/store/authStore";
+import { colors } from "../src/theme/colors";
+import { fonts } from "../src/theme/fonts";
+
+type Mode = "submissions" | "reports" | "audit" | "sources" | "learning";
+const PATHS: Record<Mode, string> = {
+  submissions: "/community/moderation/submissions",
+  reports: "/community/moderation/reports",
+  audit: "/community/moderation/audit",
+  sources: "/crawler/admin/sources",
+  learning: "/crawler/admin/learning",
+};
+
+export default function ModeratorScreen() {
+  useThemeRevision();
+  const user = useAuthStore(state => state.user);
+  const [mode, setMode] = useState<Mode>("submissions");
+  const [items, setItems] = useState<any[]>([]);
+  const [reason, setReason] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [history, setHistory] = useState<Record<string, any[]>>({});
+
+  async function load() {
+    setLoading(true);
+    try {
+      setItems(await apiRequest<any[]>(PATHS[mode], { auth: true }));
+      setError("");
+    } catch (e: any) { setError(e.message); }
+    finally { setLoading(false); }
+  }
+  useEffect(() => { void load(); }, [mode]);
+
+  async function decide(item: any, decision: "approve" | "reject") {
+    try {
+      const path = mode === "reports" ? `/community/moderation/reports/${item.id}` : `/community/moderation/submissions/${item.id}`;
+      await apiRequest(path, { method: "POST", auth: true, body: { decision, reason } });
+      setReason(""); await load();
+    } catch (e: any) { setError(e.message); }
+  }
+  async function toggleSource(item: any) {
+    try {
+      await apiRequest(`/crawler/admin/sources/${item.id}`, { method: "PATCH", auth: true, body: { enabled: !item.enabled } });
+      await load();
+    } catch (e: any) { setError(e.message); }
+  }
+  async function loadHistory(item: any) {
+    if (history[item.id]) { setHistory(current => { const next = { ...current }; delete next[item.id]; return next; }); return; }
+    try {
+      const runs = await apiRequest<any[]>(`/crawler/admin/sources/${item.id}/runs`, { auth: true });
+      setHistory(current => ({ ...current, [item.id]: runs }));
+    } catch (e: any) { setError(e.message); }
+  }
+
+  if (!user || !["ADMIN", "MODERATOR"].includes(user.role)) return <SafeAreaView style={styles.safe}><ScreenHeader title="Moderator tools" /><EmptyState title="Restricted area" subtitle="Moderator permission is required." /></SafeAreaView>;
+  const modes: Mode[] = user.role === "ADMIN" ? ["submissions", "reports", "audit", "sources", "learning"] : ["submissions", "reports", "audit", "learning"];
+  return <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+    <ScreenHeader title="Moderator tools" />
+    <View style={styles.chips}>{modes.map(value => <Chip key={value} title={value === "submissions" ? "Queue & appeals" : value === "sources" ? "Crawler sources" : value[0].toUpperCase() + value.slice(1)} active={mode === value} onPress={() => setMode(value)} />)}</View>
+    {error ? <Text style={styles.error}>{error}</Text> : null}
+    {loading ? <View style={styles.content}><SkeletonList /></View> : <FlatList data={items} keyExtractor={item => item.id} contentContainerStyle={styles.content}
+      ListHeaderComponent={!['audit', 'sources', 'learning'].includes(mode) && items.length ? <TextInput accessibilityLabel="Decision reason" placeholder="Reason for this moderation decision" placeholderTextColor={colors.textMuted} value={reason} onChangeText={setReason} multiline style={styles.input} /> : null}
+      ListEmptyComponent={<EmptyState title="Nothing needs attention" subtitle={mode === "sources" ? "No crawler has reported health yet." : "This moderation view is clear."} />}
+      renderItem={({ item }) => mode === "learning" ? <ListItem icon="git-network-outline" title={item.state.replaceAll("_", " ")} subtitle={`Event ${item.event_id} · ${item.attempts} attempts${item.reason ? ` · ${item.reason}` : ""}\n${item.sources.map((source: any) => `${source.domain}: ${source.status}`).join(" · ")}`} /> : mode === "audit" ? <ListItem icon="shield-checkmark-outline" title={item.action.replaceAll("_", " ")} subtitle={`${item.target_type} · ${new Date(item.created_at).toLocaleString()}`} /> : mode === "sources" ? <View style={styles.item}>
+        <ListItem icon={item.health === "healthy" ? "checkmark-circle-outline" : "warning-outline"} title={item.name} subtitle={`${item.health} · ${item.accepted_events} accepted · ${item.rejected_events} rejected · ${item.consecutive_failures} failures`} />
+        <Text style={styles.detail}>Last success: {item.last_success_at ? new Date(item.last_success_at).toLocaleString() : "Never"}{item.last_error ? `\n${item.last_error}` : ""}{Object.keys(item.skip_reasons || {}).length ? `\nSkipped: ${Object.entries(item.skip_reasons).map(([key, count]) => `${key} (${count})`).join(", ")}` : ""}</Text>
+        {history[item.id]?.map(run => <Text key={run.id} style={styles.history}>{new Date(run.finished_at).toLocaleString()} · {run.status} · {run.accepted_events} accepted · {run.rejected_events} rejected{run.error ? ` · ${run.error}` : ""}</Text>)}
+        <View style={styles.actions}><View style={styles.action}><Button title={item.enabled ? "Disable source" : "Enable source"} busy={loading} onPress={() => toggleSource(item)} /></View><View style={styles.action}><Button title={history[item.id] ? "Hide runs" : "Recent runs"} busy={loading} onPress={() => loadHistory(item)} /></View></View>
+      </View> : <View style={styles.item}>
+        <ListItem icon={mode === "reports" ? "flag-outline" : "document-text-outline"} title={mode === "reports" ? `Reported ${item.target_type}` : item.payload?.title || item.payload?.name || item.kind} subtitle={mode === "reports" ? item.reason : `${item.state} · ${(item.risk_flags || []).join(" · ")}`} />
+        {item.payload?.description ? <Text style={styles.detail}>{item.payload.description}</Text> : null}
+        {item.payload?.source_url ? <Text style={styles.link} onPress={() => Linking.openURL(item.payload.source_url)}>Open source</Text> : null}
+        {item.payload?.evidence_url ? <Text style={styles.link} onPress={() => Linking.openURL(item.payload.evidence_url)}>Open evidence</Text> : null}
+        {item.appeal ? <Text style={styles.detail}>Appeal: {item.appeal}</Text> : null}
+        <View style={styles.actions}><View style={styles.action}><Button title="Approve" busy={loading} onPress={() => decide(item, "approve")} /></View><View style={styles.action}><Button title={mode === "reports" ? "Dismiss" : "Reject"} busy={loading} onPress={() => decide(item, "reject")} /></View></View>
+      </View>} />}
+  </SafeAreaView>;
+}
+
+const styles = themedStyles(() => ({ safe: { flex: 1, backgroundColor: colors.background }, chips: { flexDirection: "row", flexWrap: "wrap", gap: 7, paddingHorizontal: 18, paddingBottom: 10 }, content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 28, flexGrow: 1 }, error: { color: colors.danger, paddingHorizontal: 18 }, input: { minHeight: 80, borderWidth: 1, borderColor: colors.border, borderRadius: 17, backgroundColor: colors.surface, padding: 12, color: colors.text, textAlignVertical: "top", marginVertical: 10 }, item: { paddingBottom: 18 }, detail: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, marginLeft: 56 }, history: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, marginLeft: 56, marginTop: 5 }, link: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12, marginLeft: 56, marginTop: 6 }, actions: { flexDirection: "row", gap: 8, marginTop: 10 }, action: { flex: 1 } }));

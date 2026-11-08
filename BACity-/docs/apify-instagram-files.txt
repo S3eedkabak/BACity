@@ -1,0 +1,31 @@
+Incremental Apify integration only; paths relative to Git repository root.
+Existing uncommitted Level 4 / ScrapingAnt files not listed remain preserved.
+
+CREATED
+BACity-/docs/apify-instagram-files.txt
+BACity-/docs/apify-instagram.md
+BACity-/services/api/alembic/versions/0026_apify_instagram.py
+BACity-/services/api/app/social/acquisition/apify.py
+BACity-/services/api/app/social/acquisition/apify_worker.py
+BACity-/services/api/app/social/apify_config.py
+BACity-/services/api/app/social/apify_jobs.py
+BACity-/services/api/app/social/apify_probe.py
+BACity-/services/api/app/social/worker_security.py
+BACity-/services/api/tests/social/test_apify.py
+
+MODIFIED FROM STARTING WORKTREE
+BACity-/.env.example
+BACity-/compose.social.yml
+BACity-/infrastructure/social/environment.example
+BACity-/infrastructure/social/roles.sql
+BACity-/infrastructure/social/verify-container.sh
+BACity-/services/api/app/social/acquisition/runner.py
+BACity-/services/api/app/social/maintenance.py
+BACity-/services/api/app/social/models.py
+BACity-/services/api/app/social/routes.py
+BACity-/services/api/app/social/static/app.js
+BACity-/services/api/app/social/worker_api.py
+BACity-/services/api/app/social/workflows.py
+BACity-/services/api/tests/social/test_postgres_security.py
+BACity-/services/api/tests/test_postgres_migrations.py
+BACity-/services/social_collector/egress.py

@@ -6,7 +6,7 @@ export type EventCategory =
   | "Family" | "Markets" | "Festivals" | "Student" | "Technology"
   | "Comedy" | "Exhibitions" | "Other";
 
-export type EventStatus = "fresh" | "stale" | "expired" | "removed" | "cancelled";
+export type EventStatus = "fresh" | "stale" | "expired" | "removed" | "cancelled" | "postponed";
 
 export interface VenueSummary {
   id: string;
@@ -19,9 +19,15 @@ export interface VenueSummary {
 export interface EventOut {
   id: string;
   title: string;
+  identity_kind?: "single"|"recurring"|"offer";
+  start_precision?: "date"|"time";
+  recurrence_label?: string|null;
+  next_occurrence_start?: string|null;
+  offers?: {source_url:string;label:string;price:number|null;currency:string|null;valid_from:string|null;valid_until:string|null}[];
   description: string | null;
   start_time: string; // ISO 8601
   end_time: string | null;
+  end_date?: string | null;
   timezone: string;
   address: string | null;
   latitude: number | null;

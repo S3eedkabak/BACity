@@ -1,0 +1,4 @@
+FROM caddy:2.10-alpine
+# The panel listens on 8443. Remove the upstream file capability so exec works
+# with cap_drop=ALL; no privileged-port capability is needed.
+RUN setcap -r /usr/bin/caddy

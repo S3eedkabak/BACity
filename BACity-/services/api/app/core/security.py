@@ -8,7 +8,10 @@ from passlib.context import CryptContext
 from app.config import get_settings
 
 settings = get_settings()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# bcrypt_sha256 removes bcrypt's 72-byte input limit while retaining support
+# for every existing bcrypt hash. Successful logins can continue to verify old
+# hashes without a flag day or a second account system.
+pwd_context = CryptContext(schemes=["bcrypt_sha256", "bcrypt"], deprecated="auto")
 
 
 def hash_password(password: str) -> str:
@@ -19,17 +22,29 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
 
-def create_access_token(subject: str, expires_minutes: Optional[int] = None) -> str:
+def create_access_token(subject: str, expires_minutes: Optional[int] = None, version: int = 0) -> str:
     expire = datetime.utcnow() + timedelta(
         minutes=expires_minutes or settings.access_token_expire_minutes
     )
-    payload = {"sub": subject, "exp": expire}
+    payload = {"sub": subject, "exp": expire, "ver": version}
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
 def decode_access_token(token: str) -> Optional[str]:
     try:
-        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
-        return payload.get("sub")
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm],
+                             options={"require_exp": True, "require_sub": True})
+        subject = payload.get("sub")
+        return subject if isinstance(subject, str) and subject else None
+    except JWTError:
+        return None
+
+
+def token_version(token: str):
+    try:
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm],
+                             options={"require_exp": True, "require_sub": True})
+        version = payload.get('ver', 0)
+        return version if type(version) is int and version >= 0 else None
     except JWTError:
         return None

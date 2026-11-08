@@ -1,0 +1,250 @@
+name: BACity CI
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Unique main groups preserve queued builds as well as running builds.
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.ref == 'refs/heads/main' && github.run_id || 'latest' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  CI: 'true'
+  PYTHONDONTWRITEBYTECODE: '1'
+  ENVIRONMENT: development
+  INGESTION_API_KEY: ''
+  SMTP_HOST: ''
+  APIFY_API_TOKEN: ''
+  SCRAPINGANT_API_KEY: ''
+  APIFY_ENABLED: 'false'
+  SCRAPINGANT_ENABLED: 'false'
+  SOCIAL_L4_COLLECTION_ENABLED: 'false'
+  SOCIAL_L4_PUBLICATION_ENABLED: 'false'
+  EXPO_NO_DOTENV: '1'
+  EXPO_NO_TELEMETRY: '1'
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: BACity-/services/api
+    env:
+      DATABASE_URL: sqlite:////tmp/bacity-ci-backend-import.sqlite3
+      MEDIA_ROOT: /tmp/bacity-ci-backend-media
+      CRAWLER_STATE_PATH: /tmp/bacity-ci-backend-crawler/state.db
+      SOCIAL_DATABASE_URL: sqlite:////tmp/bacity-ci-backend-social.sqlite3
+      TEST_POSTGRES_URL: postgresql+psycopg2://ci_user:ci_password@127.0.0.1:55436/bacity_ci
+      OUTBOX_POSTGRES_CONTAINER: bacity-outbox-pg-test
+      SOCIAL_BROWSER_UI_TESTS: '1'
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: ci_user
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: bacity_ci
+        ports:
+          - '55436:5432'
+        options: >-
+          --health-cmd "pg_isready -U ci_user -d bacity_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            .github/requirements-ci.txt
+            BACity-/services/api/requirements*.txt
+            BACity-/services/crawler/requirements.txt
+      - name: Install existing API, social, crawler and browser dependencies
+        run: python -m pip install -r "$GITHUB_WORKSPACE/.github/requirements-ci.txt"
+      - name: Prepare disposable database fault injection
+        env:
+          POSTGRES_CONTAINER_ID: ${{ job.services.postgres.id }}
+        run: |
+          docker rename "$POSTGRES_CONTAINER_ID" bacity-outbox-pg-test
+          mkdir -p "$RUNNER_TEMP/ci-results"
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine, text
+          engine = create_engine(os.environ['TEST_POSTGRES_URL'])
+          with engine.begin() as connection:
+              connection.execute(text('CREATE EXTENSION IF NOT EXISTS postgis'))
+              assert connection.execute(text('SELECT PostGIS_Version()')).scalar()
+          engine.dispose()
+          PY
+      - name: Install fixture browser and verify sandboxed acquisition browser
+        run: |
+          python -m playwright install --with-deps chromium
+          python - <<'PY'
+          import os, shutil
+          from pathlib import Path
+          from playwright.sync_api import sync_playwright
+          # Hosted Ubuntu includes packaged Chrome with its sandbox policy.
+          # Keep acquisition sandboxing enabled; never relax host protections.
+          chrome = shutil.which('google-chrome')
+          if not chrome:
+              raise SystemExit('Hosted runner Google Chrome is required for sandbox isolation tests')
+          with sync_playwright() as runtime:
+              browser = runtime.chromium.launch(headless=True, executable_path=chrome,
+                  chromium_sandbox=True, args=['--disable-dev-shm-usage'])
+              browser.close()
+          with Path(os.environ['GITHUB_ENV']).open('a') as output:
+              output.write(f'SOCIAL_BROWSER_EXECUTABLE={chrome}\n')
+          PY
+      - name: Complete backend regression suite, including all opt-in integrations
+        env:
+          SOCIAL_UI_ARTIFACTS: ${{ runner.temp }}/ci-results/browser
+        run: python -m pytest tests -q -ra --junitxml="$RUNNER_TEMP/ci-results/backend.xml"
+      - name: Report counts and reject skipped or missing tests
+        if: always()
+        run: python "$GITHUB_WORKSPACE/.github/scripts/report_tests.py" "$RUNNER_TEMP/ci-results/backend.xml" --label Backend
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: backend-results
+          path: ${{ runner.temp }}/ci-results
+          retention-days: 3
+
+  crawler:
+    name: Crawler
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: BACity-/services/crawler
+    env:
+      DATABASE_URL: sqlite:////tmp/bacity-ci-crawler-import.sqlite3
+      MEDIA_ROOT: /tmp/bacity-ci-crawler-media
+      CRAWLER_STATE_PATH: /tmp/bacity-ci-crawler-state/state.db
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            .github/requirements-ci.txt
+            BACity-/services/api/requirements*.txt
+            BACity-/services/crawler/requirements.txt
+      - name: Install existing regression dependencies
+        run: python -m pip install -r "$GITHUB_WORKSPACE/.github/requirements-ci.txt"
+      - name: Complete crawler suite, including local HTTP pipeline fixtures
+        run: |
+          mkdir -p "$RUNNER_TEMP/ci-results"
+          python -m pytest tests -q -ra --junitxml="$RUNNER_TEMP/ci-results/crawler.xml"
+      - name: Report counts and reject skipped or missing tests
+        if: always()
+        run: python "$GITHUB_WORKSPACE/.github/scripts/report_tests.py" "$RUNNER_TEMP/ci-results/crawler.xml" --label Crawler
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: crawler-results
+          path: ${{ runner.temp }}/ci-results
+          retention-days: 3
+
+  mobile:
+    name: Mobile
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: BACity-/apps/mobile
+    env:
+      EXPO_PUBLIC_API_URL: http://127.0.0.1:8000
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: BACity-/apps/mobile/package-lock.json
+      - name: Install locked mobile dependencies
+        run: npm ci
+      - name: TypeScript
+        run: npm run typecheck
+      - name: Complete existing Node test suite
+        run: |
+          mkdir -p "$RUNNER_TEMP/ci-results"
+          npm test -- --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination="$RUNNER_TEMP/ci-results/mobile.xml"
+      - name: Validate Expo public configuration
+        run: npx --no-install expo config --type public --json > "$RUNNER_TEMP/ci-results/expo-config.json"
+      - name: Export iOS, Android and web JavaScript bundles
+        run: npx --no-install expo export --platform all --output-dir "$RUNNER_TEMP/expo-export"
+      - name: Report counts and reject skipped or missing tests
+        if: always()
+        run: python3 "$GITHUB_WORKSPACE/.github/scripts/report_tests.py" "$RUNNER_TEMP/ci-results/mobile.xml" --label Mobile
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: mobile-results
+          path: ${{ runner.temp }}/ci-results
+          retention-days: 3
+
+  infrastructure:
+    name: Infrastructure
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: sqlite:////tmp/bacity-ci-infrastructure-import.sqlite3
+      MEDIA_ROOT: /tmp/bacity-ci-infrastructure-media
+      CRAWLER_STATE_PATH: /tmp/bacity-ci-infrastructure-crawler/state.db
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            .github/requirements-ci.txt
+            BACity-/services/api/requirements*.txt
+            BACity-/services/crawler/requirements.txt
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Install validation dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Validate Compose combinations, security profiles and scripts
+        run: python .github/scripts/validate_infrastructure.py
+      - name: Validate migration graph configuration
+        working-directory: BACity-/services/api
+        run: python -m alembic heads
+      - name: Existing launcher regression tests and CI report checks
+        working-directory: BACity-/services/api
+        run: |
+          mkdir -p "$RUNNER_TEMP/ci-results"
+          python -m pytest tests/social/test_control_launcher.py "$GITHUB_WORKSPACE/.github/scripts/test_ci_tools.py" -q -ra --junitxml="$RUNNER_TEMP/ci-results/infrastructure.xml"
+      - name: Existing network-disabled collector isolation verification
+        working-directory: BACity-
+        run: sh infrastructure/social/verify-container.sh
+      - name: Report counts and reject skipped or missing tests
+        if: always()
+        run: python .github/scripts/report_tests.py "$RUNNER_TEMP/ci-results/infrastructure.xml" --label Infrastructure
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: infrastructure-results
+          path: ${{ runner.temp }}/ci-results
+          retention-days: 3

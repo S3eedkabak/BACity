@@ -1,7 +1,23 @@
-from app.models.source import Source
+from app.models.source import Source, CrawlerRun
+from app.models.candidate_source import CandidateSource
 from app.models.venue import Venue
 from app.models.event import Event
 from app.models.user import User
+from app.models.privacy import PrivacyRequest
+from app.models.oauth_identity import OAuthIdentity
 from app.models.saved_event import SavedEvent
+from app.models.event_source import EventSource
+from app.models.entitlement import ConsumerSubscription, EntitlementGrant, ConsumerBillingCustomer, ProviderEventReceipt
+from app.models.group import GroupSession, GroupParticipant, GroupMatchRound, GroupCandidate, GroupVote
+from app.models.area_watch import AreaWatch
+from app.models import community
 
-__all__ = ["Source", "Venue", "Event", "User", "SavedEvent"]
+__all__ = [
+    "Source", "CrawlerRun", "Venue", "Event", "User", "OAuthIdentity", "SavedEvent",
+    "ConsumerSubscription", "EntitlementGrant", "ConsumerBillingCustomer", "ProviderEventReceipt", "GroupSession", "GroupParticipant",
+    "GroupMatchRound", "GroupCandidate", "GroupVote",
+    "AreaWatch", "PrivacyRequest",
+]
+
+from app.models.event_identity import EventOccurrence, EventOffer, EventReconciliation
+from app.models.event_maintenance import EventMaintenanceRun, EventMaintenanceArchive

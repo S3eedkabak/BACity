@@ -1,0 +1,5 @@
+# Reuse application manifests; Playwright matches the existing collector image.
+-r ../BACity-/services/api/requirements-social.txt
+-r ../BACity-/services/crawler/requirements.txt
+playwright==1.64.1
+PyYAML==6.0.3

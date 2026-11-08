@@ -1,311 +1,540 @@
-import { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { ContentStages } from "../../src/components/navigation/SceneMotion";
+import { SegmentedControl } from "../../src/components/interactions/SegmentedControl";
+import { SectionTransition } from "../../src/components/navigation/SceneMotion";
+import { TabScene } from "../../src/components/navigation/SceneMotion";
+import { SettingsNavList } from "../../src/components/interactions/NavListCard";
+import { AppearanceSettings } from "../../src/components/interactions/AppearanceSettings";
+import { useQuery } from "@tanstack/react-query";
+import { themedStyles, useThemeRevision } from "../../src/theme/appearance";
+import { useEffect, useRef, useState } from "react";
+import { FlatList, StyleSheet, Text, View } from "react-native";
+import { AnimatedPressable as Pressable } from "../../src/components/motion/Motion";
+import { SafeAreaView } from "../../src/components/navigation/ContentSafeArea";
+import { AppIcon } from "../../src/components/AppIcon";
+import { router } from "expo-router";
+import { apiRequest } from "../../src/api/client";
+import {
+  getProfile,
+  getProfileHistory,
+  type PublicProfile,
+} from "../../src/api/community";
+import { Chip } from "../../src/components/CommunityUI";
+import { EmptyState } from "../../src/components/EmptyState";
+import {
+  Avatar,
+  IconButton,
+  ListItem,
+  OverflowMenu,
+  ScreenHeader,
+  SkeletonList,
+  Stat,
+} from "../../src/components/SocialUI";
 import { useAuthStore } from "../../src/store/authStore";
 import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
 
-export default function ProfileScreen() {
-  const { user, token, login, register, logout } = useAuthStore();
-  const [mode, setMode] = useState<"login" | "register">("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+type Tab = "contributions" | "reviews" | "collections";
+function ProfileScreen() {
+  useThemeRevision();
+  const user = useAuthStore((state) => state.user);
+  const token = useAuthStore((state) => state.token);
+  const logout = useAuthStore((state) => state.logout);
+  const profileQuery = useQuery({
+    queryKey: ["profile", user?.id],
+    queryFn: () => getProfile(user!.id),
+    enabled: !!user,
+  });
+  const profile = profileQuery.data;
+  const [tab, setTab] = useState<Tab>("contributions");
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [more, setMore] = useState(false);
+  const [menu, setMenu] = useState(false);
 
-  async function handleSubmit() {
-    setError(null);
-    setSubmitting(true);
+  const historyRequest = useRef(0);
+  async function load(append = false) {
+    if (!user) return;
+    const request = ++historyRequest.current;
+    setLoading(true);
     try {
-      mode === "login"
-        ? await login(email, password)
-        : await register(email, password, displayName || undefined);
+      let result: any[];
+      if (tab === "collections")
+        result = (
+          await apiRequest<any[]>("/community/collections", { auth: true })
+        ).filter((item) => item.user_id === user.id);
+      else
+        result = await getProfileHistory(
+          user.id,
+          tab,
+          append ? items.length : 0,
+          12,
+        );
+      if (request !== historyRequest.current) return;
+      setItems((current) => (append ? [...current, ...result] : result));
+      setMore(tab !== "collections" && result.length === 12);
+      setError("");
     } catch (e: any) {
-      setError(e?.message ?? "Something went wrong");
+      if (request === historyRequest.current) setError(e.message);
     } finally {
-      setSubmitting(false);
+      if (request === historyRequest.current) setLoading(false);
     }
   }
-
-  if (token && user) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.hero}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {(user.display_name || user.email)[0].toUpperCase()}
-            </Text>
-          </View>
-          <Text style={styles.heading}>{user.display_name || "City explorer"}</Text>
-          <Text style={styles.email}>{user.email}</Text>
-        </View>
-
-        <View style={styles.card}>
-          <View style={styles.cardIcon}>
-            <Ionicons name="heart" size={19} color={colors.primary} />
-          </View>
-          <View style={styles.cardCopy}>
-            <Text style={styles.cardTitle}>Your taste</Text>
-            <Text style={styles.cardText}>
-              {user.interests.length
-                ? user.interests.join(" · ")
-                : "Save a few events and your taste will start taking shape."}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.menuCard}>
-          {["Notifications", "Preferences", "About BACity"].map((label, index) => (
-            <Pressable key={label} style={styles.menuRow}>
-              <View style={styles.menuIcon}>
-                <Ionicons
-                  name={index === 0 ? "notifications-outline" : index === 1 ? "options-outline" : "information-circle-outline"}
-                  size={18}
-                  color={colors.primary}
-                />
-              </View>
-              <Text style={styles.menuLabel}>{label}</Text>
-              <Ionicons name="chevron-forward" size={17} color={colors.textMuted} />
-            </Pressable>
-          ))}
-        </View>
-
-        <Pressable style={styles.logout} onPress={logout}>
-          <Ionicons name="log-out-outline" size={18} color={colors.danger} />
-          <Text style={styles.logoutText}>Log out</Text>
-        </Pressable>
-      </View>
-    );
+  useEffect(() => {
+    setItems([]);
+    void load(false);
+    return () => {
+      historyRequest.current++;
+    };
+  }, [user?.id, tab]);
+  async function signOut() {
+    await logout();
+    router.replace("/welcome");
   }
-
+  if (!token || !user)
+    return (
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <View style={styles.guest}>
+          <AppIcon name="people" size={42} color={colors.primary} />
+          <Text style={styles.guestTitle}>Your city, your profile.</Text>
+          <Text style={styles.guestText}>
+            Save plans, follow local voices and contribute what makes Bratislava
+            useful.
+          </Text>
+          <Pressable
+            style={styles.primary}
+            onPress={() =>
+              router.push({ pathname: "/auth", params: { mode: "register" } })
+            }
+          >
+            <Text style={styles.primaryText}>Create an account</Text>
+          </Pressable>
+          <Pressable
+            style={styles.secondary}
+            onPress={() =>
+              router.push({ pathname: "/auth", params: { mode: "login" } })
+            }
+          >
+            <Text style={styles.secondaryText}>Log in</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  const visible =
+    profile ??
+    ({
+      ...user,
+      contributions_count: 0,
+      reviews_count: 0,
+      followers: 0,
+      following: 0,
+      reputation_level: user.role === "GUIDE" ? "Local Guide" : "Contributor",
+    } as PublicProfile);
   return (
-    <View style={styles.container}>
-      <View style={styles.authArt}>
-        <View style={styles.artRingOne} />
-        <View style={styles.artRingTwo} />
-        <View style={styles.artDot} />
-        <Ionicons name="person-outline" size={28} color={colors.white} />
-      </View>
-
-      <Text style={styles.heading}>
-        {mode === "login" ? "Good to see you." : "Make the city yours."}
-      </Text>
-      <Text style={styles.subheading}>
-        {mode === "login"
-          ? "Your saved plans are waiting."
-          : "Save events and build a feed around your taste."}
-      </Text>
-
-      <View style={styles.form}>
-        {mode === "register" && (
-          <TextInput
-            style={styles.input}
-            placeholder="Display name"
-            placeholderTextColor={colors.textMuted}
-            value={displayName}
-            onChangeText={setDisplayName}
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      <ScreenHeader
+        title="Profile"
+        back={false}
+        right={
+          <IconButton
+            icon="menu-outline"
+            label="Profile menu"
+            onPress={() => setMenu(true)}
+          />
+        }
+      />
+      <FlatList
+        data={items}
+        keyExtractor={(item, index) => item.id || String(index)}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={
+          <ContentStages>
+            <View style={styles.identity}>
+              <Avatar
+                uri={visible.avatar_url}
+                name={visible.display_name || user.email}
+                size={56}
+              />
+              <View style={styles.identityCopy}>
+                <View style={styles.nameRow}>
+                  <Text style={styles.name} numberOfLines={1}>
+                    {visible.display_name || "City explorer"}
+                  </Text>
+                  {visible.identity_verified && (
+                    <AppIcon
+                      name="checkmark-circle"
+                      size={18}
+                      color={colors.free}
+                    />
+                  )}
+                </View>
+                <Text style={styles.location}>
+                  {visible.neighborhood || visible.city || "Bratislava"}
+                </Text>
+                <Text style={styles.reputation}>
+                  {visible.role === "GUIDE" ? "Local Guide · " : ""}
+                  {visible.reputation_level}
+                </Text>
+              </View>
+            </View>
+            {visible.bio ? <Text style={styles.bio}>{visible.bio}</Text> : null}
+            <View style={styles.stats}>
+              <Stat
+                value={profile?.contributions_count ?? "—"}
+                label="Contributions"
+                onPress={() => setTab("contributions")}
+              />
+              <Stat
+                value={profile?.followers ?? "—"}
+                label="Followers"
+                onPress={() =>
+                  router.push({
+                    pathname: "/social/followers",
+                    params: { userId: user.id },
+                  })
+                }
+              />
+              <Stat
+                value={profile?.following ?? "—"}
+                label="Following"
+                onPress={() =>
+                  router.push({
+                    pathname: "/social/following",
+                    params: { userId: user.id },
+                  })
+                }
+              />
+            </View>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <Text style={{ color: colors.textMuted, fontSize: 13 }}>
+                Your public activity
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Edit profile"
+                onPress={() => router.push("/account")}
+                style={{
+                  minHeight: 48,
+                  justifyContent: "center",
+                  paddingHorizontal: 12,
+                }}
+              >
+                <Text
+                  style={{
+                    color: colors.primaryDark,
+                    fontSize: 13,
+                    fontWeight: "600",
+                  }}
+                >
+                  Edit profile
+                </Text>
+              </Pressable>
+            </View>
+            <SegmentedControl
+              label="Profile activity"
+              options={(
+                ["contributions", "reviews", "collections"] as Tab[]
+              ).map((id) => ({ id, label: id[0].toUpperCase() + id.slice(1) }))}
+              value={tab}
+              onChange={setTab}
+            />
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+            {loading && !items.length ? <SkeletonList rows={3} /> : null}
+          </ContentStages>
+        }
+        ListEmptyComponent={
+          !loading ? (
+            <SectionTransition identity={tab}>
+              <EmptyState
+                compact
+                title={`No ${tab} yet`}
+                subtitle={
+                  tab === "collections"
+                    ? "Create a collection from your saved places and events."
+                    : `Your public ${tab} will appear here.`
+                }
+                action={tab === "collections" ? "Create collection" : undefined}
+                onAction={
+                  tab === "collections"
+                    ? () => router.push("/collection")
+                    : undefined
+                }
+              />
+            </SectionTransition>
+          ) : null
+        }
+        renderItem={({ item }) => (
+          <ListItem
+            icon={
+              tab === "contributions"
+                ? item.kind === "event"
+                  ? "calendar-outline"
+                  : "location-outline"
+                : tab === "reviews"
+                  ? "star-outline"
+                  : "albums-outline"
+            }
+            title={item.title || item.target_name || item.kind || "Collection"}
+            subtitle={
+              tab === "reviews"
+                ? item.body
+                : tab === "collections"
+                  ? `${item.items?.length || 0} items · ${item.public ? "Public" : "Private"}`
+                  : new Date(item.created_at).toLocaleDateString()
+            }
+            onPress={
+              item.published_id
+                ? () =>
+                    item.kind === "event"
+                      ? router.push(`/event/${item.published_id}`)
+                      : item.kind === "place"
+                        ? router.push(`/place/${item.published_id}`)
+                        : router.push(`/utility/${item.published_id}`)
+                : undefined
+            }
           />
         )}
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          placeholderTextColor={colors.textMuted}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          placeholderTextColor={colors.textMuted}
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
-      </View>
-
-      {error && <Text style={styles.error}>{error}</Text>}
-
-      <Pressable style={styles.button} onPress={handleSubmit} disabled={submitting}>
-        {submitting ? (
-          <ActivityIndicator color={colors.white} />
-        ) : (
-          <>
-            <Text style={styles.buttonText}>
-              {mode === "login" ? "Sign in" : "Create account"}
+        ListFooterComponent={
+          more ? (
+            <Text style={styles.more} onPress={() => load(true)}>
+              {loading ? "Loading…" : "Load more"}
             </Text>
-            <Ionicons name="arrow-forward" size={18} color={colors.white} />
-          </>
-        )}
-      </Pressable>
-
-      <Pressable onPress={() => setMode(mode === "login" ? "register" : "login")}>
-        <Text style={styles.switch}>
-          {mode === "login"
-            ? "New here? Create an account"
-            : "Already have an account? Sign in"}
-        </Text>
-      </Pressable>
-    </View>
+          ) : null
+        }
+      />
+      <OverflowMenu
+        visible={menu}
+        title="Profile menu"
+        onClose={() => setMenu(false)}
+      >
+        <SettingsNavList title="Your city">
+          <ListItem
+            icon="chatbubble-outline"
+            title="Messages"
+            subtitle="Your private conversations"
+            onPress={() => {
+              setMenu(false);
+              router.push("/messages");
+            }}
+          />
+          <ListItem
+            icon="bookmark-outline"
+            title="Saved"
+            subtitle="Your personal event library"
+            onPress={() => {
+              setMenu(false);
+              router.push("/(tabs)/saved");
+            }}
+          />
+          <ListItem
+            icon="pulse-outline"
+            title="Your activity"
+            subtitle="Contributions, decisions and appeals"
+            onPress={() => {
+              setMenu(false);
+              router.push("/activity");
+            }}
+          />
+          <ListItem
+            icon="albums-outline"
+            title="Collections"
+            onPress={() => {
+              setMenu(false);
+              router.push("/collections");
+            }}
+          />
+          <ListItem
+            icon="people-outline"
+            title="Following"
+            subtitle="People, places and local interests"
+            onPress={() => {
+              setMenu(false);
+              router.push("/following");
+            }}
+          />
+        </SettingsNavList>
+        <SettingsNavList title="Tools">
+          {["ORGANIZER", "ADMIN"].includes(user.role) && (
+            <ListItem
+              icon="business-outline"
+              title="Organizer tools"
+              onPress={() => {
+                setMenu(false);
+                router.push("/organizer");
+              }}
+            />
+          )}
+          {["GUIDE", "ADMIN"].includes(user.role) && (
+            <ListItem
+              icon="navigate-outline"
+              title="Local Guide tools"
+              subtitle="Your public contribution history"
+              onPress={() => {
+                setMenu(false);
+                router.push("/activity");
+              }}
+            />
+          )}
+          {["MODERATOR", "ADMIN"].includes(user.role) && (
+            <ListItem
+              icon="shield-checkmark-outline"
+              title="Moderator tools"
+              onPress={() => {
+                setMenu(false);
+                router.push("/moderator");
+              }}
+            />
+          )}
+        </SettingsNavList>
+        <SettingsNavList title="Account & support">
+          <ListItem
+            icon="settings-outline"
+            title="Settings & privacy"
+            onPress={() => {
+              setMenu(false);
+              router.push("/account");
+            }}
+          />
+          {user.role === "ADMIN" && (
+            <ListItem
+              icon="lock-closed-outline"
+              title="Privacy review"
+              subtitle="Audited administrative access"
+              onPress={() => {
+                setMenu(false);
+                router.push("/privacy-admin");
+              }}
+            />
+          )}
+          <ListItem
+            icon="sparkles-outline"
+            title="BACity+"
+            subtitle="Access and subscription management"
+            onPress={() => {
+              setMenu(false);
+              router.push("/plus");
+            }}
+          />
+          <ListItem
+            icon="ban-outline"
+            title="Blocked users"
+            onPress={() => {
+              setMenu(false);
+              router.push("/blocked");
+            }}
+          />
+          <ListItem icon="log-out-outline" title="Log out" onPress={signOut} />
+        </SettingsNavList>
+        <AppearanceSettings />
+      </OverflowMenu>
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background, padding: 20 },
-  authArt: {
-    height: 175,
-    borderRadius: 30,
-    backgroundColor: colors.primary,
-    overflow: "hidden",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 24,
+const styles = themedStyles(() => ({
+  safe: { flex: 1, backgroundColor: colors.background },
+  content: {
+    width: "100%",
+    maxWidth: 760,
+    alignSelf: "center",
+    paddingHorizontal: 18,
+    paddingBottom: 92,
+    flexGrow: 1,
   },
-  artRingOne: {
-    position: "absolute",
-    width: 270,
-    height: 140,
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.2)",
-    borderRadius: 120,
-    transform: [{ rotate: "-14deg" }],
-  },
-  artRingTwo: {
-    position: "absolute",
-    width: 190,
-    height: 190,
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.18)",
-    borderRadius: 100,
-    transform: [{ rotate: "22deg" }],
-  },
-  artDot: {
-    position: "absolute",
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    backgroundColor: "rgba(255,255,255,0.12)",
-  },
-  hero: { paddingTop: 8, paddingBottom: 18 },
-  avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 27,
-    backgroundColor: colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 18,
-  },
-  avatarText: { color: colors.white, fontFamily: fonts.black, fontSize: 27 },
-  eyebrow: {
-    color: colors.primaryDark,
-    fontFamily: fonts.semibold,
-    fontSize: 9,
-    letterSpacing: 1.4,
-  },
-  heading: {
+  guest: { flex: 1, justifyContent: "center", padding: 28 },
+  guestTitle: {
     color: colors.text,
     fontFamily: fonts.black,
-    fontSize: 32,
-    lineHeight: 36,
-    letterSpacing: -1,
-    marginTop: 3,
+    fontWeight: "800",
+    fontSize: 30,
+    marginTop: 8,
   },
-  email: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, marginTop: 4 },
-  subheading: {
+  guestText: {
     color: colors.textMuted,
     fontFamily: fonts.regular,
-    fontSize: 13,
-    lineHeight: 19,
-    marginTop: 7,
-    marginBottom: 18,
+    fontSize: 14,
+    lineHeight: 21,
+    marginVertical: 12,
   },
-  form: { gap: 10 },
-  input: {
-    height: 52,
+  primary: {
+    minHeight: 52,
     borderRadius: 17,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    color: colors.text,
-    fontFamily: fonts.regular,
-    paddingHorizontal: 15,
-  },
-  button: {
-    height: 54,
-    borderRadius: 18,
     backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
-    flexDirection: "row",
-    gap: 9,
-    marginTop: 5,
+    marginTop: 12,
   },
-  buttonText: { color: colors.white, fontFamily: fonts.black, fontSize: 13 },
-  switch: {
-    color: colors.primaryDark,
-    textAlign: "center",
-    marginTop: 16,
+  primaryText: {
+    color: colors.white,
     fontFamily: fonts.semibold,
-    fontSize: 11,
+    fontWeight: "600",
   },
-  error: { color: colors.danger, marginBottom: 8, fontFamily: fonts.medium, fontSize: 11 },
-  card: {
+  secondary: { minHeight: 52, alignItems: "center", justifyContent: "center" },
+  secondaryText: {
+    color: colors.text,
+    fontFamily: fonts.semibold,
+    fontWeight: "600",
+  },
+  identity: {
     flexDirection: "row",
-    gap: 12,
     alignItems: "center",
-    padding: 15,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
+    gap: 14,
+    marginTop: 8,
+    paddingVertical: 12,
+  },
+  identityCopy: { alignItems: "flex-start", minWidth: 0, flex: 1 },
+  nameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  name: {
+    flexShrink: 1,
+    color: colors.text,
+    fontFamily: fonts.black,
+    fontWeight: "800",
+    fontSize: 21,
+    letterSpacing: -0.3,
+  },
+  location: {
+    color: colors.textMuted,
+    fontFamily: fonts.regular,
+    fontSize: 14,
+    marginTop: 8,
+  },
+  reputation: {
+    color: colors.primaryDark,
+    fontFamily: fonts.semibold,
+    fontWeight: "600",
+    fontSize: 13,
+    marginTop: 6,
+  },
+  bio: {
+    color: colors.text,
+    fontFamily: fonts.regular,
+    fontSize: 16,
+    lineHeight: 24,
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  stats: {
+    flexDirection: "row",
+    marginTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
   },
-  cardIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 15,
-    backgroundColor: colors.primarySoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cardCopy: { flex: 1 },
-  cardTitle: { color: colors.text, fontFamily: fonts.semibold, fontSize: 13 },
-  cardText: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 11, lineHeight: 16, marginTop: 3 },
-  menuCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 22,
-    marginTop: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: "hidden",
-  },
-  menuRow: {
-    minHeight: 60,
-    paddingHorizontal: 13,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  menuIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 13,
-    backgroundColor: colors.primarySoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  menuLabel: { flex: 1, color: colors.text, fontFamily: fonts.semibold, fontSize: 12 },
-  logout: {
-    flexDirection: "row",
-    gap: 8,
-    alignItems: "center",
-    marginTop: 18,
-    alignSelf: "flex-start",
-    padding: 10,
-  },
-  logoutText: { color: colors.danger, fontFamily: fonts.semibold },
-});
+  error: { color: colors.danger, marginVertical: 10 },
+  more: { color: colors.primaryDark, textAlign: "center", padding: 18 },
+}));
+
+export default function AnimatedProfileScreen() {
+  return (
+    <TabScene>
+      <ProfileScreen />
+    </TabScene>
+  );
+}

@@ -1,0 +1,13 @@
+work/
+__pycache__/
+*.pyc
+*.db
+*.db-*
+.env
+.env.production
+.env.staging
+dist/
+.pytest_cache/
+pytest-cache-files-*/
+crawler-state/
+*.log

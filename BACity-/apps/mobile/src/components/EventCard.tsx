@@ -1,143 +1,54 @@
-import { Ionicons } from "@expo/vector-icons";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
-import { router } from "expo-router";
-import { EventOut } from "../types/event";
-import { colors } from "../theme/colors";
-import { imageForCategory } from "../theme/categoryImages";
-import { fonts } from "../theme/fonts";
-
-function formatWhen(iso: string) {
-  const d = new Date(iso);
-  return (
-    d.toLocaleDateString(undefined, {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-    }) +
-    " · " +
-    d.toLocaleTimeString(undefined, {
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-  );
-}
-
-function price(event: EventOut) {
-  if (event.price === 0) return "FREE";
-  if (event.price == null) return "TBD";
-  return event.price + " " + (event.currency ?? "EUR");
-}
-
-export function EventCard({ event }: { event: EventOut }) {
-  const image = event.image_url || imageForCategory(event.category);
-
-  return (
-    <Pressable
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
-      onPress={() => router.push("/event/" + event.id)}
-    >
-      <Image source={{ uri: image }} style={styles.image} />
-      <View style={styles.body}>
-        <View style={styles.metaRow}>
-          <View style={styles.categoryPill}>
-            <Text style={styles.category}>{event.category}</Text>
-          </View>
-          <Text style={[styles.price, event.price === 0 && styles.free]}>{price(event)}</Text>
+import { useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import { AnimatedPressable } from './motion/Motion';
+import { SaveEventAction } from './interactions/SaveEventAction';
+import { AppIcon } from './AppIcon';
+import { EventMedia } from './EventMedia';
+import { OverflowMenu, ListItem } from './SocialUI';
+import { eventCoordinates } from '../map/eventLocation';
+import { useViewOnMap } from '../map/eventTarget';
+import { availabilityLabel } from '../map/eventAvailability';
+import { useEventNavigation } from '../hooks/useEventNavigation';
+import { colors } from '../theme/colors';
+import { tokens } from '../theme/tokens';
+import { themedStyles, useThemeRevision } from '../theme/appearance';
+import { EventOut } from '../types/event';
+export type EventCardVariant = 'home' | 'hero' | 'feed' | 'horizontal' | 'compact' | 'map' | 'saved' | 'planner' | 'premium' | 'organizer';
+export function EventCard({ event, explanation, variant = 'feed' }: { event: EventOut; explanation?: string; variant?: EventCardVariant; entranceDelay?: number }) {
+  useThemeRevision(); const openEvent = useEventNavigation(); const viewOnMap = useViewOnMap(); const [menu, setMenu] = useState(false);
+  const photoLed = variant === 'home';
+  const feature = photoLed || ((variant === 'hero' || variant === 'horizontal') && !!event.image_url);
+  const price = event.price === 0 ? 'Free' : event.price == null ? 'Price unknown' : `${event.price} ${event.currency || 'EUR'}`;
+  return <View style={[styles.wrap, variant === 'horizontal' && { width: 280, marginRight: 12 }, feature && styles.feature]}>
+    <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+      <AnimatedPressable accessibilityRole="button" accessibilityLabel={`Open ${event.title}`} onPress={() => openEvent(event.id)} onLongPress={() => setMenu(true)} style={[styles.card, feature && { flexDirection: 'column' }]}>
+        <EventMedia uri={event.image_url} category={event.category} style={photoLed ? styles.homeImage : feature ? styles.featureImage : styles.image} />
+        <View style={[styles.body, feature && { padding: photoLed ? 18 : 12 }]}>
+          <Text style={styles.when}>{availabilityLabel(event)}</Text>
+          <Text style={[styles.title, photoLed && styles.homeTitle]} numberOfLines={3}>{event.title}</Text>
+          <Text style={styles.location} numberOfLines={2}>{event.venue?.name || event.address || 'Bratislava'}</Text>
+          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}><Text style={styles.meta}>{event.category}</Text><Text style={[styles.meta, { color: event.price === 0 ? colors.free : colors.textMuted }]}>{price}</Text></View>
+          {!!explanation && <Text style={styles.reason} numberOfLines={1}>{explanation}</Text>}
         </View>
-        <Text style={styles.title} numberOfLines={2}>
-          {event.title}
-        </Text>
-        <View style={styles.detail}>
-          <Ionicons name="calendar-outline" size={14} color={colors.primary} />
-          <Text style={styles.detailText}>{formatWhen(event.start_time)}</Text>
-        </View>
-        <View style={styles.detail}>
-          <Ionicons name="location-outline" size={14} color={colors.primary} />
-          <Text style={styles.detailText} numberOfLines={1}>
-            {event.venue?.name ?? event.address ?? "Bratislava"}
-          </Text>
-        </View>
+      </AnimatedPressable>
+      <View style={[styles.actions, feature && { position: 'absolute', top: 4, right: 4, borderRadius: 24, backgroundColor: colors.surface }]}>
+        <SaveEventAction event={event} />
+        <AnimatedPressable accessibilityRole="button" accessibilityLabel={`More actions for ${event.title}`} onPress={() => setMenu(true)} style={styles.more}><AppIcon name="ellipsis-horizontal" color={colors.textMuted} size={20} /></AnimatedPressable>
       </View>
-      <View style={styles.chevron}>
-        <Ionicons name="arrow-up-right" size={14} color={colors.text} />
-      </View>
-    </Pressable>
-  );
+    </View>
+    <OverflowMenu visible={menu} title={event.title} onClose={() => setMenu(false)}>
+      <ListItem icon="calendar-outline" title="Event details" onPress={() => { setMenu(false); openEvent(event.id); }} />
+      {eventCoordinates(event) && <ListItem icon="map-outline" title={`View ${event.title} on Map`} onPress={() => { setMenu(false); viewOnMap(event); }} />}
+    </OverflowMenu>
+  </View>;
 }
-
-const styles = StyleSheet.create({
-  card: {
-    flexDirection: "row",
-    minHeight: 126,
-    backgroundColor: colors.surface,
-    borderRadius: 22,
-    marginBottom: 12,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: colors.shadow,
-    shadowOpacity: 0.07,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 5 },
-  },
-  pressed: {
-    transform: [{ scale: 0.985 }],
-    opacity: 0.96,
-  },
-  image: {
-    width: 108,
-    height: 126,
-    backgroundColor: colors.primarySoft,
-  },
-  body: { flex: 1, padding: 12, paddingRight: 30 },
-  metaRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 6,
-  },
-  categoryPill: {
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 99,
-  },
-  category: {
-    color: colors.primaryDark,
-    fontFamily: fonts.semibold,
-    fontSize: 8,
-    letterSpacing: 0.4,
-  },
-  price: { color: colors.textMuted, fontFamily: fonts.semibold, fontSize: 9 },
-  free: { color: colors.free },
-  title: {
-    color: colors.text,
-    fontFamily: fonts.black,
-    fontSize: 15,
-    lineHeight: 18,
-    marginBottom: 7,
-  },
-  detail: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    marginTop: 3,
-  },
-  detailText: {
-    color: colors.textMuted,
-    fontFamily: fonts.medium,
-    fontSize: 10,
-    flex: 1,
-  },
-  chevron: {
-    position: "absolute",
-    right: 10,
-    bottom: 10,
-    width: 27,
-    height: 27,
-    borderRadius: 10,
-    backgroundColor: colors.primarySoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});
+const styles = themedStyles(() => ({
+  wrap: { paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  feature: { borderBottomWidth: 0, backgroundColor: colors.surface, borderRadius: 16, overflow: 'hidden', paddingVertical: 0, marginBottom: 8 },
+  card: { flex: 1, flexDirection: 'row', gap: 12, minWidth: 0 },
+  image: { width: 88, height: 104, borderRadius: 12 }, featureImage: { width: '100%', height: 168 },
+  homeImage: { width: '100%', aspectRatio: tokens.image.feed }, homeTitle: { fontSize: 22, lineHeight: 27, fontWeight: '700' },
+  body: { flex: 1, gap: 4, minWidth: 0 }, title: { fontSize: 17, lineHeight: 23, fontWeight: '600', color: colors.text, letterSpacing: -.3 },
+  when: { ...tokens.type.caption, color: colors.primaryDark }, location: { ...tokens.type.metadata, color: colors.textMuted }, meta: { ...tokens.type.caption, color: colors.textMuted }, reason: { ...tokens.type.caption, color: colors.primaryDark },
+  actions: { width: 48, alignItems: 'center', gap: 4 }, more: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
+}));

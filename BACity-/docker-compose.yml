@@ -1,19 +1,21 @@
-version: "3.9"
-
 services:
   postgres:
     image: postgis/postgis:16-3.4
+    # The optional panel uses this same internal bridge. Declaring it here
+    # prevents either launcher from changing the shared database's networks.
+    networks: [default, social-data]
+    platform: linux/amd64
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-events}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-events}
       POSTGRES_DB: ${POSTGRES_DB:-bratislava_events}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-events}"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -21,7 +23,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
 
   opensearch:
     image: opensearchproject/opensearch:2.15.0
@@ -29,8 +31,9 @@ services:
       - discovery.type=single-node
       - plugins.security.disabled=true
       - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "OPENSEARCH_INITIAL_ADMIN_PASSWORD=${OPENSEARCH_INITIAL_ADMIN_PASSWORD:-BACityDev123!Secure}"
     ports:
-      - "9200:9200"
+      - "127.0.0.1:9200:9200"
 
   api:
     build:
@@ -45,20 +48,63 @@ services:
       - "8000:8000"
     volumes:
       - ./services/api:/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+    command: sh -c "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
 
   worker:
     build:
       context: ./services/crawler
     env_file: .env
+    environment:
+      API_BASE_URL: http://api:8000
+      CRAWLER_STATE_PATH: /data/state.db
+    restart: unless-stopped
     depends_on:
+      api:
+        condition: service_healthy
       postgres:
         condition: service_healthy
       redis:
         condition: service_started
     volumes:
       - ./services/crawler:/app
+      - crawlerdata:/data
     command: python -m crawler.worker
+    healthcheck:
+      test: ["CMD", "python", "-m", "crawler.worker", "--health"]
+      interval: 60s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+
+  maintenance:
+    build:
+      context: ./services/api
+    env_file: .env
+    environment:
+      UTILITY_SYNC_ENABLED: "true"
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    command: python -m app.worker
+
+  mailpit:
+    image: axllent/mailpit:v1.20
+    profiles: [dev-mail]
+    ports:
+      - "127.0.0.1:8025:8025"
+      - "127.0.0.1:1025:1025"
 
 volumes:
   pgdata:
+  crawlerdata:
+
+networks:
+  social-data:
+    internal: true

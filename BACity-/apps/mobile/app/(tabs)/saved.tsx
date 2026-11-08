@@ -1,24 +1,35 @@
-import { Ionicons } from "@expo/vector-icons";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { usePullRefresh } from "../../src/hooks/usePullRefresh";
+import { ContentEntrance } from "../../src/components/navigation/SceneMotion";
+import { TabScene } from '../../src/components/navigation/SceneMotion';
+import { UndoSaveToast } from '../../src/components/interactions/UndoSaveToast';
+import { themedStyles, useThemeRevision } from '../../src/theme/appearance';
+import { AppIcon } from "../../src/components/AppIcon";
+import { FlatList, StyleSheet, Text, View } from "react-native";
+import { AnimatedPressable as Pressable } from '../../src/components/motion/Motion';
 import { useAuthStore } from "../../src/store/authStore";
 import { useSavedEvents } from "../../src/hooks/useEvents";
 import { EventCard } from "../../src/components/EventCard";
 import { EmptyState } from "../../src/components/EmptyState";
 import { LoadingState } from "../../src/components/LoadingState";
+import { useMeaningfulLoading } from '../../src/components/loading/LoadingExperience';
 import { colors } from "../../src/theme/colors";
 import { fonts } from "../../src/theme/fonts";
 import { router } from "expo-router";
+import { SafeAreaView } from '../../src/components/navigation/ContentSafeArea';
 
-export default function SavedScreen() {
+function SavedScreen() {
+  const pullRefresh = usePullRefresh(() => refetch());
+  useThemeRevision();
   const token = useAuthStore((s) => s.token);
-  const { data, isLoading, isError } = useSavedEvents();
+  const { data, isLoading, isError, refetch } = useSavedEvents();
+  useMeaningfulLoading('saved', !!token && isLoading && !data);
 
   if (!token) {
     return (
       <View style={styles.guest}>
         <View style={styles.guestShape}>
           <View style={styles.guestIcon}>
-            <Ionicons name="heart" size={25} color={colors.white} />
+            <AppIcon name="heart" size={25} color={colors.white} />
           </View>
         </View>
         <Text style={styles.eyebrow}>YOUR PLANS</Text>
@@ -28,29 +39,32 @@ export default function SavedScreen() {
         </Text>
         <Pressable
           style={styles.loginButton}
-          onPress={() => router.push("/(tabs)/profile")}
+          onPress={() => router.push({ pathname: "/auth", params: { mode: "login" } })}
         >
           <Text style={styles.loginText}>Log in to save events</Text>
-          <Ionicons name="arrow-forward" size={17} color={colors.white} />
+          <AppIcon name="arrow-forward" size={17} color={colors.white} />
         </Pressable>
       </View>
     );
   }
 
-  if (isLoading) return <LoadingState />;
-  if (isError) {
-    return <EmptyState title="Couldn't load saved events" subtitle="Try again in a moment." />;
+  if (isLoading) return <LoadingState variant="saved" />;
+  if (isError && !data) {
+    return <EmptyState title="Couldn't load saved events" subtitle="Your library is still yours. Check your connection." action="Try again" onAction={() => void refetch()} />;
   }
 
   return (
+    <SafeAreaView style={styles.safe} edges={["top"]}>
     <FlatList
       style={styles.container}
       contentContainerStyle={styles.content}
       data={data ?? []}
       keyExtractor={(item) => item.id}
       showsVerticalScrollIndicator={false}
+      refreshing={pullRefresh.refreshing}
+      onRefresh={pullRefresh.onRefresh}
       ListHeaderComponent={
-        <View style={styles.header}>
+        <ContentEntrance><View style={styles.header}>
           <View style={styles.headingRow}>
             <Text style={styles.heading}>Saved</Text>
             <View style={styles.countPill}>
@@ -58,36 +72,37 @@ export default function SavedScreen() {
             </View>
           </View>
           <Text style={styles.headerText}>The events you said yes to.</Text>
-        </View>
+          <Pressable accessibilityRole="button" onPress={() => router.push("/collections")}><Text style={styles.headerText}>Browse and create collections →</Text></Pressable>
+        </View></ContentEntrance>
       }
-      renderItem={({ item }) => <EventCard event={item} />}
+      renderItem={({ item }) => <EventCard variant="saved" event={item} />}
       ListEmptyComponent={
         <View style={styles.emptyWrap}>
-          <View style={styles.emptyIcon}>
-            <Ionicons name="heart-outline" size={24} color={colors.primary} />
-          </View>
-          <EmptyState title="Nothing saved yet" subtitle="Your best finds will collect here." />
+          <EmptyState scene="saved" title="Your next plan starts here" subtitle="Save an event that catches your eye. Your best finds will collect here." action="Explore events" onAction={() => router.push('/(tabs)/explore')} />
         </View>
       }
     />
+    <UndoSaveToast />
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
+  safe: { flex: 1, backgroundColor: colors.background },
   container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 18, paddingTop: 12, paddingBottom: 108 },
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center', padding: 18, paddingTop: 12, paddingBottom: 108 },
   header: { paddingBottom: 18 },
   eyebrow: {
     color: colors.primaryDark,
-    fontFamily: fonts.semibold,
-    fontSize: 9,
+    fontFamily: fonts.semibold, fontWeight: '600',
+    fontSize: 12,
     letterSpacing: 1.4,
   },
   headingRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   heading: {
     color: colors.text,
-    fontFamily: fonts.black,
-    fontSize: 36,
+    fontFamily: fonts.black, fontWeight: '800',
+    fontSize: 26,
     letterSpacing: -1.1,
     marginTop: 2,
   },
@@ -101,7 +116,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: 6,
   },
-  count: { color: colors.white, fontFamily: fonts.black, fontSize: 11 },
+  count: { color: colors.white, fontFamily: fonts.black, fontWeight: '800', fontSize: 12 },
   headerText: {
     color: colors.textMuted,
     fontFamily: fonts.regular,
@@ -136,7 +151,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontFamily: fonts.black,
+    fontFamily: fonts.black, fontWeight: '800',
     fontSize: 29,
     textAlign: "center",
     letterSpacing: -0.8,
@@ -153,14 +168,14 @@ const styles = StyleSheet.create({
   loginButton: {
     height: 52,
     borderRadius: 17,
-    backgroundColor: colors.text,
+    backgroundColor: colors.primary,
     paddingHorizontal: 18,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     marginTop: 24,
   },
-  loginText: { color: colors.white, fontFamily: fonts.semibold, fontSize: 12 },
+  loginText: { color: colors.white, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
   emptyWrap: { alignItems: "center" },
   emptyIcon: {
     width: 48,
@@ -171,4 +186,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: -2,
   },
-});
+}));
+
+export default function AnimatedSavedScreen() { return <TabScene><SavedScreen /></TabScene>; }

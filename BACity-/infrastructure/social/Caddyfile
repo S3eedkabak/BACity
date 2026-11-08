@@ -1,0 +1,10 @@
+https://{$SOCIAL_ADMIN_HOST:localhost}:8443 {
+    tls internal
+    request_body {
+        max_size 64KB
+    }
+    reverse_proxy social-admin:8011 {
+        # Replace, never append caller-supplied forwarding headers.
+        header_up X-Forwarded-For {remote_host}
+    }
+}

@@ -22,6 +22,17 @@ class RawEvent:
     source_reliability: float = 0.7
     extraction_method: str = "unknown"
     extraction_confidence: float = 0.5
+    event_status: str = "fresh"
+    original_source_url: Optional[str] = None
+    duration_raw: Optional[str] = None
+    previous_start_raw: Optional[str] = None
+    organizer_name: Optional[str] = None
+    end_date_raw: Optional[str] = None
+    recurrence_rule: Optional[str] = None
+    publisher_event_id: Optional[str] = None
+    identity_kind: str = "single"
+    start_precision: str = "time"
+    address_locality: Optional[str] = None
 
 
 @dataclass
@@ -45,3 +56,15 @@ class NormalizedEvent:
     source_name: Optional[str]
     source_reliability: float
     extraction_confidence: float
+    event_status: str = "fresh"
+    original_source_url: Optional[str] = None
+    temporal_evidence: str = 'unknown'
+    previous_start_time: Optional[str] = None
+    extraction_method: str = 'unknown'
+    organizer_name: Optional[str] = None
+    end_date: Optional[str] = None
+    recurrence_rule: Optional[str] = None
+    publisher_event_id: Optional[str] = None
+    identity_kind: str = "single"
+    start_precision: str = "time"
+    address_locality: Optional[str] = None

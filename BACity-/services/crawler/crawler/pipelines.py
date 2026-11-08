@@ -1,5 +1,9 @@
 import logging
 import time
+import os
+import re
+import math
+from datetime import datetime, timezone
 
 import requests
 
@@ -8,6 +12,12 @@ from crawler.processing.normalize import normalize_event
 from crawler.processing.validate import validate_event
 
 logger = logging.getLogger(__name__)
+
+
+def crawl_item_limit(spider):
+    # Parser format is unrelated to qualification. A scheduled, trusted source
+    # must not inherit the small limit used while inspecting a new candidate.
+    return 100 if getattr(spider, 'inspection', False) is True else 1000
 
 _KNOWN_VENUES = {
     "stará tržnica": ("Námestie SNP 25, 811 01 Bratislava", 48.1445782, 17.1112316),
@@ -26,28 +36,53 @@ _KNOWN_ADDRESSES = {
 }
 
 
-class NormalizePipeline:
-    def process_item(self, item: RawEvent, spider):
+class CrawlerPipeline:
+    @classmethod
+    def from_crawler(cls, crawler):
+        instance = cls()
+        instance.crawler = crawler
+        return instance
+
+
+class NormalizePipeline(CrawlerPipeline):
+    def process_item(self, item: RawEvent, spider=None):
+        spider = spider or self.crawler.spider
+        spider.crawler.stats.inc_value("pipeline/raw_listings")
         normalized = normalize_event(item)
         if normalized is None:
             logger.info("Dropped unparseable event: %r", item.title)
+            spider.crawler.stats.inc_value("validation/rejected")
+            spider.crawler.stats.inc_value("validation/rejected/normalization")
             raise DropItem(f"Could not normalize: {item.title}")
+        spider.crawler.stats.inc_value("pipeline/normalized_listings")
         return normalized
 
 
-class GeocodePipeline:
+class GeocodePipeline(CrawlerPipeline):
     """Resolve event addresses to coordinates before validation/submission.
 
     A small known-venue cache covers the prototype's fixed institutions.
     Everything else uses Nominatim and is cached for the duration of the crawl.
     """
 
-    def open_spider(self, spider):
+    def open_spider(self, spider=None):
+        spider = spider or self.crawler.spider
         self.cache = {}
+        from crawler.state import State
+        self.state = State()
+        self.last_request = 0
+        row=self.state.db.execute("SELECT value FROM metadata WHERE key='geocoder_retry_after'").fetchone()
+        self.blocked_until=float(row[0]) if row else 0
         self.url = spider.settings.get("GEOCODER_URL")
         self.user_agent = spider.settings.get("GEOCODER_USER_AGENT")
 
-    def process_item(self, item, spider):
+    @staticmethod
+    def count(spider,key):
+        if getattr(spider,'crawler',None):
+            spider.crawler.stats.inc_value('geocoding/'+key)
+
+    def process_item(self, item, spider=None):
+        spider = spider or self.crawler.spider
         if item.venue_name:
             known = _KNOWN_VENUES.get(item.venue_name.strip().lower())
             if known:
@@ -62,65 +97,163 @@ class GeocodePipeline:
                 item.latitude, item.longitude = known_coords
 
         if item.latitude is not None and item.longitude is not None:
+            self.count(spider,'coordinates_available')
             return item
 
-        query = item.address or item.venue_name
+        # Publishers often put only the city in PostalAddress. Geocoding that
+        # before the named venue loses the location for every event in the city
+        # and shares the same negative cache entry across unrelated venues.
+        address = (item.address or '').strip()
+        locality = (getattr(item, 'address_locality', None) or '').strip()
+        generic_address = re.fullmatch(r'(?:bratislava(?:\s+[1-5])?(?:\s*[-–]\s*[\w\s]+)?|slovakia|slovensko)', address, re.I)
+        query = item.venue_name if not address or generic_address or (locality and address.casefold() == locality.casefold()) else address
         if not query:
+            self.count(spider,'missing_query')
             return item
 
-        cache_key = query.strip().lower()
+        nonlocal_city = locality and not locality.casefold().startswith('bratislava')
+        from crawler.venue_addresses import VENUE_ADDRESSES
+        verified = VENUE_ADDRESSES.get((item.venue_name or '').strip().casefold())
+        if verified and (not address or generic_address or address.startswith('Karpatská 2')):
+            query = verified[0]
+            item.address = verified[0]
+        city = locality or 'Bratislava'
+        request_query = query if re.search(r'\b' + re.escape(city) + r'\b', query, re.I) else f'{query}, {city}'
+
+        cache_key = (query + (', ' + locality if nonlocal_city else '')).strip().lower()
+        cached = self.state.db.execute("SELECT latitude,longitude FROM geocache WHERE query=? AND (expires IS NULL OR expires>?)", (cache_key, time.time())).fetchone()
+        if cached:
+            self.count(spider,'cache_hit')
+            item.latitude, item.longitude = cached
+            return item
         if cache_key in self.cache:
+            self.count(spider,'cache_hit')
             item.latitude, item.longitude = self.cache[cache_key]
             return item
 
-        if not self.url:
+        if not self.url or time.time()<self.blocked_until:
+            self.count(spider,'deferred')
             return item
 
         try:
+            time.sleep(max(0, 1.1 - (time.monotonic() - self.last_request)))
+            self.last_request = time.monotonic()
+            self.count(spider,'requests')
             response = requests.get(
                 self.url,
                 params={
-                    "q": f"{query}, Bratislava",
+                    "q": request_query,
                     "format": "jsonv2",
+                    "addressdetails": 1,
                     "limit": 1,
+                    "countrycodes": "sk",
+                    "viewbox": "16.9,48.35,17.35,48.0",
+                    "bounded": 1,
                 },
                 headers={"User-Agent": self.user_agent},
                 timeout=8,
+                allow_redirects=False,
             )
+            if response.status_code in (429,503,403):
+                from crawler.retry import retry_after
+                self.blocked_until=time.time()+retry_after(response.headers.get('Retry-After'),default=86400 if response.status_code==403 else 60)
+                with self.state.db:
+                    self.state.db.execute("INSERT OR REPLACE INTO metadata VALUES('geocoder_retry_after',?)",(str(self.blocked_until),))
             response.raise_for_status()
+            if 300 <= response.status_code < 400:
+                raise requests.HTTPError('Geocoder redirects are not permitted')
             results = response.json()
-            time.sleep(1.0)
             if results:
                 coords = (float(results[0]["lat"]), float(results[0]["lon"]))
-                self.cache[cache_key] = coords
-                item.latitude, item.longitude = coords
-        except (requests.RequestException, ValueError, KeyError, TypeError) as exc:
+                kind = results[0].get('addresstype')
+                place = results[0].get('address') or {}
+                result_city = next((place[k] for k in ('city', 'town', 'village', 'municipality') if place.get(k)), '')
+                city_matches = not nonlocal_city or result_city.casefold() == locality.casefold()
+                if (all(math.isfinite(c) for c in coords) and 48.0 <= coords[0] <= 48.35 and 16.9 <= coords[1] <= 17.35
+                        and kind not in ('city','town','village','municipality','suburb','borough','city_district','neighbourhood','quarter','county','country','state')
+                        and results[0].get('category') != 'boundary' and city_matches):
+                    self.cache[cache_key] = coords
+                    item.latitude, item.longitude = coords
+                    with self.state.db:
+                        self.state.db.execute("INSERT OR REPLACE INTO geocache VALUES(?,?,?,NULL)", (cache_key, *coords))
+            if cache_key not in self.cache:
+                self.count(spider,'unresolved')
+                self.cache[cache_key] = (None, None)
+                with self.state.db:
+                    self.state.db.execute("INSERT OR REPLACE INTO geocache VALUES(?,NULL,NULL,?)", (cache_key, time.time() + 86400))
+        except (requests.RequestException, ValueError, KeyError, TypeError, OverflowError) as exc:
+            # A provider outage must not trigger the same call for every item.
+            self.count(spider,'errors')
+            self.cache[cache_key] = (None, None)
             logger.debug("Geocoding failed for %r: %s", query, exc)
 
         return item
 
+    def close_spider(self, spider=None):
+        spider = spider or self.crawler.spider
+        self.state.close()
 
-class ValidatePipeline:
-    def process_item(self, item, spider):
+
+class PreValidatePipeline(CrawlerPipeline):
+    def process_item(self, item, spider=None):
+        spider = spider or self.crawler.spider
+        if spider.crawler.stats.get_value('quality/events', 0) >= crawl_item_limit(spider):
+            spider.crawler.stats.inc_value('resource/item_limit')
+            raise DropItem('run_item_limit')
+        locality = (getattr(item, 'address_locality', None) or '').strip()
+        if locality and not locality.casefold().startswith('bratislava') and (item.latitude is None or item.longitude is None):
+            # A national publisher's explicit foreign city cannot acquire local
+            # evidence by searching for a similarly named Bratislava street.
+            spider.crawler.stats.inc_value('validation/rejected')
+            spider.crawler.stats.inc_value('validation/rejected/no_local_evidence')
+            raise DropItem('Publisher locality is outside Bratislava; no local coordinates')
+        result = validate_event(item)
+        if not result.accepted or result.needs_advanced_extraction:
+            spider.crawler.stats.inc_value('validation/rejected')
+            reason = result.reason if not result.accepted else 'low confidence'
+            reason_key = re.sub(r'[^a-z0-9]+', '_', reason.lower()).strip('_')[:60] or 'unknown'
+            spider.crawler.stats.inc_value(f'validation/rejected/{reason_key}')
+            raise DropItem(result.reason if not result.accepted else 'low confidence')
+        return item
+
+
+class ValidatePipeline(CrawlerPipeline):
+    def process_item(self, item, spider=None):
+        spider = spider or self.crawler.spider
         result = validate_event(item)
         if not result.accepted:
             logger.info("Rejected event %r: %s", item.title, result.reason)
+            spider.crawler.stats.inc_value('validation/rejected')
+            spider.crawler.stats.inc_value('validation/rejected/' + re.sub(r'[^a-z0-9]+','_',result.reason.lower()).strip('_')[:60])
             raise DropItem(f"Rejected: {result.reason}")
         if result.needs_advanced_extraction:
             logger.info(
                 "Low-confidence event flagged for advanced extraction: %r",
                 item.title,
             )
+            spider.crawler.stats.inc_value("validation/low_confidence")
+            spider.crawler.stats.inc_value('validation/rejected')
+            spider.crawler.stats.inc_value('validation/rejected/low_confidence')
+            raise DropItem("Insufficient confidence for publication")
+        candidate_source = any(s.parser == 'structured' for s in getattr(spider,'sources',[]))
+        if (item.source_reliability <= 0.6 or candidate_source) and not (
+            item.latitude is not None or 'bratislava' in (item.address or '').lower()
+        ):
+            spider.crawler.stats.inc_value('validation/rejected')
+            spider.crawler.stats.inc_value('validation/rejected/no_local_evidence')
+            raise DropItem("Discovered source lacks Bratislava location evidence")
         return item
 
 
-class ApiSubmitPipeline:
-    def open_spider(self, spider):
+class ApiSubmitPipeline(CrawlerPipeline):
+    def open_spider(self, spider=None):
+        spider = spider or self.crawler.spider
         self.api_base_url = spider.settings.get("API_BASE_URL")
         self.submitted = 0
         self.failed = 0
 
-    def process_item(self, item, spider):
+    def process_item(self, item, spider=None):
+        spider = spider or self.crawler.spider
         try:
             response = requests.post(
                 f"{self.api_base_url}/events",
@@ -139,8 +272,65 @@ class ApiSubmitPipeline:
             logger.warning("Failed to submit event %r: %s", item.title, exc)
         return item
 
-    def close_spider(self, spider):
+    def close_spider(self, spider=None):
+        spider = spider or self.crawler.spider
         logger.info("Submitted %d events, %d failed", self.submitted, self.failed)
+
+
+class QualityAuditPipeline(CrawlerPipeline):
+    """Non-writing live audit: same validation/completeness, no API or geocoder."""
+    def process_item(self, item, spider=None):
+        spider = spider or self.crawler.spider
+        from crawler.quality import quality
+        limit = crawl_item_limit(spider)
+        if spider.crawler.stats.get_value('quality/events', 0) >= limit:
+            spider.crawler.stats.inc_value('resource/item_limit')
+            raise DropItem('run_item_limit')
+        place = (round(item.latitude,5),round(item.longitude,5)) if item.latitude is not None and item.longitude is not None else (item.address or item.venue_name or '').casefold().strip()
+        identity = (' '.join(item.title.casefold().split()), item.start_time, place)
+        seen = getattr(self, '_quality_seen', None)
+        if seen is None:
+            self._quality_seen = seen = set()
+        if identity not in seen:
+            seen.add(identity)
+            spider.crawler.stats.inc_value('quality/unique_events')
+            if item.event_status == 'fresh' and datetime.fromisoformat(item.start_time) > datetime.now(timezone.utc):
+                spider.crawler.stats.inc_value('quality/unique_future_events')
+        spider.crawler.stats.inc_value('quality/confidence_total', item.extraction_confidence)
+        spider.crawler.stats.inc_value('quality/events')
+        spider.crawler.stats.inc_value('quality/score_total', quality(item)['score'])
+        if item.end_time:
+            spider.crawler.stats.inc_value('quality/with_end')
+        if item.latitude is not None and item.longitude is not None:
+            spider.crawler.stats.inc_value('quality/with_coordinates')
+        for key,present in {'with_venue':bool(item.venue_name),'with_category':item.category not in ('','Other'),
+                            'with_organizer':bool(item.organizer_name),
+                            'future_events':item.event_status=='fresh' and datetime.fromisoformat(item.start_time)>datetime.now(timezone.utc)}.items():
+            if present:
+                spider.crawler.stats.inc_value('quality/'+key)
+        return item
+
+
+class DurableSubmitPipeline(QualityAuditPipeline):
+    def open_spider(self, spider=None):
+        spider = spider or self.crawler.spider
+        from crawler.state import State
+        self.state = State()
+
+    def process_item(self, item, spider=None):
+        spider = spider or self.crawler.spider
+        super().process_item(item, spider)
+        self.state.enqueue(_to_event_create_payload(item))
+        spider.crawler.stats.inc_value("ingestion/queued")
+        return item
+
+    def close_spider(self, spider=None):
+        spider = spider or self.crawler.spider
+        from crawler.worker import deliver
+        count = deliver(self.state, spider.settings.get("API_BASE_URL"), os.getenv("INGESTION_API_KEY", ""), limit=50, budget_seconds=10)
+        spider.crawler.stats.set_value("ingestion/delivered", count)
+        spider.crawler.stats.set_value("ingestion/pending", self.state.db.execute("SELECT count(*) FROM outbox WHERE status='pending'").fetchone()[0])
+        self.state.close()
 
 
 def _to_event_create_payload(item) -> dict:
@@ -149,6 +339,7 @@ def _to_event_create_payload(item) -> dict:
         "description": item.description,
         "start_time": item.start_time,
         "end_time": item.end_time,
+        "end_date": item.end_date,
         "timezone": item.timezone,
         "venue_name": item.venue_name,
         "address": item.address,
@@ -164,6 +355,16 @@ def _to_event_create_payload(item) -> dict:
         "language": item.language,
         "extraction_confidence": item.extraction_confidence,
         "source_reliability": item.source_reliability,
+        "status": item.event_status,
+        "original_source_url": item.original_source_url,
+        "temporal_evidence": item.temporal_evidence,
+        "extraction_method": item.extraction_method,
+        "organizer_name": item.organizer_name,
+        "previous_start_time": item.previous_start_time,
+        "publisher_event_id": item.publisher_event_id,
+        "recurrence_rule": item.recurrence_rule,
+        "identity_kind": item.identity_kind,
+        "start_precision": item.start_precision,
     }
 
 

@@ -17,19 +17,19 @@ depends_on = None
 source_type_enum = postgresql.ENUM(
     "venue", "club", "restaurant", "theatre", "museum", "gallery", "university",
     "community", "sports", "festival", "government", "tourism", "blog", "event_platform",
-    name="sourcetype",
+    name="sourcetype", create_type=False,
 )
 source_status_enum = postgresql.ENUM(
-    "active", "paused", "disabled", "failing", name="sourcestatus"
+    "active", "paused", "disabled", "failing", name="sourcestatus", create_type=False
 )
 event_category_enum = postgresql.ENUM(
     "Music", "Nightlife", "Culture", "Arts", "Theatre", "Sports", "Food & Drink",
     "Education", "Workshops", "Community", "Networking", "Family", "Markets",
     "Festivals", "Student", "Technology", "Comedy", "Exhibitions", "Other",
-    name="eventcategory",
+    name="eventcategory", create_type=False,
 )
 event_status_enum = postgresql.ENUM(
-    "fresh", "stale", "expired", "removed", "cancelled", name="eventstatus"
+    "fresh", "stale", "expired", "removed", "cancelled", name="eventstatus", create_type=False
 )
 
 
