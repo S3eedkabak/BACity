@@ -23,7 +23,9 @@
     "typecheck": "tsc --noEmit",
     "test:receipts": "node --experimental-strip-types --test src/receipts/presentation.test.mjs",
     "test:ui": "node --experimental-strip-types --test src/interactions/*.test.mjs",
-    "test": "node --experimental-strip-types --test"
+    "test": "node --experimental-strip-types --test",
+    "design:tokens": "node --experimental-strip-types scripts/export-design-tokens.mjs",
+    "design:check": "node --experimental-strip-types scripts/export-design-tokens.mjs --check"
   },
   "dependencies": {
     "@gluestack-style/react": "^1.0.57",

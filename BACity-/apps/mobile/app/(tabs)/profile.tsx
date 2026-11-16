@@ -1,3 +1,5 @@
+import { useProfileActivity } from '../../src/hooks/useProfileActivity';
+import { tokens } from '../../src/theme/tokens';
 import { ContentStages } from "../../src/components/navigation/SceneMotion";
 import { SegmentedControl } from "../../src/components/interactions/SegmentedControl";
 import { SectionTransition } from "../../src/components/navigation/SceneMotion";
@@ -6,17 +8,15 @@ import { SettingsNavList } from "../../src/components/interactions/NavListCard";
 import { AppearanceSettings } from "../../src/components/interactions/AppearanceSettings";
 import { useQuery } from "@tanstack/react-query";
 import { themedStyles, useThemeRevision } from "../../src/theme/appearance";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { FlatList, StyleSheet, Text, View } from "react-native";
 import { AnimatedPressable as Pressable } from "../../src/components/motion/Motion";
 import { SafeAreaView } from "../../src/components/navigation/ContentSafeArea";
 import { AppIcon } from "../../src/components/AppIcon";
 import { router } from "expo-router";
-import { apiRequest } from "../../src/api/client";
 import {
   getProfile,
-  getProfileHistory,
-  type PublicProfile,
+    type PublicProfile,
 } from "../../src/api/community";
 import { Chip } from "../../src/components/CommunityUI";
 import { EmptyState } from "../../src/components/EmptyState";
@@ -31,7 +31,7 @@ import {
 } from "../../src/components/SocialUI";
 import { useAuthStore } from "../../src/store/authStore";
 import { colors } from "../../src/theme/colors";
-import { fonts } from "../../src/theme/fonts";
+import { fontStyles } from "../../src/theme/fonts";
 
 type Tab = "contributions" | "reviews" | "collections";
 function ProfileScreen() {
@@ -46,47 +46,9 @@ function ProfileScreen() {
   });
   const profile = profileQuery.data;
   const [tab, setTab] = useState<Tab>("contributions");
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [more, setMore] = useState(false);
   const [menu, setMenu] = useState(false);
+  const { items, loading, error, more, load } = useProfileActivity(user?.id, tab);
 
-  const historyRequest = useRef(0);
-  async function load(append = false) {
-    if (!user) return;
-    const request = ++historyRequest.current;
-    setLoading(true);
-    try {
-      let result: any[];
-      if (tab === "collections")
-        result = (
-          await apiRequest<any[]>("/community/collections", { auth: true })
-        ).filter((item) => item.user_id === user.id);
-      else
-        result = await getProfileHistory(
-          user.id,
-          tab,
-          append ? items.length : 0,
-          12,
-        );
-      if (request !== historyRequest.current) return;
-      setItems((current) => (append ? [...current, ...result] : result));
-      setMore(tab !== "collections" && result.length === 12);
-      setError("");
-    } catch (e: any) {
-      if (request === historyRequest.current) setError(e.message);
-    } finally {
-      if (request === historyRequest.current) setLoading(false);
-    }
-  }
-  useEffect(() => {
-    setItems([]);
-    void load(false);
-    return () => {
-      historyRequest.current++;
-    };
-  }, [user?.id, tab]);
   async function signOut() {
     await logout();
     router.replace("/welcome");
@@ -442,30 +404,30 @@ const styles = themedStyles(() => ({
   safe: { flex: 1, backgroundColor: colors.background },
   content: {
     width: "100%",
-    maxWidth: 760,
+    maxWidth: tokens.layout.maxWidth,
     alignSelf: "center",
-    paddingHorizontal: 18,
-    paddingBottom: 92,
+    paddingHorizontal: tokens.layout.gutter,
+    paddingBottom: tokens.layout.contentBottom,
     flexGrow: 1,
   },
   guest: { flex: 1, justifyContent: "center", padding: 28 },
   guestTitle: {
     color: colors.text,
-    fontFamily: fonts.black,
+    ...fontStyles.black,
     fontWeight: "800",
     fontSize: 30,
     marginTop: 8,
   },
   guestText: {
     color: colors.textMuted,
-    fontFamily: fonts.regular,
+    ...fontStyles.regular,
     fontSize: 14,
     lineHeight: 21,
     marginVertical: 12,
   },
   primary: {
     minHeight: 52,
-    borderRadius: 17,
+    borderRadius: tokens.radius.control,
     backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
@@ -473,13 +435,13 @@ const styles = themedStyles(() => ({
   },
   primaryText: {
     color: colors.white,
-    fontFamily: fonts.semibold,
+    ...fontStyles.semibold,
     fontWeight: "600",
   },
   secondary: { minHeight: 52, alignItems: "center", justifyContent: "center" },
   secondaryText: {
     color: colors.text,
-    fontFamily: fonts.semibold,
+    ...fontStyles.semibold,
     fontWeight: "600",
   },
   identity: {
@@ -494,27 +456,27 @@ const styles = themedStyles(() => ({
   name: {
     flexShrink: 1,
     color: colors.text,
-    fontFamily: fonts.black,
+    ...fontStyles.black,
     fontWeight: "800",
     fontSize: 21,
     letterSpacing: -0.3,
   },
   location: {
     color: colors.textMuted,
-    fontFamily: fonts.regular,
+    ...fontStyles.regular,
     fontSize: 14,
     marginTop: 8,
   },
   reputation: {
     color: colors.primaryDark,
-    fontFamily: fonts.semibold,
+    ...fontStyles.semibold,
     fontWeight: "600",
     fontSize: 13,
     marginTop: 6,
   },
   bio: {
     color: colors.text,
-    fontFamily: fonts.regular,
+    ...fontStyles.regular,
     fontSize: 16,
     lineHeight: 24,
     marginTop: 8,

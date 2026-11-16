@@ -13,7 +13,7 @@ import { EmptyState } from "../../src/components/EmptyState";
 import { Notice } from "../../src/components/CommunityUI";
 import { useAuthStore } from "../../src/store/authStore";
 import { colors } from "../../src/theme/colors";
-import { fonts } from "../../src/theme/fonts";
+import { fontStyles } from "../../src/theme/fonts";
 
 export default function ConversationScreen() {
   useThemeRevision();
@@ -58,9 +58,9 @@ const styles = themedStyles(() => ({
   safe: { flex: 1, backgroundColor: colors.background }, loading: { padding: 18 }, messages: { flexGrow: 1, paddingHorizontal: 14, paddingVertical: 12, justifyContent: "flex-end" },
   messageRow: { flexDirection: "row", alignItems: "flex-end", gap: 7, marginVertical: 4 }, messageRowMine: { justifyContent: "flex-end" },
   bubble: { maxWidth: "78%", paddingHorizontal: 13, paddingTop: 9, paddingBottom: 6, borderRadius: 18 }, bubbleMine: { backgroundColor: colors.primary, borderBottomRightRadius: 6 }, bubbleTheirs: { backgroundColor: colors.surface, borderBottomLeftRadius: 6 },
-  message: { color: colors.text, fontFamily: fonts.regular, fontSize: 14, lineHeight: 19 }, messageMine: { color: colors.white }, messageTime: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, marginTop: 4 }, messageTimeMine: { color: "rgba(255,255,255,.75)", textAlign: "right" },
+  message: { color: colors.text, ...fontStyles.regular, fontSize: 14, lineHeight: 19 }, messageMine: { color: colors.white }, messageTime: { color: colors.textMuted, ...fontStyles.regular, fontSize: 12, marginTop: 4 }, messageTimeMine: { color: "rgba(255,255,255,.75)", textAlign: "right" },
   composer: { flexDirection: "row", alignItems: "flex-end", gap: 9, padding: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, backgroundColor: colors.surface },
-  input: { flex: 1, maxHeight: 110, minHeight: 44, paddingHorizontal: 15, paddingVertical: 11, borderRadius: 20, backgroundColor: colors.surfaceAlt, color: colors.text, fontFamily: fonts.regular, fontSize: 14 },
+  input: { flex: 1, maxHeight: 110, minHeight: 44, paddingHorizontal: 15, paddingVertical: 11, borderRadius: 20, backgroundColor: colors.surfaceAlt, color: colors.text, ...fontStyles.regular, fontSize: 14 },
   send: { width: 44, height: 44, borderRadius: 16, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }, pressed: { opacity: .75 }, disabled: { opacity: .45 },
   reason: { minHeight: 76, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, padding: 12, color: colors.text, textAlignVertical: "top", marginBottom: 6 },
 }));

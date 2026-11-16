@@ -17,7 +17,7 @@ import { useAuthStore } from "../store/authStore";
 import { colors } from "../theme/colors";
 import { EventMedia } from './EventMedia';
 import { MediaScrim } from './MediaScrim';
-import { fonts } from "../theme/fonts";
+import { fontStyles } from "../theme/fonts";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
@@ -235,19 +235,19 @@ const styles = themedStyles(() => ({
     paddingVertical: 8,
     borderRadius: 99,
   },
-  categoryText: { color: "#fff", fontFamily: fonts.semibold, fontSize: 10 },
+  categoryText: { color: "#fff", ...fontStyles.semibold, fontSize: 10 },
   pricePill: { backgroundColor: colors.white, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 99 },
-  priceText: { color: colors.text, fontFamily: fonts.semibold, fontSize: 10 },
+  priceText: { color: colors.text, ...fontStyles.semibold, fontSize: 10 },
   imageBottom: { position: "absolute", left: 18, right: 18, bottom: 18 },
   title: {
     color: "#fff",
-    fontFamily: fonts.black,
+    ...fontStyles.black,
     fontSize: 27,
     lineHeight: 30,
     letterSpacing: -0.7,
   },
   locationLine: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 8 },
-  location: { color: "rgba(255,255,255,0.9)", fontFamily: fonts.medium, fontSize: 12, flex: 1 },
+  location: { color: "rgba(255,255,255,0.9)", ...fontStyles.medium, fontSize: 12, flex: 1 },
   verdict: {
     position: "absolute",
     top: 135,
@@ -258,7 +258,7 @@ const styles = themedStyles(() => ({
   },
   likeVerdict: { left: 22, borderColor: "#A5E7CB" },
   passVerdict: { right: 22, borderColor: "#FFB0B5" },
-  verdictText: { color: "#fff", fontFamily: fonts.black, fontSize: 18 },
+  verdictText: { color: "#fff", ...fontStyles.black, fontSize: 18 },
   info: { flex: 1, flexDirection: "row", alignItems: "center", paddingHorizontal: 17, gap: 11 },
   dateBox: {
     width: 55,
@@ -268,11 +268,11 @@ const styles = themedStyles(() => ({
     alignItems: "center",
     justifyContent: "center",
   },
-  dateDay: { color: colors.primaryDark, fontFamily: fonts.black, fontSize: 8 },
-  dateNumber: { color: colors.text, fontFamily: fonts.semibold, fontSize: 13, marginTop: 2 },
+  dateDay: { color: colors.primaryDark, ...fontStyles.black, fontSize: 8 },
+  dateNumber: { color: colors.text, ...fontStyles.semibold, fontSize: 13, marginTop: 2 },
   infoCopy: { flex: 1 },
-  time: { color: colors.text, fontFamily: fonts.black, fontSize: 14 },
-  hint: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 10, marginTop: 3 },
+  time: { color: colors.text, ...fontStyles.black, fontSize: 14 },
+  hint: { color: colors.textMuted, ...fontStyles.regular, fontSize: 10, marginTop: 3 },
   details: {
     width: 42,
     height: 42,
@@ -286,7 +286,7 @@ const styles = themedStyles(() => ({
     right: 17,
     bottom: 7,
     color: colors.textMuted,
-    fontFamily: fonts.medium,
+    ...fontStyles.medium,
     fontSize: 9,
   },
   done: { height: 350, alignItems: "center", justifyContent: "center", padding: 35 },
@@ -299,10 +299,10 @@ const styles = themedStyles(() => ({
     justifyContent: "center",
     marginBottom: 15,
   },
-  doneTitle: { color: colors.text, fontFamily: fonts.black, fontSize: 20 },
+  doneTitle: { color: colors.text, ...fontStyles.black, fontSize: 20 },
   doneText: {
     color: colors.textMuted,
-    fontFamily: fonts.regular,
+    ...fontStyles.regular,
     fontSize: 13,
     textAlign: "center",
     lineHeight: 19,

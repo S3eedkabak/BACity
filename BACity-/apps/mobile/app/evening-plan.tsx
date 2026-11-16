@@ -15,7 +15,7 @@ import { plusPaywallRoute } from "../src/plus/policy";
 import { usePlusGate } from "../src/plus/usePlusGate";
 import { useRecommendationLocation } from "../src/recommendations/useRecommendationLocation";
 import { colors } from "../src/theme/colors";
-import { fonts } from "../src/theme/fonts";
+import { fontStyles } from "../src/theme/fonts";
 import { EventCategory } from "../src/types/event";
 import { PremiumIntro, PlanStop } from "../src/components/PremiumUI";
 import { TemporalField } from "../src/components/TemporalField";
@@ -127,14 +127,14 @@ export default function EveningPlanScreen() {
 
 const styles = themedStyles(() => ({
   safe: { flex: 1, backgroundColor: colors.background }, guard: { flex: 1, alignItems: "center", justifyContent: "center" }, content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 42 },
-  kicker: { color: colors.primaryDark, fontFamily: fonts.black, fontWeight: '800', fontSize: 12, letterSpacing: 1.5, marginTop: 10 }, heading: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 28, letterSpacing: -1, marginTop: 6 },
-  subtitle: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, marginTop: 7 }, form: { marginTop: 18, gap: 12 }, split: { flexDirection: "row", gap: 9 }, flex: { flex: 1, minWidth: 0 },
-  label: { color: colors.textMuted, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12, letterSpacing: .8 }, chips: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
-  locationRow: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 8, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border }, locationText: { flex: 1, color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12 }, locationAction: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12, padding: 10 },
-  error: { color: colors.danger, fontFamily: fonts.medium, fontSize: 12 }, alternatives: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 24, marginBottom: 12 }, alternative: { minHeight: 44, paddingHorizontal: 13, borderRadius: 13, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" },
-  alternativeActive: { backgroundColor: colors.primary }, alternativeText: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 }, alternativeTextActive: { color: colors.white }, result: { gap: 5 },
-  planTitle: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 21 }, planExplanation: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18 }, limited: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12, marginTop: 5 },
+  kicker: { color: colors.primaryDark, ...fontStyles.black, fontWeight: '800', fontSize: 12, letterSpacing: 1.5, marginTop: 10 }, heading: { color: colors.text, ...fontStyles.black, fontWeight: '800', fontSize: 28, letterSpacing: -1, marginTop: 6 },
+  subtitle: { color: colors.textMuted, ...fontStyles.regular, fontSize: 12, lineHeight: 18, marginTop: 7 }, form: { marginTop: 18, gap: 12 }, split: { flexDirection: "row", gap: 9 }, flex: { flex: 1, minWidth: 0 },
+  label: { color: colors.textMuted, ...fontStyles.semibold, fontWeight: '600', fontSize: 12, letterSpacing: .8 }, chips: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+  locationRow: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 8, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border }, locationText: { flex: 1, color: colors.textMuted, ...fontStyles.regular, fontSize: 12 }, locationAction: { color: colors.primaryDark, ...fontStyles.semibold, fontWeight: '600', fontSize: 12, padding: 10 },
+  error: { color: colors.danger, ...fontStyles.medium, fontSize: 12 }, alternatives: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 24, marginBottom: 12 }, alternative: { minHeight: 44, paddingHorizontal: 13, borderRadius: 13, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" },
+  alternativeActive: { backgroundColor: colors.primary }, alternativeText: { color: colors.primaryDark, ...fontStyles.semibold, fontWeight: '600', fontSize: 12 }, alternativeTextActive: { color: colors.white }, result: { gap: 5 },
+  planTitle: { color: colors.text, ...fontStyles.black, fontWeight: '800', fontSize: 21 }, planExplanation: { color: colors.textMuted, ...fontStyles.regular, fontSize: 12, lineHeight: 18 }, limited: { color: colors.primaryDark, ...fontStyles.semibold, fontWeight: '600', fontSize: 12, marginTop: 5 },
   timeline: { gap: 10, marginTop: 10 }, eventRow: { minHeight: 108, flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }, pressed: { opacity: .7 },
-  order: { width: 36, height: 36, borderRadius: 14, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }, orderText: { color: colors.white, fontFamily: fonts.black, fontWeight: '800', fontSize: 12 },
-  eventCopy: { flex: 1, minWidth: 0 }, eventTime: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 }, eventTitle: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 15, lineHeight: 19, marginTop: 4 }, eventVenue: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, marginTop: 3 }, reason: { color: colors.primaryDark, fontFamily: fonts.medium, fontSize: 12, marginTop: 6 },
+  order: { width: 36, height: 36, borderRadius: 14, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }, orderText: { color: colors.white, ...fontStyles.black, fontWeight: '800', fontSize: 12 },
+  eventCopy: { flex: 1, minWidth: 0 }, eventTime: { color: colors.primaryDark, ...fontStyles.semibold, fontWeight: '600', fontSize: 12 }, eventTitle: { color: colors.text, ...fontStyles.black, fontWeight: '800', fontSize: 15, lineHeight: 19, marginTop: 4 }, eventVenue: { color: colors.textMuted, ...fontStyles.regular, fontSize: 12, marginTop: 3 }, reason: { color: colors.primaryDark, ...fontStyles.medium, fontSize: 12, marginTop: 6 },
 }));

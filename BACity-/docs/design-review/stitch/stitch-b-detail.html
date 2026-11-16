@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>B Event detail — compact utility</title>
+<!-- Material Symbols Outlined font -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS CDN with plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "surface-variant": "#373438",
+            "on-tertiary-fixed-variant": "#00530a",
+            "on-primary-container": "#ffd0de",
+            "inverse-primary": "#a63165",
+            "on-error": "#690005",
+            "on-secondary-fixed": "#390723",
+            "surface-container": "#211f23",
+            "inverse-on-surface": "#322f34",
+            "on-secondary-container": "#eb9fc0",
+            "surface-dim": "#151317",
+            "on-secondary": "#531d39",
+            "surface": "#151317",
+            "primary": "#ffb0ca",
+            "on-secondary-fixed-variant": "#6e3350",
+            "on-error-container": "#ffdad6",
+            "on-tertiary-fixed": "#002202",
+            "surface-tint": "#ffb0ca",
+            "surface-container-highest": "#373438",
+            "outline-variant": "#554147",
+            "surface-container-low": "#1d1b1f",
+            "on-primary-fixed-variant": "#87164d",
+            "outline": "#a38a91",
+            "error": "#ffb4ab",
+            "primary-fixed": "#ffd9e3",
+            "inverse-surface": "#e7e1e6",
+            "on-tertiary-container": "#91f385",
+            "on-background": "#e7e1e6",
+            "background": "#151317",
+            "secondary-fixed": "#ffd8e6",
+            "secondary-fixed-dim": "#ffb0d1",
+            "primary-container": "#a93468",
+            "surface-container-lowest": "#0f0d11",
+            "tertiary": "#7cdc71",
+            "tertiary-fixed-dim": "#7cdc71",
+            "surface-container-high": "#2c292d",
+            "secondary": "#ffb0d1",
+            "error-container": "#93000a",
+            "on-tertiary": "#003a05",
+            "surface-bright": "#3b383d",
+            "on-surface": "#e7e1e6",
+            "on-primary": "#640036",
+            "on-primary-fixed": "#3e001f",
+            "secondary-container": "#6e3350",
+            "tertiary-fixed": "#97f98a",
+            "primary-fixed-dim": "#ffb0ca",
+            "on-surface-variant": "#dbbfc7",
+            "tertiary-container": "#017112"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-xl": "1.5rem",
+            "margin": "1.25rem",
+            "space-xs": "0.25rem",
+            "space-lg": "1.25rem",
+            "space-md": "1rem",
+            "gutter": "1.25rem",
+            "space-sm": "0.5rem"
+          },
+          "fontFamily": {
+            "body-md": ["Inter", "sans-serif"],
+            "headline-xl": ["Inter", "sans-serif"],
+            "meta-sm": ["Inter", "sans-serif"],
+            "body-lg": ["Inter", "sans-serif"],
+            "action-md": ["Inter", "sans-serif"],
+            "headline-lg": ["Inter", "sans-serif"],
+            "headline-md": ["Inter", "sans-serif"],
+            "meta-md": ["Inter", "sans-serif"],
+            "action-sm": ["Inter", "sans-serif"]
+          },
+          "fontSize": {
+            "body-md": ["15px", { "lineHeight": "21px", "fontWeight": "400" }],
+            "headline-xl": ["30px", { "lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+            "meta-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500" }],
+            "body-lg": ["17px", { "lineHeight": "24px", "fontWeight": "400" }],
+            "action-md": ["15px", { "lineHeight": "20px", "fontWeight": "600" }],
+            "headline-lg": ["22px", { "lineHeight": "28px", "letterSpacing": "-0.015em", "fontWeight": "700" }],
+            "headline-md": ["17px", { "lineHeight": "23px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+            "meta-md": ["14px", { "lineHeight": "18px", "fontWeight": "400" }],
+            "action-sm": ["13px", { "lineHeight": "18px", "letterSpacing": "0.01em", "fontWeight": "600" }]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      line-height: 1;
+      display: inline-block;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body class="bg-surface-container-lowest text-on-surface antialiased selection:bg-primary-container selection:text-on-primary-container min-h-screen">
+<div class="relative w-full max-w-[640px] mx-auto min-h-screen flex flex-col bg-surface border-x border-outline-variant/20 shadow-2xl">
+<!-- Top Navigation Bar -->
+<header class="sticky top-0 z-40 w-full h-14 bg-surface-container-low/95 backdrop-blur-md border-b border-outline-variant/30 flex items-center justify-between px-gutter">
+<button aria-label="Go back" class="flex items-center justify-center min-w-[48px] min-h-[48px] -ml-2 text-on-surface hover:text-primary active:scale-95 transition-transform duration-150" type="button">
+<span class="material-symbols-outlined text-[22px]">arrow_back</span>
+</button>
+<span class="font-headline-md text-headline-md font-bold tracking-tight text-on-surface">Event</span>
+<div class="flex items-center -mr-2">
+<button aria-label="Share event" class="flex items-center justify-center min-w-[48px] min-h-[48px] text-on-surface hover:text-primary active:scale-95 transition-transform duration-150" type="button">
+<span class="material-symbols-outlined text-[20px]">share</span>
+</button>
+<button aria-label="More options" class="flex items-center justify-center min-w-[48px] min-h-[48px] text-on-surface hover:text-primary active:scale-95 transition-transform duration-150" type="button">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+</header>
+<!-- Main Content Flow -->
+<main class="flex-1 px-gutter pt-space-lg pb-32 space-y-space-xl">
+<!-- Compact Hero Image Block -->
+<section class="relative w-full h-[156px] rounded-xl overflow-hidden border border-outline-variant/30 bg-surface-container-low">
+<img alt="Bratislava Danube riverfront promenade during late autumn golden hour" class="w-full h-full object-cover object-center" src="https://lh3.googleusercontent.com/aida/ALJJyrDHYaf5lX8iS271qqzHSCGwDyH-yEL4Ejz0wMF8Ca6OxyMh3r9xMWhU_CkeSKJ3m4ffODwtX6BDkbgDALTgOwnue8OXL3DHTuHiSBWIkngOh6tspTJalg32iVKnnQ93z7wFj557E6G0-5eP328BbZ4aZPj_EzBxrRYL0SNG-QGbd257sG8JQGbszaWLXE3Nb-axVP7pwrpSkOvRSQDFkZxvdcIK1ApZm0xS0QU7rDs4SwknJie4BBA1Sp0"/>
+<!-- Dual-stop atmospheric scrim -->
+<div class="absolute inset-0 bg-gradient-to-t from-[#100E12]/85 via-transparent to-black/20 pointer-events-none"></div>
+<div class="absolute bottom-2.5 left-3 px-2 py-0.5 rounded bg-surface-container-lowest/80 border border-outline-variant/40 backdrop-blur-sm">
+<span class="font-meta-sm text-meta-sm text-primary flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+            Scheduled
+          </span>
+</div>
+</section>
+<!-- Event Header -->
+<section class="space-y-space-xs">
+<div class="flex items-center gap-2">
+<span class="inline-flex items-center px-2 py-0.5 rounded bg-surface-container-high border border-outline-variant/40 font-action-sm text-action-sm text-on-surface-variant">
+            CITY WALK • FREE
+          </span>
+<span class="font-meta-sm text-meta-sm text-on-surface-variant/70">Bratislava I</span>
+</div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight pt-1">
+          Along the Danube at golden hour
+        </h1>
+</section>
+<!-- Compact Structured Metadata Rows -->
+<section class="rounded-xl border border-outline-variant/30 bg-surface-container-low divide-y divide-outline-variant/20 overflow-hidden">
+<!-- Date & Time Row -->
+<div class="flex items-center gap-3.5 px-4 py-3 min-h-[52px]">
+<div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-primary flex-shrink-0">
+<span class="material-symbols-outlined text-[19px]">calendar_today</span>
+</div>
+<div class="flex flex-col flex-1">
+<span class="font-meta-sm text-meta-sm text-on-surface-variant">Date &amp; Time</span>
+<span class="font-body-md text-body-md font-semibold text-on-surface">21 Nov 2026, 18:00</span>
+</div>
+<span class="font-meta-sm text-meta-sm text-on-surface-variant/80 bg-surface-container px-2 py-1 rounded">CET</span>
+</div>
+<!-- Venue / Location Row -->
+<div class="flex items-center gap-3.5 px-4 py-3 min-h-[52px]">
+<div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-primary flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]">place</span>
+</div>
+<div class="flex flex-col flex-1">
+<span class="font-meta-sm text-meta-sm text-on-surface-variant">Meeting Point</span>
+<span class="font-body-md text-body-md font-semibold text-on-surface">Danube riverfront</span>
+<span class="font-meta-sm text-meta-sm text-on-surface-variant">Starý Most to River Park promenade</span>
+</div>
+<a aria-label="Open in map" class="flex items-center justify-center min-w-[48px] min-h-[48px] text-primary hover:text-on-primary-container transition-colors" href="#map">
+<span class="material-symbols-outlined text-[20px]">near_me</span>
+</a>
+</div>
+<!-- Admission Row -->
+<div class="flex items-center gap-3.5 px-4 py-3 min-h-[52px]">
+<div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-primary flex-shrink-0">
+<span class="material-symbols-outlined text-[19px]">payments</span>
+</div>
+<div class="flex flex-col flex-1">
+<span class="font-meta-sm text-meta-sm text-on-surface-variant">Admission</span>
+<span class="font-body-md text-body-md font-semibold text-on-surface">Free access</span>
+</div>
+<span class="inline-flex items-center gap-1 font-action-sm text-action-sm text-tertiary bg-tertiary-container/30 px-2 py-0.5 rounded border border-tertiary/20">
+<span class="material-symbols-outlined text-[14px]">check</span>
+            Open entry
+          </span>
+</div>
+</section>
+<!-- Description Section -->
+<section class="space-y-space-sm">
+<h2 class="font-headline-md text-headline-md text-on-surface tracking-tight">
+          About this event
+        </h2>
+<div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-4">
+<p class="font-body-md text-body-md text-on-surface-variant leading-relaxed">
+            Synthetic design review fixture. Curated cultural gatherings, live sessions, and quiet riverside walks along Bratislava's Danube embankment during late autumn golden hour.
+          </p>
+<div class="mt-4 pt-3.5 border-t border-outline-variant/20 flex flex-wrap gap-2 text-on-surface-variant">
+<span class="font-meta-sm text-meta-sm bg-surface-container px-2.5 py-1 rounded">Distance: ~2.4 km</span>
+<span class="font-meta-sm text-meta-sm bg-surface-container px-2.5 py-1 rounded">Pace: Gentle</span>
+<span class="font-meta-sm text-meta-sm bg-surface-container px-2.5 py-1 rounded">Language: EN / SK</span>
+</div>
+</div>
+</section>
+<!-- Community Reviews Section -->
+<section class="space-y-space-sm">
+<div class="flex items-center justify-between">
+<h2 class="font-headline-md text-headline-md text-on-surface tracking-tight">
+            Community reviews
+          </h2>
+<span class="font-meta-sm text-meta-sm text-on-surface-variant">0 reviews</span>
+</div>
+<!-- Clean empty state -->
+<div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 flex flex-col items-center text-center space-y-3">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px]">rate_review</span>
+</div>
+<div class="space-y-1 max-w-[320px]">
+<p class="font-body-md text-body-md text-on-surface font-medium">No reviews yet</p>
+<p class="font-meta-sm text-meta-sm text-on-surface-variant">
+              Be the first to share your thoughts on this riverside walk.
+            </p>
+</div>
+<button class="mt-1 flex items-center justify-center gap-2 min-h-[48px] px-5 rounded-lg border border-outline-variant/50 hover:border-primary bg-surface-container text-on-surface font-action-sm text-action-sm active:bg-surface-container-high transition-colors duration-150" type="button">
+<span class="material-symbols-outlined text-[18px]">edit_note</span>
+<span>Write a review</span>
+</button>
+</div>
+</section>
+</main>
+<!-- Fixed Bottom Action Dock -->
+<div class="fixed bottom-0 left-0 right-0 z-50 bg-surface-container-low/95 backdrop-blur-md border-t border-outline-variant/30">
+<div class="max-w-[640px] mx-auto px-gutter py-3 flex items-center gap-3">
+<!-- Bookmark / Save primary button -->
+<button class="flex-1 flex items-center justify-center gap-2 min-h-[48px] px-space-lg rounded-xl bg-primary-container text-on-primary font-action-md text-action-md active:opacity-90 hover:brightness-105 transition-all duration-150" id="save-button" onclick="toggleSave()" type="button">
+<span class="material-symbols-outlined text-[20px]" id="save-icon">bookmark_border</span>
+<span id="save-text">Save this event</span>
+</button>
+<!-- Secondary action icon -->
+<button aria-label="Add to calendar" class="flex items-center justify-center min-w-[48px] min-h-[48px] rounded-xl border border-outline-variant/50 bg-surface-container text-on-surface hover:text-primary active:bg-surface-container-high transition-colors duration-150" title="Add to personal calendar" type="button">
+<span class="material-symbols-outlined text-[20px]">event</span>
+</button>
+</div>
+</div>
+</div>
+<script>
+    function toggleSave() {
+      const icon = document.getElementById('save-icon');
+      const text = document.getElementById('save-text');
+      const isSaved = icon.innerText === 'bookmark';
+      
+      if (isSaved) {
+        icon.innerText = 'bookmark_border';
+        icon.style.fontVariationSettings = "'FILL' 0";
+        text.innerText = 'Save this event';
+      } else {
+        icon.innerText = 'bookmark';
+        icon.style.fontVariationSettings = "'FILL' 1";
+        text.innerText = 'Saved to itinerary';
+      }
+    }
+  </script>
+</body></html>

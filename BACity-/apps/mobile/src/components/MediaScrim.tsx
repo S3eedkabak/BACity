@@ -1,3 +1,4 @@
+import { colors } from '../theme/colors';
 import { useThemeRevision } from '../theme/appearance';
 import { useId } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -7,5 +8,5 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 export function MediaScrim() {
   useThemeRevision();
   const id = useId().replace(/:/g, '');
-  return <View pointerEvents="none" style={StyleSheet.absoluteFill} accessibilityElementsHidden importantForAccessibility="no-hide-descendants"><Svg width="100%" height="100%"><Defs><LinearGradient id={id} x1="0" y1="0" x2="0" y2="1"><Stop offset={0} stopColor="#18151F" stopOpacity={0.08} /><Stop offset={0.45} stopColor="#18151F" stopOpacity={0.12} /><Stop offset={1} stopColor="#18151F" stopOpacity={0.9} /></LinearGradient></Defs><Rect width="100%" height="100%" fill={`url(#${id})`} /></Svg></View>;
+  return <View pointerEvents="none" style={StyleSheet.absoluteFill} accessibilityElementsHidden importantForAccessibility="no-hide-descendants"><Svg width="100%" height="100%"><Defs><LinearGradient id={id} x1="0" y1="0" x2="0" y2="100%"><Stop offset={0} stopColor={colors.mediaScrim} stopOpacity={0.08} /><Stop offset={0.35} stopColor={colors.mediaScrim} stopOpacity={0.1} /><Stop offset={0.58} stopColor={colors.mediaScrim} stopOpacity={0.72} /><Stop offset={1} stopColor={colors.mediaScrim} stopOpacity={0.98} /></LinearGradient></Defs><Rect width="100%" height="100%" fill={`url(#${id})`} /></Svg></View>;
 }

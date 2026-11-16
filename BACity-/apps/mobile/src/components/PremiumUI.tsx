@@ -33,9 +33,9 @@ const styles = themedStyles(() => ({
   intro: { backgroundColor: tokens.premium.background, paddingVertical: 16, paddingHorizontal: 4, gap: 8, overflow: 'hidden', marginTop: 8, marginBottom: 12 },
   orbit: { position: 'absolute', width: 280, height: 280, borderRadius: 140, borderWidth: 50, borderColor: tokens.premium.surface, right: -130, top: -100 },
   eyebrow: { ...tokens.type.caption, letterSpacing: 1.4, color: tokens.premium.accent }, title: { ...tokens.type.title, color: tokens.premium.text }, subtitle: { ...tokens.type.body, color: tokens.premium.muted },
-  surface: { padding: 16, borderRadius: 16, backgroundColor: tokens.premium.surface, gap: 16 },
+  surface: { padding: 16, borderRadius: tokens.radius.card, backgroundColor: tokens.premium.surface, gap: 16 },
   stop: { flexDirection: 'row', gap: 12 }, rail: { width: 52, alignItems: 'center' }, time: { ...tokens.type.metadata, color: tokens.premium.muted, marginBottom: 12 },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: tokens.premium.muted }, anchorDot: { backgroundColor: tokens.premium.accent }, line: { flex: 1, width: 1, backgroundColor: tokens.premium.muted, marginVertical: 8, minHeight: 40 },
-  card: { flex: 1, flexDirection:'row', borderRadius: 16, overflow: 'hidden', marginBottom: 12, backgroundColor: tokens.premium.surface }, media: { width: 72, minHeight: 90 }, copy: { flex: 1, padding: 12, gap: 6 },
+  card: { flex: 1, flexDirection:'row', borderRadius: tokens.radius.card, overflow: 'hidden', marginBottom: 12, backgroundColor: tokens.premium.surface }, media: { width: 72, minHeight: 90 }, copy: { flex: 1, padding: 12, gap: 6 },
   eventTitle: { ...tokens.type.action, color: tokens.premium.text }, venue: { ...tokens.type.metadata, color: tokens.premium.muted }, reason: { ...tokens.type.metadata, color: tokens.premium.accent }, anchor: { ...tokens.type.caption, color: tokens.premium.accent }, pressed: { opacity: .85 },
 }));

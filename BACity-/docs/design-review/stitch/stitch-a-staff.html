@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A Staff review — editorial guide</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            app: '#100E12',
+            surface: '#1C191F',
+            raised: '#28232C',
+            border: '#3A333F',
+            'txt-main': '#F6F1F3',
+            'txt-muted': '#B7ADB9',
+            brand: '#A93468',
+            rose: '#E69ABB',
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+          },
+          borderRadius: {
+            'custom': '16px',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+      vertical-align: middle;
+    }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: #100E12;
+      color: #F6F1F3;
+    }
+  </style>
+</head>
+<body class="h-full bg-app text-txt-main flex antialiased selection:bg-brand selection:text-white">
+
+  <!-- Left Navigation Sidebar -->
+  <aside class="w-72 flex-shrink-0 bg-surface border-r border-border flex flex-col justify-between h-screen sticky top-0">
+    <div class="p-6">
+      <!-- Workspace Brand & Role -->
+      <div class="flex items-center gap-3 pb-6 border-b border-border">
+        <div class="w-10 h-10 rounded-custom bg-raised border border-border flex items-center justify-center text-rose">
+          <span class="material-symbols-outlined text-[22px]">admin_panel_settings</span>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-[15px] font-bold tracking-tight text-txt-main">BACity</span>
+            <span class="text-[11px] px-2 py-0.5 rounded-full bg-raised border border-border text-rose font-medium">Staff only</span>
+          </div>
+          <p class="text-[12px] text-txt-muted tracking-wide mt-0.5">Control room</p>
+        </div>
+      </div>
+
+      <!-- Navigation links -->
+      <nav class="mt-6 space-y-1.5" aria-label="Staff navigation">
+        <a href="#overview" class="flex items-center gap-3 px-3.5 h-12 rounded-custom text-txt-muted hover:text-txt-main hover:bg-raised transition-colors text-[14px]">
+          <span class="material-symbols-outlined text-[20px]">dashboard</span>
+          <span>Overview</span>
+        </a>
+        <a href="#publishers" class="flex items-center gap-3 px-3.5 h-12 rounded-custom text-txt-muted hover:text-txt-main hover:bg-raised transition-colors text-[14px]">
+          <span class="material-symbols-outlined text-[20px]">storefront</span>
+          <span>Publishers</span>
+        </a>
+        <a href="#events-review" class="flex items-center justify-between px-3.5 h-12 rounded-custom bg-raised border border-border text-txt-main font-medium text-[14px]">
+          <div class="flex items-center gap-3">
+            <span class="material-symbols-outlined text-[20px] text-rose">fact_check</span>
+            <span>Events to review</span>
+          </div>
+          <span class="text-[12px] font-semibold px-2 py-0.5 rounded-full bg-brand/30 border border-brand/50 text-rose">1 pending</span>
+        </a>
+        <a href="#daily-checks" class="flex items-center gap-3 px-3.5 h-12 rounded-custom text-txt-muted hover:text-txt-main hover:bg-raised transition-colors text-[14px]">
+          <span class="material-symbols-outlined text-[20px]">verified</span>
+          <span>Daily checks</span>
+        </a>
+        <a href="#settings" class="flex items-center gap-3 px-3.5 h-12 rounded-custom text-txt-muted hover:text-txt-main hover:bg-raised transition-colors text-[14px]">
+          <span class="material-symbols-outlined text-[20px]">tune</span>
+          <span>Settings</span>
+        </a>
+      </nav>
+    </div>
+
+    <!-- Operator footer profile -->
+    <div class="p-6 border-t border-border bg-app/40">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-full bg-raised border border-border flex items-center justify-center text-txt-muted font-medium text-[13px]">
+            MK
+          </div>
+          <div>
+            <div class="text-[13px] font-semibold text-txt-main">M. Kováč</div>
+            <div class="text-[12px] text-txt-muted">Senior Reviewer · Desk 02</div>
+          </div>
+        </div>
+        <button class="w-8 h-8 rounded-lg flex items-center justify-center text-txt-muted hover:text-txt-main hover:bg-raised transition-colors" title="Session details">
+          <span class="material-symbols-outlined text-[18px]">lock</span>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content Area -->
+  <main class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+    <!-- Top sub-bar -->
+    <div class="h-14 border-b border-border px-10 flex items-center justify-between bg-surface/40 backdrop-blur-sm sticky top-0 z-20">
+      <div class="flex items-center gap-2 text-[13px] text-txt-muted">
+        <span>BACity Console</span>
+        <span class="text-border">/</span>
+        <span>Submissions queue</span>
+        <span class="text-border">/</span>
+        <span class="text-txt-main font-medium">Bratislava Cultural Guide</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-raised border border-border text-[12px] text-txt-muted">
+          <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+          Restricted Internal Review
+        </span>
+        <span class="text-[13px] text-txt-muted">Batch: #REV-2026-884</span>
+      </div>
+    </div>
+
+    <!-- Editorial Header & Queue Status -->
+    <div class="px-10 pt-8 pb-6 border-b border-border bg-surface/20">
+      <div class="max-w-6xl">
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2.5 mb-1.5">
+              <h1 class="text-[30px] font-bold tracking-tight text-txt-main leading-tight">Events to review</h1>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-raised border border-border text-rose">
+                Single submission
+              </span>
+            </div>
+            <p class="text-[14px] text-txt-muted max-w-2xl leading-relaxed">
+              Verify cultural provenance, scheduled timing, and venue eligibility before releasing into the municipal editorial feed.
+            </p>
+          </div>
+
+          <!-- Utility filters / search indicators -->
+          <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 px-3 py-1.5 rounded-custom bg-raised border border-border text-[13px] text-txt-muted">
+              <span class="material-symbols-outlined text-[16px]">filter_list</span>
+              <span>Filter: Bratislava I</span>
+            </div>
+            <div class="flex items-center gap-2 px-3 py-1.5 rounded-custom bg-raised border border-border text-[13px] text-txt-muted">
+              <span class="material-symbols-outlined text-[16px]">schedule</span>
+              <span>Queue latency: 18m</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Review Queue Container -->
+    <div class="px-10 py-8 flex-1">
+      <div class="max-w-6xl space-y-6">
+
+        <!-- Status Callout Card -->
+        <div class="p-4 rounded-custom bg-raised/70 border border-border flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <span class="w-9 h-9 rounded-full bg-brand/20 border border-brand/40 flex items-center justify-center text-rose flex-shrink-0">
+              <span class="material-symbols-outlined text-[20px]">assignment_late</span>
+            </span>
+            <div>
+              <p class="text-[14px] font-medium text-txt-main">Active evaluation window</p>
+              <p class="text-[13px] text-txt-muted">Candidate flagged for editorial review. No automatic sync or release performed.</p>
+            </div>
+          </div>
+          <div class="text-[13px] text-txt-muted font-mono bg-surface px-3 py-1.5 rounded-lg border border-border">
+            Status: Explicit Needs Review
+          </div>
+        </div>
+
+        <!-- The Review Item Candidate Card -->
+        <div class="bg-surface rounded-custom border border-border overflow-hidden shadow-sm">
+          
+          <!-- Card Top Bar -->
+          <div class="p-6 border-b border-border bg-surface flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3 flex-wrap">
+              <span class="px-2.5 py-1 rounded-md text-[12px] font-semibold bg-brand/25 text-rose border border-brand/40 uppercase tracking-wider">
+                Needs review
+              </span>
+              <span class="text-[13px] text-txt-muted">ID: EV-2026-9140</span>
+              <span class="text-border">·</span>
+              <span class="text-[13px] text-txt-muted">Source: Staromestský Kultúrny Bulletin</span>
+              <span class="text-border">·</span>
+              <span class="text-[13px] text-txt-muted">Assigned to: Desk 02</span>
+            </div>
+
+            <!-- Action buttons obeying >=48px min-height & 16px radius -->
+            <div class="flex items-center gap-3">
+              <button class="min-h-[48px] px-5 rounded-custom bg-raised hover:bg-[#342e39] text-txt-main border border-border font-medium text-[14px] inline-flex items-center gap-2 transition-colors active:scale-[0.99]">
+                <span class="material-symbols-outlined text-[18px]">edit_note</span>
+                <span>Edit event details</span>
+              </button>
+              <button class="min-h-[48px] px-6 rounded-custom bg-brand hover:bg-[#b83c74] text-white border border-rose/30 font-semibold text-[14px] inline-flex items-center gap-2 transition-colors shadow-sm active:scale-[0.99]">
+                <span class="material-symbols-outlined text-[18px]">gavel</span>
+                <span>Review event</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Main Event Information Section -->
+          <div class="p-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- Left 8 cols: Metadata & Evidence Content -->
+            <div class="lg:col-span-8 space-y-7">
+              <div>
+                <div class="flex items-center gap-2 text-[13px] font-semibold text-rose uppercase tracking-wider mb-2">
+                  <span class="material-symbols-outlined text-[16px]">nightlife</span>
+                  <span>Contemporary music · Live performance</span>
+                </div>
+                <h2 class="text-[26px] font-bold text-txt-main tracking-tight leading-snug">
+                  Contemporary jazz at Old Town studio
+                </h2>
+                <p class="text-[14px] text-txt-muted mt-2.5 leading-relaxed">
+                  Intimate evening session presenting acoustic brass improvisation and contemporary Slovak chamber arrangements in an acoustically restored Old Town cellar studio.
+                </p>
+              </div>
+
+              <!-- Metadata Grid -->
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                <div class="p-4 rounded-custom bg-raised border border-border">
+                  <div class="flex items-center gap-2 text-[13px] text-txt-muted mb-1">
+                    <span class="material-symbols-outlined text-[16px] text-rose">calendar_today</span>
+                    <span class="font-medium">Date & Time</span>
+                  </div>
+                  <div class="text-[14px] font-semibold text-txt-main">21 Nov 2026</div>
+                  <div class="text-[13px] text-txt-muted mt-0.5">18:00 CET (1h 45m duration)</div>
+                </div>
+
+                <div class="p-4 rounded-custom bg-raised border border-border">
+                  <div class="flex items-center gap-2 text-[13px] text-txt-muted mb-1">
+                    <span class="material-symbols-outlined text-[16px] text-rose">pin_drop</span>
+                    <span class="font-medium">Venue</span>
+                  </div>
+                  <div class="text-[14px] font-semibold text-txt-main">Klarisky / Old Town Studio</div>
+                  <div class="text-[13px] text-txt-muted mt-0.5">Klariská 1, Bratislava I</div>
+                </div>
+
+                <div class="p-4 rounded-custom bg-raised border border-border">
+                  <div class="flex items-center gap-2 text-[13px] text-txt-muted mb-1">
+                    <span class="material-symbols-outlined text-[16px] text-rose">confirmation_number</span>
+                    <span class="font-medium">Admission</span>
+                  </div>
+                  <div class="text-[14px] font-semibold text-txt-main">€14 entry</div>
+                  <div class="text-[13px] text-txt-muted mt-0.5">Capacity: 45 attendees max</div>
+                </div>
+              </div>
+
+              <!-- Inline Expandable Source Evidence Section -->
+              <div class="rounded-custom border border-border bg-app/60 overflow-hidden">
+                <details class="group" open>
+                  <summary class="flex items-center justify-between p-4 cursor-pointer select-none bg-raised/50 hover:bg-raised transition-colors">
+                    <div class="flex items-center gap-2.5">
+                      <span class="material-symbols-outlined text-[18px] text-rose">manage_search</span>
+                      <span class="text-[14px] font-semibold text-txt-main">Source evidence & provenance</span>
+                      <span class="text-[12px] px-2 py-0.5 rounded-full bg-border/60 text-txt-muted font-medium">3 verified items</span>
+                    </div>
+                    <span class="material-symbols-outlined text-[20px] text-txt-muted group-open:rotate-180 transition-transform">
+                      expand_more
+                    </span>
+                  </summary>
+
+                  <div class="p-5 space-y-4 border-t border-border">
+                    <!-- Evidence Item 1 -->
+                    <div class="flex items-start gap-3.5 pb-4 border-b border-border/60">
+                      <div class="w-8 h-8 rounded-lg bg-surface border border-border flex items-center justify-center text-txt-muted flex-shrink-0 mt-0.5">
+                        <span class="material-symbols-outlined text-[17px]">feed</span>
+                      </div>
+                      <div class="flex-1">
+                        <div class="flex items-center justify-between">
+                          <h4 class="text-[14px] font-medium text-txt-main">Scraped Gazette Record</h4>
+                          <span class="text-[13px] text-txt-muted">Match confidence: 98%</span>
+                        </div>
+                        <p class="text-[13px] text-txt-muted mt-1 leading-normal">
+                          Extracted from the official Bratislava Cultural Center autumn catalog (PDF digest #41, p. 19). Original Czech/Slovak text matched title and schedule exactly.
+                        </p>
+                        <div class="mt-2 text-[12px] font-mono text-rose bg-surface px-2.5 py-1 rounded inline-block border border-border/80">
+                          hash: 8f9b2d8e31a0 · extracted 14 Nov 2026, 09:12
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Evidence Item 2 -->
+                    <div class="flex items-start gap-3.5 pb-4 border-b border-border/60">
+                      <div class="w-8 h-8 rounded-lg bg-surface border border-border flex items-center justify-center text-txt-muted flex-shrink-0 mt-0.5">
+                        <span class="material-symbols-outlined text-[17px]">domain_verification</span>
+                      </div>
+                      <div class="flex-1">
+                        <div class="flex items-center justify-between">
+                          <h4 class="text-[14px] font-medium text-txt-main">Venue Registry Cross-Check</h4>
+                          <span class="text-[13px] text-emerald-400 font-medium">Verified Active</span>
+                        </div>
+                        <p class="text-[13px] text-txt-muted mt-1 leading-normal">
+                          Klarisky Concert Hall & Studio is registered under Bratislava Municipal Cultural Facilities. Public assembly permit valid through 31 Dec 2027.
+                        </p>
+                      </div>
+                    </div>
+
+                    <!-- Evidence Item 3 -->
+                    <div class="flex items-start gap-3.5">
+                      <div class="w-8 h-8 rounded-lg bg-surface border border-border flex items-center justify-center text-txt-muted flex-shrink-0 mt-0.5">
+                        <span class="material-symbols-outlined text-[17px]">attribution</span>
+                      </div>
+                      <div class="flex-1">
+                        <div class="flex items-center justify-between">
+                          <h4 class="text-[14px] font-medium text-txt-main">Organizer Credibility</h4>
+                          <span class="text-[13px] text-txt-muted">Tier 1 Municipal Partner</span>
+                        </div>
+                        <p class="text-[13px] text-txt-muted mt-1 leading-normal">
+                          Submitted by Klarisky Chamber Collective. Previous 12 events fulfilled without schedule anomalies or ticket discrepancies.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </details>
+              </div>
+
+              <!-- Disclosed Technical Detail Section -->
+              <div class="rounded-custom border border-border bg-app/60 overflow-hidden">
+                <details class="group">
+                  <summary class="flex items-center justify-between p-4 cursor-pointer select-none bg-raised/50 hover:bg-raised transition-colors">
+                    <div class="flex items-center gap-2.5">
+                      <span class="material-symbols-outlined text-[18px] text-rose">code</span>
+                      <span class="text-[14px] font-semibold text-txt-main">Disclosed technical metadata & payload</span>
+                      <span class="text-[12px] px-2 py-0.5 rounded-full bg-border/60 text-txt-muted font-medium">JSON schema v2.4</span>
+                    </div>
+                    <span class="material-symbols-outlined text-[20px] text-txt-muted group-open:rotate-180 transition-transform">
+                      expand_more
+                    </span>
+                  </summary>
+
+                  <div class="p-5 border-t border-border space-y-3 font-mono text-[13px] text-txt-muted">
+                    <div class="grid grid-cols-2 gap-4">
+                      <div class="p-3 bg-surface rounded-lg border border-border">
+                        <span class="text-rose">event_slug:</span> "contemporary-jazz-old-town-studio"<br>
+                        <span class="text-rose">municipal_code:</span> "BA-CLT-9140"<br>
+                        <span class="text-rose">ingest_pipeline:</span> "web-crawler-v3.1"<br>
+                        <span class="text-rose">geo_lat_long:</span> [48.1438, 17.1065]
+                      </div>
+                      <div class="p-3 bg-surface rounded-lg border border-border">
+                        <span class="text-rose">editorial_lock:</span> false<br>
+                        <span class="text-rose">curation_state:</span> "EXPLICIT_NEEDS_REVIEW"<br>
+                        <span class="text-rose">language_fallback:</span> "SK_EN_PAIR"<br>
+                        <span class="text-rose">target_collection:</span> "Bratislava Nights"
+                      </div>
+                    </div>
+                    <div class="text-[12px] text-txt-muted pt-1">
+                      No publication payload will emit to mobile endpoints until manual sign-off by a certified desk operator.
+                    </div>
+                  </div>
+                </details>
+              </div>
+
+            </div>
+
+            <!-- Right 4 cols: Visual Asset Reference & Review Checklist -->
+            <div class="lg:col-span-4 space-y-6">
+              
+              <!-- Curated Image Reference -->
+              <div class="rounded-custom border border-border bg-raised p-4">
+                <div class="flex items-center justify-between mb-3">
+                  <span class="text-[13px] font-medium text-txt-main flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-[16px] text-rose">image</span>
+                    Attached imagery
+                  </span>
+                  <span class="text-[12px] text-txt-muted">1024 × 1024 px</span>
+                </div>
+                <div class="rounded-custom overflow-hidden border border-border aspect-[4/3] bg-app relative group">
+                  <img 
+                    src="https://lh3.googleusercontent.com/aida/ALJJyrCE_6hWE2kbyOXV9hoPVZEyUZ527OpDBNtaJRqkwLGkiEEi4ltSVFojaqFfFaQrcM7bfpqJvZmImeA0vPA1nJ_5edUNMDVrNZ3JfDl7iOZ2OYjJ0gNqicq-aEqZTT64E3CPuRhVLEKrTaRYSIl-nmjS2k84wQW5ABzwOmW-Ttxo0hbPY5sQDhU34nfAVxlEo3FDqliyONg6_5MToc6ZfzW1cViP9tBWbyxK7P51oNCzKDwhKJAOvDDpskch" 
+                    alt="Atmospheric intimate jazz club in Europe" 
+                    class="w-full h-full object-cover"
+                  />
+                  <div class="absolute bottom-2.5 left-2.5 right-2.5 px-3 py-1.5 rounded-lg bg-surface/90 backdrop-blur-sm border border-border text-[12px] text-txt-main flex items-center justify-between">
+                    <span>Atmospheric stage reference</span>
+                    <span class="text-emerald-400 font-medium">Licensed asset</span>
+                  </div>
+                </div>
+                <div class="mt-3 text-[12px] text-txt-muted leading-tight">
+                  High-contrast stage photo verified for dark theme readability and cultural guide tone.
+                </div>
+              </div>
+
+              <!-- Editorial Compliance Checklist -->
+              <div class="rounded-custom border border-border bg-raised p-5 space-y-3.5">
+                <h3 class="text-[14px] font-semibold text-txt-main flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[18px] text-rose">checklist</span>
+                  <span>Editorial criteria</span>
+                </h3>
+                
+                <div class="space-y-2.5 text-[13px]">
+                  <label class="flex items-start gap-2.5 text-txt-main cursor-default">
+                    <input type="checkbox" checked class="mt-0.5 rounded border-border text-brand focus:ring-0 accent-brand" />
+                    <span>Venue coordinates match municipal registry</span>
+                  </label>
+                  <label class="flex items-start gap-2.5 text-txt-main cursor-default">
+                    <input type="checkbox" checked class="mt-0.5 rounded border-border text-brand focus:ring-0 accent-brand" />
+                    <span>Ticket tier and admission rules confirmed</span>
+                  </label>
+                  <label class="flex items-start gap-2.5 text-txt-muted cursor-default">
+                    <input type="checkbox" class="mt-0.5 rounded border-border text-brand focus:ring-0 accent-brand" />
+                    <span>Editorial synopsis language refined for clarity</span>
+                  </label>
+                  <label class="flex items-start gap-2.5 text-txt-muted cursor-default">
+                    <input type="checkbox" class="mt-0.5 rounded border-border text-brand focus:ring-0 accent-brand" />
+                    <span>Cross-referenced with Staré Mesto calendar</span>
+                  </label>
+                </div>
+
+                <div class="pt-2 border-t border-border/80 flex items-center justify-between text-[12px] text-txt-muted">
+                  <span>Sign-off requires 4/4 checks</span>
+                  <span class="font-medium text-rose">2 remaining</span>
+                </div>
+              </div>
+
+              <!-- Audit Stamp -->
+              <div class="p-4 rounded-custom bg-app/50 border border-border text-[12px] text-txt-muted space-y-1.5">
+                <div class="flex items-center gap-1.5 font-medium text-txt-main">
+                  <span class="material-symbols-outlined text-[15px] text-rose">history</span>
+                  <span>Audit Trail</span>
+                </div>
+                <div>Queue arrival: 14 Nov 2026, 09:12:44</div>
+                <div>Last automated verification: Today, 11:30</div>
+                <div>Operator lock: M. Kováč (active)</div>
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- Bottom Utility Footer for the Item -->
+          <div class="px-8 py-4 bg-app/40 border-t border-border flex items-center justify-between text-[13px] text-txt-muted">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-[16px]">info</span>
+              <span>Candidate will remain in queue until explicit approval or rejection is recorded.</span>
+            </div>
+            <div class="flex items-center gap-4">
+              <button class="hover:text-txt-main transition-colors">Flag discrepancy</button>
+              <span class="text-border">·</span>
+              <button class="hover:text-txt-main transition-colors">Reassign desk</button>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+</body>
+</html>

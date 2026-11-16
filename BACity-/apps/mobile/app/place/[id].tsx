@@ -8,7 +8,7 @@ import { apiRequest } from "../../src/api/client";
 import { Page, Card, Notice } from "../../src/components/CommunityUI";
 import { Discussion } from "../../src/components/Discussion";
 import { colors } from "../../src/theme/colors";
-import { fonts } from "../../src/theme/fonts";
+import { fontStyles } from "../../src/theme/fonts";
 
 export default function Place() {
   useThemeRevision();
@@ -119,7 +119,7 @@ const styles = themedStyles(() => ({
   name: {
     marginTop: 14,
     color: colors.text,
-    fontFamily: fonts.black, fontWeight: '800',
+    ...fontStyles.black, fontWeight: '800',
     fontSize: 27,
     letterSpacing: -0.75,
     textAlign: "center",
@@ -127,7 +127,7 @@ const styles = themedStyles(() => ({
   address: {
     marginTop: 5,
     color: colors.textMuted,
-    fontFamily: fonts.regular,
+    ...fontStyles.regular,
     fontSize: 12,
     textAlign: "center",
   },
@@ -149,7 +149,7 @@ const styles = themedStyles(() => ({
   },
   badgeText: {
     color: colors.primaryDark,
-    fontFamily: fonts.semibold, fontWeight: '600',
+    ...fontStyles.semibold, fontWeight: '600',
     fontSize: 12,
     textTransform: "capitalize",
   },
@@ -172,13 +172,13 @@ const styles = themedStyles(() => ({
   infoCopy: { flex: 1 },
   infoTitle: {
     color: colors.text,
-    fontFamily: fonts.black, fontWeight: '800',
+    ...fontStyles.black, fontWeight: '800',
     fontSize: 16,
   },
   description: {
     marginTop: 5,
     color: colors.textMuted,
-    fontFamily: fonts.regular,
+    ...fontStyles.regular,
     fontSize: 12,
     lineHeight: 18,
   },
@@ -193,7 +193,7 @@ const styles = themedStyles(() => ({
   },
   mapButtonText: {
     color: colors.white,
-    fontFamily: fonts.semibold, fontWeight: '600',
+    ...fontStyles.semibold, fontWeight: '600',
     fontSize: 12,
   },
   pressed: { opacity: 0.88 },

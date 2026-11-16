@@ -26,7 +26,7 @@ import { SafeAreaView } from "../src/components/navigation/ContentSafeArea";
 import { BrandMark } from "../src/components/BrandMark";
 import { useAuthStore } from "../src/store/authStore";
 import { colors } from "../src/theme/colors";
-import { fonts } from "../src/theme/fonts";
+import { fontStyles } from "../src/theme/fonts";
 
 const GoogleNative =
   Platform.OS !== "web" && NativeModules.RNGoogleSignin
@@ -338,7 +338,7 @@ const styles = themedStyles(() => ({
   error: {
     flex: 1,
     color: colors.danger,
-    fontFamily: fonts.medium,
+    ...fontStyles.medium,
     fontSize: 12,
   },
   pressed: { opacity: 0.9 },
@@ -360,19 +360,19 @@ const styles = themedStyles(() => ({
   },
   googleMark: {
     color: "#4285F4",
-    fontFamily: fonts.black,
+    ...fontStyles.black,
     fontWeight: "800",
     fontSize: 19,
   },
   googleText: {
     color: colors.text,
-    fontFamily: fonts.semibold,
+    ...fontStyles.semibold,
     fontWeight: "600",
     fontSize: 13,
   },
   textButtonLabel: {
     color: colors.primaryDark,
-    fontFamily: fonts.semibold,
+    ...fontStyles.semibold,
     fontWeight: "600",
     fontSize: 12,
   },
@@ -386,12 +386,12 @@ const styles = themedStyles(() => ({
   },
   switchMuted: {
     color: colors.textMuted,
-    fontFamily: fonts.regular,
+    ...fontStyles.regular,
     fontSize: 12,
   },
   switchStrong: {
     color: colors.text,
-    fontFamily: fonts.black,
+    ...fontStyles.black,
     fontWeight: "800",
     fontSize: 12,
   },

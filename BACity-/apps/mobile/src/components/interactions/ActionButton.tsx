@@ -88,7 +88,7 @@ export function MorphActionButton({
     rotation.value = 0;
     if (busy && !reduced)
       rotation.value = withRepeat(
-        withTiming(360, { duration: 800, easing: Easing.linear }),
+        withTiming(360, { duration: tokens.motion.authEntrance, easing: Easing.linear }),
         -1,
       );
     return () => {
@@ -115,7 +115,7 @@ export function MorphActionButton({
   const successBackground = colors.successSurface;
   const morph = useAnimatedStyle(() => ({
     width: width.value,
-    borderRadius: 26,
+    borderRadius: tokens.radius.control,
     backgroundColor: interpolateColor(
       progress.value,
       [0, 1],

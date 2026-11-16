@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>BACity — Compact Utility Guide</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "on-surface-variant": "#dbbfc7",
+            "tertiary-fixed": "#97f98a",
+            "on-primary-container": "#ffd0de",
+            "tertiary-container": "#017112",
+            "outline": "#a38a91",
+            "surface-container-highest": "#373438",
+            "on-secondary-container": "#eb9fc0",
+            "surface-tint": "#ffb0ca",
+            "secondary-container": "#6e3350",
+            "surface-bright": "#3b383d",
+            "surface-variant": "#373438",
+            "on-tertiary-fixed": "#002202",
+            "inverse-primary": "#a63165",
+            "tertiary-fixed-dim": "#7cdc71",
+            "surface-container": "#211f23",
+            "on-error": "#690005",
+            "on-secondary": "#531d39",
+            "on-tertiary-container": "#91f385",
+            "surface-container-low": "#1d1b1f",
+            "on-tertiary": "#003a05",
+            "secondary-fixed-dim": "#ffb0d1",
+            "surface-dim": "#151317",
+            "tertiary": "#7cdc71",
+            "secondary": "#ffb0d1",
+            "on-tertiary-fixed-variant": "#00530a",
+            "surface-container-lowest": "#0f0d11",
+            "secondary-fixed": "#ffd8e6",
+            "outline-variant": "#554147",
+            "primary-fixed-dim": "#ffb0ca",
+            "on-error-container": "#ffdad6",
+            "on-secondary-fixed-variant": "#6e3350",
+            "on-primary-fixed-variant": "#87164d",
+            "background": "#151317",
+            "inverse-surface": "#e7e1e6",
+            "primary-fixed": "#ffd9e3",
+            "primary": "#ffb0ca",
+            "inverse-on-surface": "#322f34",
+            "on-surface": "#e7e1e6",
+            "surface": "#151317",
+            "on-secondary-fixed": "#390723",
+            "surface-container-high": "#2c292d",
+            "primary-container": "#a93468",
+            "error": "#ffb4ab",
+            "error-container": "#93000a",
+            "on-primary": "#640036",
+            "on-background": "#e7e1e6",
+            "on-primary-fixed": "#3e001f"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-sm": "0.5rem",
+            "space-md": "1rem",
+            "space-lg": "1.25rem",
+            "space-xs": "0.25rem",
+            "margin": "1.25rem",
+            "gutter": "1.25rem",
+            "space-xl": "1.5rem"
+          },
+          "fontFamily": {
+            "action-sm": ["Inter"],
+            "action-md": ["Inter"],
+            "meta-md": ["Inter"],
+            "headline-xl": ["Inter"],
+            "body-lg": ["Inter"],
+            "meta-sm": ["Inter"],
+            "headline-lg": ["Inter"],
+            "headline-md": ["Inter"],
+            "body-md": ["Inter"]
+          },
+          "fontSize": {
+            "action-sm": ["13px", { "lineHeight": "18px", "letterSpacing": "0.01em", "fontWeight": "600" }],
+            "action-md": ["15px", { "lineHeight": "20px", "fontWeight": "600" }],
+            "meta-md": ["14px", { "lineHeight": "18px", "fontWeight": "400" }],
+            "headline-xl": ["30px", { "lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+            "body-lg": ["17px", { "lineHeight": "24px", "fontWeight": "400" }],
+            "meta-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500" }],
+            "headline-lg": ["22px", { "lineHeight": "28px", "letterSpacing": "-0.015em", "fontWeight": "700" }],
+            "headline-md": ["17px", { "lineHeight": "23px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+            "body-md": ["15px", { "lineHeight": "21px", "fontWeight": "400" }]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      display: inline-block;
+      line-height: 1;
+      text-transform: none;
+      letter-spacing: normal;
+      word-wrap: normal;
+      white-space: nowrap;
+      direction: ltr;
+      vertical-align: middle;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-[#100E12] text-[#F6F1F3] antialiased selection:bg-primary-container selection:text-on-primary-container font-body-md text-body-md min-h-screen">
+<!-- Application Shell / Reader Width Container -->
+<div class="relative w-full max-w-[640px] mx-auto min-h-screen pb-24 bg-[#100E12] flex flex-col">
+<!-- Top Navigation Header (Docked Full Width) -->
+<header class="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-gutter h-14 max-w-[640px] mx-auto bg-surface-container-low/95 backdrop-blur-md border-b border-outline-variant/30">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-xl" data-icon="location_city">location_city</span>
+<span class="text-headline-md font-headline-md font-bold tracking-tight text-on-surface flex items-center">
+          BACity<span class="w-1.5 h-1.5 rounded-full bg-primary-container ml-0.5 inline-block"></span>
+</span>
+</div>
+<div class="flex items-center -mr-2">
+<button aria-label="Search" class="w-12 h-12 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors active:opacity-80" type="button">
+<span class="material-symbols-outlined text-[20px]" data-icon="search">search</span>
+</button>
+<button aria-label="Notifications" class="w-12 h-12 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors active:opacity-80" type="button">
+<span class="material-symbols-outlined text-[20px]" data-icon="notifications">notifications</span>
+</button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 px-gutter pt-18 mt-14 space-y-5">
+<!-- Compact Page Header -->
+<section class="pt-2">
+<h1 class="text-headline-lg font-headline-lg text-[#F6F1F3] tracking-tight">Your Bratislava</h1>
+<p class="text-meta-md font-meta-md text-[#B7ADB9] mt-1">Curated cultural events, live sessions, and neighbourhood walks.</p>
+</section>
+<!-- Category Filter Tabs (Underlined Active Style) -->
+<section class="border-b border-outline-variant/30 -mx-gutter px-gutter">
+<div class="flex items-center gap-6 overflow-x-auto no-scrollbar">
+<button class="relative pb-3 text-action-md font-action-md text-[#F6F1F3] whitespace-nowrap min-h-[48px] flex items-center" type="button">
+            All
+            <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-[#A93468]"></span>
+</button>
+<button class="relative pb-3 text-action-md font-action-md text-[#B7ADB9] hover:text-[#F6F1F3] transition-colors whitespace-nowrap min-h-[48px] flex items-center" type="button">
+            Music
+          </button>
+<button class="relative pb-3 text-action-md font-action-md text-[#B7ADB9] hover:text-[#F6F1F3] transition-colors whitespace-nowrap min-h-[48px] flex items-center" type="button">
+            Culture
+          </button>
+<button class="relative pb-3 text-action-md font-action-md text-[#B7ADB9] hover:text-[#F6F1F3] transition-colors whitespace-nowrap min-h-[48px] flex items-center" type="button">
+            Nightlife
+          </button>
+<button class="relative pb-3 text-action-md font-action-md text-[#B7ADB9] hover:text-[#F6F1F3] transition-colors whitespace-nowrap min-h-[48px] flex items-center" type="button">
+            Free
+          </button>
+</div>
+</section>
+<!-- Featured Compact City Walk Card -->
+<section>
+<article class="bg-[#1C191F] border border-white/5 rounded-2xl overflow-hidden active:bg-[#25222B] transition-colors">
+<div class="relative h-[160px] w-full overflow-hidden bg-surface-container">
+<img alt="Bratislava Danube promenade at golden hour" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/ALJJyrDHYaf5lX8iS271qqzHSCGwDyH-yEL4Ejz0wMF8Ca6OxyMh3r9xMWhU_CkeSKJ3m4ffODwtX6BDkbgDALTgOwnue8OXL3DHTuHiSBWIkngOh6tspTJalg32iVKnnQ93z7wFj557E6G0-5eP328BbZ4aZPj_EzBxrRYL0SNG-QGbd257sG8JQGbszaWLXE3Nb-axVP7pwrpSkOvRSQDFkZxvdcIK1ApZm0xS0QU7rDs4SwknJie4BBA1Sp0"/>
+<div class="absolute inset-0 bg-gradient-to-t from-[#100E12]/90 via-[#100E12]/30 to-transparent"></div>
+<div class="absolute top-3 left-3">
+<span class="inline-flex items-center px-2.5 py-1 rounded bg-[#100E12]/80 backdrop-blur-sm text-meta-sm font-meta-sm text-[#E69ABB] tracking-wider border border-[#A93468]/30">
+                CITY WALK • FREE
+              </span>
+</div>
+</div>
+<div class="p-4 flex items-start justify-between gap-3">
+<div class="min-w-0 flex-1">
+<h2 class="text-headline-md font-headline-md text-[#F6F1F3] truncate">Along the Danube at golden hour</h2>
+<p class="text-meta-md font-meta-md text-[#B7ADB9] mt-0.5 truncate">Starý Most to River Park • Today from 18:30</p>
+</div>
+<button aria-label="Bookmark Along the Danube at golden hour" class="w-12 h-12 -mr-2 -my-2 flex items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all shrink-0" onclick="this.querySelector('span').classList.toggle('fill-1'); this.classList.toggle('text-primary');" type="button">
+<span class="material-symbols-outlined text-[20px]" data-icon="bookmark">bookmark</span>
+</button>
+</div>
+</article>
+</section>
+<!-- Utility Event Rows Section -->
+<section class="space-y-3 pt-1">
+<div class="flex items-center justify-between">
+<span class="text-meta-sm font-meta-sm text-[#B7ADB9] uppercase tracking-wider">Upcoming Agenda</span>
+<span class="text-meta-sm font-meta-sm text-[#E69ABB]">4 selected</span>
+</div>
+<!-- Row 1: Contemporary Jazz -->
+<article class="bg-[#1C191F] border border-[#2C2733] rounded-2xl p-3 flex items-center gap-3.5 hover:border-outline-variant/50 transition-colors">
+<div class="w-[72px] h-[72px] rounded-xl overflow-hidden shrink-0 bg-surface-container relative">
+<img alt="Live contemporary jazz performance" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/ALJJyrCE_6hWE2kbyOXV9hoPVZEyUZ527OpDBNtaJRqkwLGkiEEi4ltSVFojaqFfFaQrcM7bfpqJvZmImeA0vPA1nJ_5edUNMDVrNZ3JfDl7iOZ2OYjJ0gNqicq-aEqZTT64E3CPuRhVLEKrTaRYSIl-nmjS2k84wQW5ABzwOmW-Ttxo0hbPY5sQDhU34nfAVxlEo3FDqliyONg6_5MToc6ZfzW1cViP9tBWbyxK7P51oNCzKDwhKJAOvDDpskch"/>
+</div>
+<div class="min-w-0 flex-1 py-0.5">
+<div class="text-meta-sm font-meta-sm text-[#E69ABB] tracking-wide">THU, OCT 24 • 20:00</div>
+<h3 class="text-headline-md font-headline-md text-[#F6F1F3] leading-snug truncate mt-0.5">An evening of contemporary jazz</h3>
+<p class="text-meta-sm font-meta-sm text-[#B7ADB9] truncate mt-0.5">Klarisky Concert Hall, Old Town</p>
+<div class="text-meta-sm font-meta-sm text-[#B7ADB9] mt-1 flex items-center gap-1.5">
+<span class="font-medium text-[#F6F1F3]">€14</span>
+<span class="text-outline-variant">•</span>
+<span>Limited seating</span>
+</div>
+</div>
+<button aria-label="Bookmark An evening of contemporary jazz" class="w-12 h-12 flex items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all shrink-0 -mr-1" onclick="this.querySelector('span').classList.toggle('fill-1'); this.classList.toggle('text-primary');" type="button">
+<span class="material-symbols-outlined text-[20px]" data-icon="bookmark">bookmark</span>
+</button>
+</article>
+<!-- Row 2: Design Market -->
+<article class="bg-[#1C191F] border border-[#2C2733] rounded-2xl p-3 flex items-center gap-3.5 hover:border-outline-variant/50 transition-colors">
+<div class="w-[72px] h-[72px] rounded-xl overflow-hidden shrink-0 bg-surface-container relative">
+<img alt="Design market at industrial hall" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/ALJJyrBgwa3X3GXEayhu0Tbk71BhieepJ0E9-X4aXdtvhArsZmt4hTDqAJ_Z7A7lmJ0ZfVNtJVsEaXJgE0mOt_h0x3pkFzSoDVKWwtBPiXqkYPP-qDQZf4IRBExo5_pHaxOi33dy9UaaQRi800ZswbsEQy4Ai2LfOaHvgMz6cT5uHIVZ3DvT7uiKusa8922KZCbJ28c_bl62mxGjB5_Yr0B7KxmwGejVKUpmZBt9tTqKK3SPALTtF2kPedVR9RvK"/>
+</div>
+<div class="min-w-0 flex-1 py-0.5">
+<div class="text-meta-sm font-meta-sm text-[#E69ABB] tracking-wide">SAT, OCT 26 • 10:00 – 18:00</div>
+<h3 class="text-headline-md font-headline-md text-[#F6F1F3] leading-snug truncate mt-0.5">Design market at the old refinery</h3>
+<p class="text-meta-sm font-meta-sm text-[#B7ADB9] truncate mt-0.5">Nová Cvernovka, Račianska</p>
+<div class="text-meta-sm font-meta-sm text-[#B7ADB9] mt-1 flex items-center gap-1.5">
+<span class="font-medium text-tertiary">Free entry</span>
+<span class="text-outline-variant">•</span>
+<span>60+ makers</span>
+</div>
+</div>
+<button aria-label="Bookmark Design market at the old refinery" class="w-12 h-12 flex items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all shrink-0 -mr-1" onclick="this.querySelector('span').classList.toggle('fill-1'); this.classList.toggle('text-primary');" type="button">
+<span class="material-symbols-outlined text-[20px]" data-icon="bookmark">bookmark</span>
+</button>
+</article>
+<!-- Row 3: Ceramics Workshop -->
+<article class="bg-[#1C191F] border border-[#2C2733] rounded-2xl p-3 flex items-center gap-3.5 hover:border-outline-variant/50 transition-colors">
+<div class="w-[72px] h-[72px] rounded-xl overflow-hidden shrink-0 bg-surface-container relative">
+<img alt="Ceramics pottery workshop" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAtODDZNSEB6qPqR4nTstOR-WSm91zcTfiCCzgt3mphq2dIpcfP9uMoXl5ZXt8p_5e1b1b7KIFk6yjYAx5_bWvpoX3qNKFbU0lswIHja3DR_gPNi9zuBTBO8ftNM3WSBXcwtMzNqXTiBZdnv8y4F9jc6xTXD85MwlPkvRo9yFv3yw7eJVhhPuw3W8E5ax5TkvyC9KzPCSjVZswmcnhJs6YXfhIwgXFoDl_VPSSiF2xP9k9JwhCDwrBEwU1EQabTgtS2eDQ0yLDPM9Gk"/>
+</div>
+<div class="min-w-0 flex-1 py-0.5">
+<div class="text-meta-sm font-meta-sm text-[#E69ABB] tracking-wide">SUN, OCT 27 • 11:00 – 14:00</div>
+<h3 class="text-headline-md font-headline-md text-[#F6F1F3] leading-snug truncate mt-0.5">A slower Sunday ceramics workshop</h3>
+<p class="text-meta-sm font-meta-sm text-[#B7ADB9] truncate mt-0.5">Ateliér Mudroňova, Castle Hill</p>
+<div class="text-meta-sm font-meta-sm text-[#B7ADB9] mt-1 flex items-center gap-1.5">
+<span class="font-medium text-[#F6F1F3]">€32</span>
+<span class="text-outline-variant">•</span>
+<span>Materials included</span>
+</div>
+</div>
+<button aria-label="Bookmark A slower Sunday ceramics workshop" class="w-12 h-12 flex items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all shrink-0 -mr-1" onclick="this.querySelector('span').classList.toggle('fill-1'); this.classList.toggle('text-primary');" type="button">
+<span class="material-symbols-outlined text-[20px]" data-icon="bookmark">bookmark</span>
+</button>
+</article>
+<!-- Row 4: Photography Gallery -->
+<article class="bg-[#1C191F] border border-[#2C2733] rounded-2xl p-3 flex items-center gap-3.5 hover:border-outline-variant/50 transition-colors">
+<div class="w-[72px] h-[72px] rounded-xl overflow-hidden shrink-0 bg-surface-container relative">
+<img alt="Photography gallery vernissage" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBeOWu-5CIuutT9XzSraLUG7_Ba2BN6RLPmoBnCu0uNipJusS70pdLFbJ_UGT8QfraXXsnL93DroW5MuR1Tqduw262UakaKOfR8BsVqiBp_7LnNpVqR4tmwrhhuo4e13LPs_LX-YeweRYcVLR4ZNU6Tc--aUxkrkujCeVZvh7_NN4PQewF_ekooys4ZJFT6Ff78MJAn5KFygZ77bfHeYO9o5cGl8pDpK6OPtndET-GwETVUfRIxQqLXsn8nTNLCj9HMHVSNxnP24xIm"/>
+</div>
+<div class="min-w-0 flex-1 py-0.5">
+<div class="text-meta-sm font-meta-sm text-[#E69ABB] tracking-wide">TUE, OCT 29 • 18:30</div>
+<h3 class="text-headline-md font-headline-md text-[#F6F1F3] leading-snug truncate mt-0.5">New perspectives photography</h3>
+<p class="text-meta-sm font-meta-sm text-[#B7ADB9] truncate mt-0.5">Galéria Z, Ventúrska</p>
+<div class="text-meta-sm font-meta-sm text-[#B7ADB9] mt-1 flex items-center gap-1.5">
+<span class="font-medium text-tertiary">Free entry</span>
+<span class="text-outline-variant">•</span>
+<span>Opening night</span>
+</div>
+</div>
+<button aria-label="Bookmark New perspectives photography" class="w-12 h-12 flex items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all shrink-0 -mr-1" onclick="this.querySelector('span').classList.toggle('fill-1'); this.classList.toggle('text-primary');" type="button">
+<span class="material-symbols-outlined text-[20px]" data-icon="bookmark">bookmark</span>
+</button>
+</article>
+</section>
+</main>
+<!-- Bottom Navigation Bar (Docked Full Width, 5 Destinations) -->
+<nav class="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around px-gutter h-16 max-w-[640px] mx-auto pb-safe bg-surface-container-low/95 backdrop-blur-md border-t border-outline-variant/30">
+<!-- 1. Home (Active match) -->
+<a class="flex flex-col items-center justify-center min-w-[48px] min-h-[48px] text-primary dark:text-primary font-semibold active:scale-95 transition-transform duration-150" href="#home">
+<span class="material-symbols-outlined text-[22px]" data-icon="home" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="text-action-sm font-action-sm mt-0.5">Home</span>
+</a>
+<!-- 2. Explore -->
+<a class="flex flex-col items-center justify-center min-w-[48px] min-h-[48px] text-on-surface-variant dark:text-on-surface-variant hover:text-primary transition-colors duration-150 active:scale-95" href="#explore">
+<span class="material-symbols-outlined text-[22px]" data-icon="explore">explore</span>
+<span class="text-action-sm font-action-sm mt-0.5">Explore</span>
+</a>
+<!-- 3. Create -->
+<a class="flex flex-col items-center justify-center min-w-[48px] min-h-[48px] text-on-surface-variant dark:text-on-surface-variant hover:text-primary transition-colors duration-150 active:scale-95" href="#create">
+<span class="material-symbols-outlined text-[22px]" data-icon="add_circle">add_circle</span>
+<span class="text-action-sm font-action-sm mt-0.5">Create</span>
+</a>
+<!-- 4. Map -->
+<a class="flex flex-col items-center justify-center min-w-[48px] min-h-[48px] text-on-surface-variant dark:text-on-surface-variant hover:text-primary transition-colors duration-150 active:scale-95" href="#map">
+<span class="material-symbols-outlined text-[22px]" data-icon="map">map</span>
+<span class="text-action-sm font-action-sm mt-0.5">Map</span>
+</a>
+<!-- 5. Profile -->
+<a class="flex flex-col items-center justify-center min-w-[48px] min-h-[48px] text-on-surface-variant dark:text-on-surface-variant hover:text-primary transition-colors duration-150 active:scale-95" href="#profile">
+<span class="material-symbols-outlined text-[22px]" data-icon="person">person</span>
+<span class="text-action-sm font-action-sm mt-0.5">Profile</span>
+</a>
+</nav>
+</div>
+<style>
+    .fill-1 {
+      font-variation-settings: 'FILL' 1 !important;
+    }
+  </style>
+</body></html>

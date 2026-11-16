@@ -1,3 +1,4 @@
+import { tokens } from '../../src/theme/tokens';
 import { useRef } from 'react';
 import { themedStyles, useThemeRevision } from '../../src/theme/appearance';
 import { Tabs } from "expo-router";
@@ -6,7 +7,7 @@ import { TabIcon } from '../../src/components/TabIcon';
 import { StyleSheet, Text, View } from "react-native";
 import { AnimatedPressable as Pressable } from '../../src/components/motion/Motion';
 import { colors } from "../../src/theme/colors";
-import { fonts } from "../../src/theme/fonts";
+import { fontStyles } from "../../src/theme/fonts";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMajorTransition } from '../../src/components/loading/LoadingExperience';
 
@@ -15,7 +16,8 @@ function CreateTabButton(props: any) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel="Create"
+      accessibilityLabel="Create, tab, 3 of 5"
+      accessibilityState={props.accessibilityState}
       onPress={props.onPress}
       onLongPress={props.onLongPress}
       style={({ pressed }) => [styles.createSlot, pressed && styles.pressed]}
@@ -23,7 +25,7 @@ function CreateTabButton(props: any) {
       <View style={styles.createCircle}>
         <AppIcon name="add" size={24} color={colors.white} />
       </View>
-      <Text style={styles.createLabel}>Create</Text>
+      <Text maxFontSizeMultiplier={tokens.accessibility.navigationLabelMaxScale} style={styles.createLabel}>Create</Text>
     </Pressable>
   );
 }
@@ -41,6 +43,7 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.primaryDark,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: styles.label,
+        tabBarLabel: ({ color, children }) => <Text maxFontSizeMultiplier={tokens.accessibility.navigationLabelMaxScale} style={[styles.label, { color }]}>{children}</Text>,
         tabBarIconStyle: styles.icon,
         tabBarHideOnKeyboard: true,
       }}
@@ -49,6 +52,7 @@ export default function TabsLayout() {
         name="discover"
         options={{
           title: "Home",
+          tabBarAccessibilityLabel: "Home, tab, 1 of 5",
           tabBarIcon: ({ color, size, focused }) => (
             <TabIcon name="home" focused={focused} color={color} size={size} />
           ),
@@ -58,6 +62,7 @@ export default function TabsLayout() {
         name="explore"
         options={{
           title: "Explore",
+          tabBarAccessibilityLabel: "Explore, tab, 2 of 5",
           tabBarIcon: ({ color, size, focused }) => (
             <TabIcon name="search" focused={focused} color={color} size={size} />
           ),
@@ -75,6 +80,7 @@ export default function TabsLayout() {
         listeners={{tabPress:()=>{if(!mapVisited.current){mapVisited.current=true;major.begin('map');}}}}
         options={{
           title: "Map",
+          tabBarAccessibilityLabel: "Map, tab, 4 of 5",
           tabBarIcon: ({ color, size, focused }) => (
             <TabIcon name="map" focused={focused} color={color} size={size} />
           ),
@@ -84,6 +90,7 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: "Profile",
+          tabBarAccessibilityLabel: "Profile, tab, 5 of 5",
           tabBarIcon: ({ color, size, focused }) => (
             <TabIcon name="person" focused={focused} color={color} size={size} />
           ),
@@ -109,7 +116,7 @@ const styles = themedStyles(() => ({
     elevation: 8,
   },
   label: {
-    fontFamily: fonts.semibold,
+    ...fontStyles.semibold,
     fontSize: 11,
     marginBottom: 1,
   },
@@ -135,7 +142,7 @@ const styles = themedStyles(() => ({
   },
   createLabel: {
     color: colors.textMuted,
-    fontFamily: fonts.semibold,
+    ...fontStyles.semibold,
     fontSize: 11,
     marginTop: 2,
   },

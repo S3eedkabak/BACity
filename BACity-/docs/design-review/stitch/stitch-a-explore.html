@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<title>A Explore — editorial guide</title>
+<!-- Google Fonts & Material Symbols -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS CDN -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Verbatim Tailwind Config -->
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "secondary-fixed": "#ffd8e6",
+            "on-primary": "#640036",
+            "surface-container-highest": "#373438",
+            "on-tertiary": "#003a05",
+            "outline-variant": "#554147",
+            "error": "#ffb4ab",
+            "tertiary-fixed-dim": "#7cdc71",
+            "primary-fixed-dim": "#ffb0ca",
+            "surface-bright": "#3b383d",
+            "surface-variant": "#373438",
+            "on-secondary-fixed": "#390723",
+            "primary-fixed": "#ffd9e3",
+            "surface-container-lowest": "#0f0d11",
+            "inverse-on-surface": "#322f34",
+            "on-tertiary-fixed-variant": "#00530a",
+            "outline": "#a38a91",
+            "primary": "#ffb0ca",
+            "tertiary-container": "#017112",
+            "on-error": "#690005",
+            "on-primary-fixed": "#3e001f",
+            "tertiary-fixed": "#97f98a",
+            "inverse-surface": "#e7e1e6",
+            "secondary": "#ffb0d1",
+            "error-container": "#93000a",
+            "secondary-fixed-dim": "#ffb0d1",
+            "primary-container": "#a93468",
+            "on-error-container": "#ffdad6",
+            "on-surface-variant": "#dbbfc7",
+            "on-secondary-fixed-variant": "#6e3350",
+            "surface-dim": "#151317",
+            "surface": "#151317",
+            "on-secondary": "#531d39",
+            "surface-tint": "#ffb0ca",
+            "background": "#151317",
+            "on-secondary-container": "#eb9fc0",
+            "inverse-primary": "#a63165",
+            "surface-container": "#211f23",
+            "tertiary": "#7cdc71",
+            "on-primary-container": "#ffd0de",
+            "on-background": "#e7e1e6",
+            "on-tertiary-fixed": "#002202",
+            "on-primary-fixed-variant": "#87164d",
+            "on-tertiary-container": "#91f385",
+            "secondary-container": "#6e3350",
+            "surface-container-high": "#2c292d",
+            "surface-container-low": "#1d1b1f",
+            "on-surface": "#e7e1e6"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "gutter": "1.25rem",
+            "space-lg": "1.25rem",
+            "space-sm": "0.5rem",
+            "space-xl": "1.5rem",
+            "space-xs": "0.25rem",
+            "margin": "1.25rem",
+            "space-md": "1rem"
+          },
+          "fontFamily": {
+            "action-sm": ["Inter"],
+            "headline-xl": ["Inter"],
+            "body-lg": ["Inter"],
+            "body-md": ["Inter"],
+            "headline-lg": ["Inter"],
+            "meta-md": ["Inter"],
+            "action-md": ["Inter"],
+            "headline-md": ["Inter"],
+            "meta-sm": ["Inter"]
+          },
+          "fontSize": {
+            "action-sm": [
+              "13px",
+              {
+                "lineHeight": "18px",
+                "letterSpacing": "0.01em",
+                "fontWeight": "600"
+              }
+            ],
+            "headline-xl": [
+              "30px",
+              {
+                "lineHeight": "36px",
+                "letterSpacing": "-0.02em",
+                "fontWeight": "700"
+              }
+            ],
+            "body-lg": [
+              "17px",
+              {
+                "lineHeight": "24px",
+                "fontWeight": "400"
+              }
+            ],
+            "body-md": [
+              "15px",
+              {
+                "lineHeight": "21px",
+                "fontWeight": "400"
+              }
+            ],
+            "headline-lg": [
+              "22px",
+              {
+                "lineHeight": "28px",
+                "letterSpacing": "-0.015em",
+                "fontWeight": "700"
+              }
+            ],
+            "meta-md": [
+              "14px",
+              {
+                "lineHeight": "18px",
+                "fontWeight": "400"
+              }
+            ],
+            "action-md": [
+              "15px",
+              {
+                "lineHeight": "20px",
+                "fontWeight": "600"
+              }
+            ],
+            "headline-md": [
+              "17px",
+              {
+                "lineHeight": "23px",
+                "letterSpacing": "-0.01em",
+                "fontWeight": "700"
+              }
+            ],
+            "meta-sm": [
+              "12px",
+              {
+                "lineHeight": "16px",
+                "letterSpacing": "0.02em",
+                "fontWeight": "500"
+              }
+            ]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined';
+      font-weight: normal;
+      font-style: normal;
+      font-size: 20px;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      font-feature-settings: 'liga';
+      -webkit-font-smoothing: antialiased;
+    }
+    /* Hide scrollbars for aesthetic horizontal overflow */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-surface-container-lowest text-on-surface antialiased min-h-screen selection:bg-primary-container selection:text-on-primary-container">
+<!-- Mobile Envelope Shell Capped at 640px Max Editorial Width -->
+<div class="relative max-w-[640px] mx-auto min-h-screen flex flex-col bg-surface-container-lowest pb-24">
+<!-- TopAppBar (Shared Component Implementation) -->
+<header class="bg-surface-container-low dark:bg-surface-container-low fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-gutter h-14 max-w-[640px] mx-auto">
+<div class="flex items-center space-x-2">
+<span class="material-symbols-outlined text-primary text-[22px]" data-icon="location_city">location_city</span>
+<div class="flex items-baseline">
+<span class="text-headline-md font-headline-md font-bold tracking-tight text-on-surface dark:text-on-surface">BACity</span>
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container ml-0.5 inline-block"></span>
+</div>
+</div>
+<div class="flex items-center space-x-1">
+<button aria-label="Notifications" class="flex items-center justify-center w-12 h-12 min-w-[48px] min-h-[48px] text-on-surface-variant hover:text-primary transition-colors duration-150 active:opacity-80" type="button">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button aria-label="Search" class="flex items-center justify-center w-12 h-12 min-w-[48px] min-h-[48px] text-on-surface-variant hover:text-primary transition-colors duration-150 active:opacity-80" type="button">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+</button>
+</div>
+</header>
+<!-- Main Editorial Content Canvas -->
+<main class="pt-16 px-gutter flex-1 flex flex-col">
+<!-- Header Section: Explore Title -->
+<section class="pt-4 pb-3">
+<h1 class="text-headline-xl font-headline-xl text-on-surface tracking-tight">Explore</h1>
+<p class="text-meta-sm font-meta-sm text-on-surface-variant mt-0.5">Bratislava cultural & urban calendar</p>
+</section>
+<!-- Search Input Container -->
+<section class="py-2">
+<div class="relative flex items-center w-full bg-surface-container-low rounded-2xl border border-outline-variant/30 focus-within:border-primary transition-colors duration-150">
+<div class="pl-4 pr-2 flex items-center pointer-events-none text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px]" data-icon="search">search</span>
+</div>
+<input class="w-full bg-transparent h-12 text-body-md font-body-md text-on-surface placeholder:text-on-surface-variant/70 focus:outline-none pr-4 border-0 ring-0 focus:ring-0" placeholder="Search events, venues, organizers..." type="text"/>
+<button aria-label="Voice or clear" class="pr-3 text-on-surface-variant flex items-center justify-center min-w-[36px] min-h-[36px]" type="button">
+<span class="material-symbols-outlined text-[18px]" data-icon="tune">tune</span>
+</button>
+</div>
+</section>
+<!-- Category Filter Tabs (Direction A: Clean Underlined Hierarchy) -->
+<section class="mt-4 border-b border-outline-variant/20 flex items-center justify-between">
+<nav aria-label="Categories" class="flex space-x-6 overflow-x-auto no-scrollbar">
+<!-- Active Tab: Events -->
+<button class="pb-3 border-b-2 border-primary-container text-action-md font-action-md text-on-surface font-semibold whitespace-nowrap" type="button">
+            Events
+          </button>
+<!-- Inactive Tab: Places -->
+<button class="pb-3 border-b-2 border-transparent text-action-md font-action-md text-on-surface-variant hover:text-on-surface transition-colors whitespace-nowrap" type="button">
+            Places
+          </button>
+<!-- Inactive Tab: People -->
+<button class="pb-3 border-b-2 border-transparent text-action-md font-action-md text-on-surface-variant hover:text-on-surface transition-colors whitespace-nowrap" type="button">
+            People
+          </button>
+<!-- Inactive Tab: Organizers -->
+<button class="pb-3 border-b-2 border-transparent text-action-md font-action-md text-on-surface-variant hover:text-on-surface transition-colors whitespace-nowrap" type="button">
+            Organizers
+          </button>
+</nav>
+<button class="flex items-center space-x-1.5 pb-3 text-action-sm font-action-sm text-primary hover:text-primary-fixed transition-colors whitespace-nowrap ml-2" type="button">
+<span class="material-symbols-outlined text-[16px]" data-icon="filter_list">filter_list</span>
+<span>Filters</span>
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container inline-block"></span>
+</button>
+</section>
+<!-- Subtitle Context Meta Row -->
+<div class="flex items-center justify-between py-3 text-meta-sm font-meta-sm text-on-surface-variant">
+<span>Showing Bratislava cultural agenda</span>
+<span class="text-meta-sm font-meta-sm text-outline">Upcoming 7 Days</span>
+</div>
+<!-- Curated Event Rows (Direction A: Airy, seamless list rows separated by subtle hairline dividers) -->
+<section class="flex flex-col divide-y divide-outline-variant/15">
+<!-- Row 1: Contemporary Jazz -->
+<article class="py-4 flex gap-4 items-start group">
+<div class="relative flex-shrink-0 w-[80px] h-[96px] rounded-xl overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" data-alt="A solo saxophone performer playing in a dimly lit, atmospheric underground jazz club in Bratislava. Golden spotlight casts deep cinematic amber glow across the dark stone cellar walls and silhouette of listener tables in the background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBwLuVg_fw0hyTQkauHuihhHvSBMT1V1_PXwLv3Q7_OreV-NqGDMiJdI7FVnmfkeYrtdlH6QLT8ViIpDax4EJA_f5Ikb2OlxGafKE7oj3VhX0tXo9cLW8RI7PjdRiGOFrBggSmlX0oc2H0eKcAakp8Qt-vUVlqd5U_pGmBqEYg1ym9aamTqu3OCG7Kx1X6V8AU1TnUHR_gJHpEwApJ3dIU2zZy2wMN8bqcuho3nDJNX7PpkfEB2MyFmR2EvsINWs3Ry-uq_C75SQ_4u"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest/80 via-transparent to-transparent"></div>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-between self-stretch">
+<div>
+<p class="text-meta-sm font-meta-sm tracking-wider text-primary uppercase">THU, OCT 24 • 20:00</p>
+<h2 class="text-headline-md font-headline-md text-on-surface leading-tight mt-0.5 break-words">
+                An evening of contemporary jazz & improvisation
+              </h2>
+<p class="text-body-md font-body-md text-on-surface-variant mt-1 text-[13px] leading-[18px]">
+                Klarisky Concert Hall, Old Town
+              </p>
+</div>
+<div class="flex items-center justify-between mt-2.5 pt-0.5">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-meta-sm font-meta-sm bg-surface-container text-on-surface-variant border border-outline-variant/30">
+                Live Music • €14
+              </span>
+<div class="flex items-center space-x-0.5 -mr-2">
+<button aria-label="Bookmark event" class="flex items-center justify-center w-12 h-12 min-w-[48px] min-h-[48px] text-on-surface-variant hover:text-primary active:scale-95 transition-transform" type="button">
+<span class="material-symbols-outlined text-[20px]" data-icon="bookmark">bookmark</span>
+</button>
+<button aria-label="More options" class="flex items-center justify-center w-12 h-12 min-w-[48px] min-h-[48px] text-on-surface-variant hover:text-primary active:scale-95 transition-transform" type="button">
+<span class="material-symbols-outlined text-[20px]" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+</div>
+</div>
+</article>
+<!-- Row 2: Design Market -->
+<article class="py-4 flex gap-4 items-start group">
+<div class="relative flex-shrink-0 w-[80px] h-[96px] rounded-xl overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" data-alt="Interior view of a modern industrial hall in Bratislava with warm natural roof light filtering down on curated tables displaying handmade ceramics, art prints, and local craft goods. Visitors browse calmly in an open gallery style venue." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBfepF2dAdWuOogmk0fNvUfFv6xiVkpjZGZwYCBxVVg1R-xRT7pLsViyeBUQDOw6yvLD93oFEzba-BRW_KvkWO-fT-WLKv363qG1JF4xuNeExNiQ8mQhQWJBh2fa7h8YjZwwAl8a-X_MRcOrF3wqSBFmd8YpDzuemwa1djGVNiwWwqBtwcsbmdfXyxk0rCWWKM2b4FzG2KbafQPET3PqEPnr8Qedvr6L1CRb7GQfdES1LHDH5SLXc214B-uYKphlnZZ-TNHeTQlMuyx"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest/80 via-transparent to-transparent"></div>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-between self-stretch">
+<div>
+<p class="text-meta-sm font-meta-sm tracking-wider text-primary uppercase">SAT, OCT 26 • 10:00 – 18:00</p>
+<h2 class="text-headline-md font-headline-md text-on-surface leading-tight mt-0.5 break-words">
+                Autumn curated design market & independent print exhibition
+              </h2>
+<p class="text-body-md font-body-md text-on-surface-variant mt-1 text-[13px] leading-[18px]">
+                Nová Cvernovka, Račianska
+              </p>
+</div>
+<div class="flex items-center justify-between mt-2.5 pt-0.5">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-meta-sm font-meta-sm bg-surface-container text-on-surface-variant border border-outline-variant/30">
+                Design & Craft • Free
+              </span>
+<div class="flex items-center space-x-0.5 -mr-2">
+<button aria-label="Bookmark event" class="flex items-center justify-center w-12 h-12 min-w-[48px] min-h-[48px] text-on-surface-variant hover:text-primary active:scale-95 transition-transform" type="button">
+<span class="material-symbols-outlined text-[20px]" data-icon="bookmark">bookmark</span>
+</button>
+<button aria-label="More options" class="flex items-center justify-center w-12 h-12 min-w-[48px] min-h-[48px] text-on-surface-variant hover:text-primary active:scale-95 transition-transform" type="button">
+<span class="material-symbols-outlined text-[20px]" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+</div>
+</div>
+</article>
+<!-- Row 3: Ceramics Workshop -->
+<article class="py-4 flex gap-4 items-start group">
+<div class="relative flex-shrink-0 w-[80px] h-[96px] rounded-xl overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" data-alt="Sunlit pottery studio bench with earthy unglazed clay vases, speckled mugs, and artisan sculpting tools set next to an old open window overlooking quiet European stone alleyways in morning light." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBJ0GUTIaTglhtUZ9nD_-ht9YIROQzqGW_doaGbhW8Ygp3RUHo9odiVdjy20E7HOC9Sp6qxg912XBQ_WQJqYe2Z2vMmlT9kF3rKz510p3b9id3ygfrjuhxHzFbDTz-FDVtHQg1Q7bnQ9Y1sFMnDZC6uulImb6OlwhixYuoWy2d07QB5v5-098GPyq-b7uUL2jJtoDWogNRZtWULOy1l2ziFmWIIdNMWwdU4FEqI1wVeZc4iO3WhFrrEoRE9ERg4zo4zeD8gLD9KL_ta"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest/80 via-transparent to-transparent"></div>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-between self-stretch">
+<div>
+<p class="text-meta-sm font-meta-sm tracking-wider text-primary uppercase">SUN, OCT 27 • 11:00 – 14:00</p>
+<h2 class="text-headline-md font-headline-md text-on-surface leading-tight mt-0.5 break-words">
+                A slower Sunday ceramics & tactile clay session
+              </h2>
+<p class="text-body-md font-body-md text-on-surface-variant mt-1 text-[13px] leading-[18px]">
+                Ateliér Mudroňova, Castle Hill
+              </p>
+</div>
+<div class="flex items-center justify-between mt-2.5 pt-0.5">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-meta-sm font-meta-sm bg-surface-container text-on-surface-variant border border-outline-variant/30">
+                Workshop • Price unknown
+              </span>
+<div class="flex items-center space-x-0.5 -mr-2">
+<button aria-label="Bookmark event" class="flex items-center justify-center w-12 h-12 min-w-[48px] min-h-[48px] text-on-surface-variant hover:text-primary active:scale-95 transition-transform" type="button">
+<span class="material-symbols-outlined text-[20px]" data-icon="bookmark">bookmark</span>
+</button>
+<button aria-label="More options" class="flex items-center justify-center w-12 h-12 min-w-[48px] min-h-[48px] text-on-surface-variant hover:text-primary active:scale-95 transition-transform" type="button">
+<span class="material-symbols-outlined text-[20px]" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+</div>
+</div>
+</article>
+<!-- Row 4: Contemporary Photography (Using Provided Image Asset https://lh3.googleusercontent.com/aida/ALJJyrAYtU2M3xW6tYpv1SpObBsHgGyXpUpt_ZNoCKx2AxEsrsV_LCz4Wj6nJQxUez8brobmRSk3NL4xW5awQ5pbuH-teAWImip-Dv7zZH-hSnCXHXAOUfMIxknDPACI0uFmlM1v9ltuUl1sTYbhRde1uTAmhMWq1-iYEYZEjzkeVPHCXiMMCVd-FJVN9RXD30_NoE0Xezs6kjv79jWl57HoZ4t1Mafs3lhbUUSG9Pk11qPdw3RscVmWIlkZ0jL-) -->
+<article class="py-4 flex gap-4 items-start group">
+<div class="relative flex-shrink-0 w-[80px] h-[96px] rounded-xl overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" src="https://lh3.googleusercontent.com/aida/ALJJyrAYtU2M3xW6tYpv1SpObBsHgGyXpUpt_ZNoCKx2AxEsrsV_LCz4Wj6nJQxUez8brobmRSk3NL4xW5awQ5pbuH-teAWImip-Dv7zZH-hSnCXHXAOUfMIxknDPACI0uFmlM1v9ltuUl1sTYbhRde1uTAmhMWq1-iYEYZEjzkeVPHCXiMMCVd-FJVN9RXD30_NoE0Xezs6kjv79jWl57HoZ4t1Mafs3lhbUUSG9Pk11qPdw3RscVmWIlkZ0jL-"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest/80 via-transparent to-transparent"></div>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-between self-stretch">
+<div>
+<p class="text-meta-sm font-meta-sm tracking-wider text-primary uppercase">TUE, OCT 29 • 18:30</p>
+<h2 class="text-headline-md font-headline-md text-on-surface leading-tight mt-0.5 break-words">
+                New perspectives in Slovak modernist photography
+              </h2>
+<p class="text-body-md font-body-md text-on-surface-variant mt-1 text-[13px] leading-[18px]">
+                Galéria Z, Ventúrska
+              </p>
+</div>
+<div class="flex items-center justify-between mt-2.5 pt-0.5">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-meta-sm font-meta-sm bg-surface-container text-on-surface-variant border border-outline-variant/30">
+                Visual Arts • Free
+              </span>
+<div class="flex items-center space-x-0.5 -mr-2">
+<button aria-label="Bookmark event" class="flex items-center justify-center w-12 h-12 min-w-[48px] min-h-[48px] text-on-surface-variant hover:text-primary active:scale-95 transition-transform" type="button">
+<span class="material-symbols-outlined text-[20px]" data-icon="bookmark">bookmark</span>
+</button>
+<button aria-label="More options" class="flex items-center justify-center w-12 h-12 min-w-[48px] min-h-[48px] text-on-surface-variant hover:text-primary active:scale-95 transition-transform" type="button">
+<span class="material-symbols-outlined text-[20px]" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+</div>
+</div>
+</article>
+</section>
+<!-- Editorial Quote / Subtle End-of-List Curator Signet -->
+<footer class="mt-8 mb-6 py-4 border-t border-outline-variant/15 flex flex-col items-center text-center">
+<span class="material-symbols-outlined text-outline text-[20px] mb-1" data-icon="palette">palette</span>
+<p class="text-meta-sm font-meta-sm text-outline max-w-[280px]">Curated weekly by Bratislava's cultural department and independent city spaces.</p>
+</footer>
+</main>
+<!-- BottomNavBar (Shared Component Implementation) -->
+<!-- Active State Logic: 'Explore' is the current top-level intent. Apply style_active_navigation to Explore, style_inactive_navigation to others. -->
+<nav class="bg-surface-container-low dark:bg-surface-container-low fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around px-gutter h-16 max-w-[640px] mx-auto pb-safe">
+<!-- Destination 1: Home -->
+<a class="flex flex-col items-center justify-center min-w-[48px] min-h-[48px] text-on-surface-variant dark:text-on-surface-variant hover:text-primary transition-colors duration-150 active:scale-95" href="#home">
+<span class="material-symbols-outlined text-[22px]" data-icon="home">home</span>
+<span class="text-action-sm font-action-sm mt-0.5">Home</span>
+</a>
+<!-- Destination 2: Explore (ACTIVE) -->
+<a class="flex flex-col items-center justify-center min-w-[48px] min-h-[48px] text-primary dark:text-primary font-semibold hover:text-primary transition-colors duration-150 active:scale-95" href="#explore">
+<span class="material-symbols-outlined text-[22px]" data-icon="explore" data-weight="fill" style="font-variation-settings: 'FILL' 1;">explore</span>
+<span class="text-action-sm font-action-sm mt-0.5">Explore</span>
+</a>
+<!-- Destination 3: Create -->
+<a class="flex flex-col items-center justify-center min-w-[48px] min-h-[48px] text-on-surface-variant dark:text-on-surface-variant hover:text-primary transition-colors duration-150 active:scale-95" href="#create">
+<span class="material-symbols-outlined text-[22px]" data-icon="add_circle">add_circle</span>
+<span class="text-action-sm font-action-sm mt-0.5">Create</span>
+</a>
+<!-- Destination 4: Map -->
+<a class="flex flex-col items-center justify-center min-w-[48px] min-h-[48px] text-on-surface-variant dark:text-on-surface-variant hover:text-primary transition-colors duration-150 active:scale-95" href="#map">
+<span class="material-symbols-outlined text-[22px]" data-icon="map">map</span>
+<span class="text-action-sm font-action-sm mt-0.5">Map</span>
+</a>
+<!-- Destination 5: Profile -->
+<a class="flex flex-col items-center justify-center min-w-[48px] min-h-[48px] text-on-surface-variant dark:text-on-surface-variant hover:text-primary transition-colors duration-150 active:scale-95" href="#profile">
+<span class="material-symbols-outlined text-[22px]" data-icon="person">person</span>
+<span class="text-action-sm font-action-sm mt-0.5">Profile</span>
+</a>
+</nav>
+</div>
+<script>
+    // Lightweight interactions for bookmark toggle
+    document.querySelectorAll('[aria-label="Bookmark event"]').forEach(button => {
+      button.addEventListener('click', function(e) {
+        e.preventDefault();
+        const icon = this.querySelector('.material-symbols-outlined');
+        const isFilled = icon.getAttribute('data-weight') === 'fill';
+        if (isFilled) {
+          icon.removeAttribute('data-weight');
+          icon.style.fontVariationSettings = "'FILL' 0";
+          this.classList.remove('text-primary');
+          this.classList.add('text-on-surface-variant');
+        } else {
+          icon.setAttribute('data-weight', 'fill');
+          icon.style.fontVariationSettings = "'FILL' 1";
+          this.classList.remove('text-on-surface-variant');
+          this.classList.add('text-primary');
+        }
+      });
+    });
+  </script>
+</body></html>

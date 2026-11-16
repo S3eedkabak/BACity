@@ -1,3 +1,4 @@
+import { MapBrowseTray } from './MapBrowseTray';
 import { TabScene } from '../components/navigation/SceneMotion';
 import { AppTextField } from '../components/interactions/AppTextField';
 import { themedStyles, useThemeRevision } from '../theme/appearance';
@@ -28,7 +29,7 @@ import { ActivityIndicator, Dimensions, Platform, StyleSheet, Text, View } from 
 import { AnimatedPressable as Pressable } from '../components/motion/Motion';
 import { colors } from "../theme/colors";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { fonts } from "../theme/fonts";
+import { fontStyles } from "../theme/fonts";
 import { nearbyUtilities, utilitiesInViewport, type UtilityBounds } from "../api/utilities";
 import { areaEvents, getEvent, mapClusters, mapDistricts } from "../api/events";
 import type { Utility } from "../api/utilities";
@@ -364,8 +365,6 @@ function MapScreen() {
       nearby:nearMeActive||!!currentLocation&&distanceKm(currentLocation,{latitude:feature.geometry.coordinates[1],longitude:feature.geometry.coordinates[0]})<=NEARBY_RADIUS_KM}}))]};
   },[eventViewport.data,filters,activeFilters,currentLocation,nearMeActive,clusterKey,savedClusters]);
   const appliedLabels = appliedFilterLabels(filters);
-  const filtersApplied = appliedLabels.length > 0;
-  const filterInk = filtersApplied ? colors.textInverse : colors.text;
   const eventTotal=nearMeActive?(nearbySummary.data?.total??0):eventShape.total;
   const citySummaryBehind = !nearMeActive && browseSummary.data != null && browseSummary.data.total < eventTotal;
   const syncedViewport = useRef(0);
@@ -675,7 +674,7 @@ function MapScreen() {
       {!target&&morphPhase==='idle'&&selectedDistrict&&zoomLevel<=14&&districtQuery.data?.features.filter(feature=>String(feature.properties.id)===selectedDistrict).map(feature=>(
         <Reveal key={selectedDistrict} style={{position:'absolute',bottom:insets.bottom+110,left:16,right:80,borderRadius:16,padding:14,backgroundColor:colors.surface,borderColor:colors.primary,borderWidth:1}}>
           <View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center'}}>
-            <Text style={{color:colors.text,fontFamily:fonts.semibold}}>{feature.properties.name} · {feature.properties.count} {feature.properties.count===1?'event':'events'}</Text>
+            <Text style={{color:colors.text,...fontStyles.semibold}}>{feature.properties.name} · {feature.properties.count} {feature.properties.count===1?'event':'events'}</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="Clear district selection" onPress={()=>setSelectedDistrict(null)}><AppIcon name="close" size={20} color={colors.text}/></Pressable>
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel={`Explore ${feature.properties.name} events`} onPress={()=>{void selectDistrict(feature.properties);}}><Text style={{color:colors.primary,paddingTop:10}}>Explore events</Text></Pressable>
@@ -705,19 +704,8 @@ function MapScreen() {
 
       </OverflowMenu>
 
-      {!target && !showUtilities && <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={"Map event filters and area events" + (filtersApplied ? ". Applied: " + appliedLabels.join(", ") : ". No filters applied")}
-        accessibilityState={{ expanded: filtersOpen }}
-        onPress={()=>{setFilterEditorOpen(false);setFiltersOpen(true);}}
-        style={{position:'absolute',bottom:12,left:16,right:76,minHeight:68,paddingHorizontal:16,paddingVertical:12,borderRadius:18,backgroundColor:filtersApplied?colors.text:colors.background,shadowOpacity:.15,shadowRadius:12,flexDirection:'row',alignItems:'center',gap:12}}>
-        <AppIcon name={filtersApplied ? "options-outline" : "calendar-outline"} size={22} color={filtersApplied ? filterInk : colors.primaryDark}/>
-        <View style={{flex:1}}>
-          <Text style={{color:filterInk,fontWeight:'600',fontSize:16}}>{countLabel}</Text>
-          <Text numberOfLines={1} style={{color:filtersApplied?filterInk:colors.textMuted,fontSize:12,marginTop:4}}>{filtersApplied ? appliedLabels.join(' · ') : 'All events · Filters'}</Text>
-        </View>
-        <AppIcon name="chevron-up" size={18} color={filtersApplied?filterInk:colors.textMuted}/>
-      </Pressable>}
+      {!target && !showUtilities && <MapBrowseTray countLabel={countLabel} appliedLabels={appliedLabels} expanded={filtersOpen}
+        onPress={()=>{setFilterEditorOpen(false);setFiltersOpen(true);}} />}
       <View pointerEvents="box-none" style={StyleSheet.absoluteFillObject}>
         <View pointerEvents="box-none" style={[styles.topControls, { top: insets.top + 12 }]}>
           <Pressable
@@ -810,7 +798,7 @@ const styles = themedStyles(() => ({
   },
   statusText: {
     color: colors.textMuted,
-    fontFamily: fonts.medium,
+    ...fontStyles.medium,
     fontSize: 12,
     flexShrink: 1,
     paddingVertical: 8,

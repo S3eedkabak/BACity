@@ -23,7 +23,7 @@ export function AppTextField({
   const reduced = useMotionPreference(),
     focus = useSharedValue(0);
   useEffect(() => {
-    focus.value = withTiming(Number(focused), { duration: reduced ? 0 : 150 });
+    focus.value = withTiming(Number(focused), { duration: reduced ? 0 : tokens.motion.focus });
   }, [focused, reduced, focus]);
   const border = useAnimatedStyle(() => ({
     borderColor: error
@@ -49,7 +49,7 @@ export function AppTextField({
           {
             flexDirection: "row",
             alignItems: "center",
-            borderRadius: props.multiline ? 16 : 26,
+            borderRadius: tokens.radius.field,
             borderWidth: 1,
             borderColor: error
               ? colors.danger

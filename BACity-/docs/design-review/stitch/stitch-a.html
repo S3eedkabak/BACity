@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>BACity — Editorial City Guide</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "surface-tint": "#ffb0ca",
+            "surface-container-high": "#2c292d",
+            "secondary-container": "#6e3350",
+            "inverse-on-surface": "#322f34",
+            "secondary-fixed": "#ffd8e6",
+            "outline-variant": "#554147",
+            "inverse-surface": "#e7e1e6",
+            "on-secondary-fixed": "#390723",
+            "outline": "#a38a91",
+            "primary-container": "#a93468",
+            "secondary-fixed-dim": "#ffb0d1",
+            "on-secondary": "#531d39",
+            "surface-container-highest": "#373438",
+            "on-primary-fixed": "#3e001f",
+            "tertiary": "#7cdc71",
+            "surface-dim": "#151317",
+            "on-primary-container": "#ffd0de",
+            "on-error-container": "#ffdad6",
+            "secondary": "#ffb0d1",
+            "error-container": "#93000a",
+            "primary-fixed-dim": "#ffb0ca",
+            "on-surface": "#e7e1e6",
+            "surface-bright": "#3b383d",
+            "on-tertiary-container": "#91f385",
+            "primary-fixed": "#ffd9e3",
+            "on-tertiary": "#003a05",
+            "surface-container": "#211f23",
+            "tertiary-fixed": "#97f98a",
+            "surface-container-low": "#1d1b1f",
+            "on-background": "#e7e1e6",
+            "on-error": "#690005",
+            "surface-variant": "#373438",
+            "on-primary": "#640036",
+            "on-secondary-fixed-variant": "#6e3350",
+            "inverse-primary": "#a63165",
+            "on-surface-variant": "#dbbfc7",
+            "on-tertiary-fixed-variant": "#00530a",
+            "tertiary-container": "#017112",
+            "surface-container-lowest": "#0f0d11",
+            "on-tertiary-fixed": "#002202",
+            "surface": "#151317",
+            "tertiary-fixed-dim": "#7cdc71",
+            "error": "#ffb4ab",
+            "on-secondary-container": "#eb9fc0",
+            "on-primary-fixed-variant": "#87164d",
+            "background": "#151317",
+            "primary": "#ffb0ca"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-xl": "1.5rem",
+            "gutter": "1.25rem",
+            "space-sm": "0.5rem",
+            "space-md": "1rem",
+            "margin": "1.25rem",
+            "space-xs": "0.25rem",
+            "space-lg": "1.25rem"
+          },
+          "fontFamily": {
+            "meta-sm": ["Inter"],
+            "headline-md": ["Inter"],
+            "headline-lg": ["Inter"],
+            "body-md": ["Inter"],
+            "action-md": ["Inter"],
+            "meta-md": ["Inter"],
+            "headline-xl": ["Inter"],
+            "body-lg": ["Inter"],
+            "action-sm": ["Inter"]
+          },
+          "fontSize": {
+            "meta-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500" }],
+            "headline-md": ["17px", { "lineHeight": "23px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+            "headline-lg": ["22px", { "lineHeight": "28px", "letterSpacing": "-0.015em", "fontWeight": "700" }],
+            "body-md": ["15px", { "lineHeight": "21px", "fontWeight": "400" }],
+            "action-md": ["15px", { "lineHeight": "20px", "fontWeight": "600" }],
+            "meta-md": ["14px", { "lineHeight": "18px", "fontWeight": "400" }],
+            "headline-xl": ["30px", { "lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+            "body-lg": ["17px", { "lineHeight": "24px", "fontWeight": "400" }],
+            "action-sm": ["13px", { "lineHeight": "18px", "letterSpacing": "0.01em", "fontWeight": "600" }]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+  </style>
+</head>
+<body class="bg-surface-container-lowest text-on-surface antialiased min-h-screen flex justify-center selection:bg-primary selection:text-on-primary">
+<!-- Mobile Viewport Container capped at 640px -->
+<main class="w-full max-w-[640px] bg-surface-container-lowest min-h-screen relative flex flex-col pb-24 shadow-2xl">
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-gutter h-14 max-w-[640px] mx-auto bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant/30">
+<div class="flex items-center gap-2">
+<a class="text-headline-md font-headline-md font-bold tracking-tight text-on-surface flex items-center gap-1.5 focus:outline-none" href="#">
+          BACity
+          <span class="w-1.5 h-1.5 rounded-full bg-primary inline-block"></span>
+</a>
+</div>
+<div class="flex items-center gap-1">
+<button aria-label="Search" class="min-w-[48px] min-h-[48px] flex items-center justify-center text-on-surface hover:text-primary transition-colors duration-150 active:opacity-80" type="button">
+<span class="material-symbols-outlined text-[22px]">search</span>
+</button>
+<button aria-label="Notifications" class="min-w-[48px] min-h-[48px] flex items-center justify-center text-on-surface hover:text-primary transition-colors duration-150 active:opacity-80 relative" type="button">
+<span class="material-symbols-outlined text-[22px]">notifications</span>
+<span class="absolute top-3 right-3 w-1.5 h-1.5 rounded-full bg-primary"></span>
+</button>
+</div>
+</header>
+<!-- Content Canvas -->
+<div class="pt-16 flex flex-col gap-6">
+<!-- Editorial Intro Section -->
+<section class="px-gutter pt-4 flex flex-col gap-1.5">
+<div class="flex items-center gap-2">
+<span class="text-meta-sm font-meta-sm text-primary tracking-wider uppercase">Editorial Guide</span>
+<span class="text-outline-variant">•</span>
+<span class="text-meta-sm font-meta-sm text-on-surface-variant">Bratislava</span>
+</div>
+<h1 class="text-headline-xl font-headline-xl text-on-surface tracking-tight">Curated for tonight</h1>
+<p class="text-body-md font-body-md text-on-surface-variant max-w-[340px]">
+          Hand-picked cultural gatherings, live sessions, and quiet riverside walks.
+        </p>
+</section>
+<!-- Horizontal Interest Navigation (Underlined Style) -->
+<nav aria-label="Categories" class="border-b border-outline-variant/30 px-gutter">
+<div class="flex items-center gap-6 overflow-x-auto no-scrollbar">
+<!-- Active Tab: All -->
+<button class="min-h-[48px] flex items-center justify-center border-b-2 border-primary text-action-sm font-action-sm text-on-surface whitespace-nowrap px-0.5 transition-colors" type="button">
+            All
+          </button>
+<!-- Inactive Tab: Music -->
+<button class="min-h-[48px] flex items-center justify-center border-b-2 border-transparent text-action-sm font-action-sm text-on-surface-variant hover:text-on-surface whitespace-nowrap px-0.5 transition-colors" type="button">
+            Music
+          </button>
+<!-- Inactive Tab: Culture -->
+<button class="min-h-[48px] flex items-center justify-center border-b-2 border-transparent text-action-sm font-action-sm text-on-surface-variant hover:text-on-surface whitespace-nowrap px-0.5 transition-colors" type="button">
+            Culture
+          </button>
+<!-- Inactive Tab: Nightlife -->
+<button class="min-h-[48px] flex items-center justify-center border-b-2 border-transparent text-action-sm font-action-sm text-on-surface-variant hover:text-on-surface whitespace-nowrap px-0.5 transition-colors" type="button">
+            Nightlife
+          </button>
+<!-- Inactive Tab: Free -->
+<button class="min-h-[48px] flex items-center justify-center border-b-2 border-transparent text-action-sm font-action-sm text-on-surface-variant hover:text-on-surface whitespace-nowrap px-0.5 transition-colors" type="button">
+            Free
+          </button>
+</div>
+</nav>
+<!-- Featured City-Walk Card -->
+<section class="px-gutter">
+<div class="relative w-full h-[260px] rounded-2xl overflow-hidden border border-outline-variant/40 bg-surface-container-low group cursor-pointer">
+<!-- Background Image -->
+<img alt="Danube river promenade at golden hour in Bratislava" class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.02]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuATYVV30HVDwjZh4lFe2lN15Xu6yz64XhW-RSmzW_sM3juxkaYSjz4YNCscxOSGZdkZV4F94VE7978FlIonfLTOiGnFhxEOABczOi6vSB-myoa4fC6O9wfVephAf7RUSpAV0XF7vieFHOge3DSOOB1RuM2lD9SrFSboOX3Wsi_HCElHsFzbUi7SCnLNv0j5H41lW90UAJaJsSusEsWPvGYAQMgs16DtnAML67kZJyw4HUiBGj1ViC4jz9CVhoJSczp_vuj2W5zmPRMZ"/>
+<!-- Low-contrast Linear Scrim -->
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest via-surface-container-lowest/60 to-transparent"></div>
+<!-- Top Actions -->
+<div class="absolute top-3 right-3 z-10">
+<button aria-label="Save City Walk" class="w-11 h-11 min-w-[48px] min-h-[48px] flex items-center justify-center rounded-full bg-surface-container-low/80 backdrop-blur-md text-on-surface border border-outline-variant/40 active:scale-95 transition-transform" type="button">
+<span class="material-symbols-outlined text-[20px]">bookmark</span>
+</button>
+</div>
+<!-- Content Details -->
+<div class="absolute inset-x-0 bottom-0 p-5 flex flex-col gap-1 z-10">
+<span class="text-meta-sm font-meta-sm text-secondary tracking-widest uppercase">
+              CITY WALK • FREE
+            </span>
+<h2 class="text-headline-lg font-headline-lg text-on-surface leading-snug">
+              Along the Danube at golden hour
+            </h2>
+<div class="flex items-center gap-1.5 text-meta-sm font-meta-sm text-on-surface-variant mt-0.5">
+<span class="material-symbols-outlined text-[16px] text-outline">schedule</span>
+<span>Starý Most to River Park • Today from 18:30</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Upcoming Curated Rows -->
+<section class="px-gutter flex flex-col gap-3">
+<div class="flex items-center justify-between">
+<h3 class="text-meta-sm font-meta-sm font-semibold uppercase tracking-widest text-on-surface-variant">
+            Upcoming curated
+          </h3>
+<a class="text-meta-sm font-meta-sm text-primary hover:underline flex items-center gap-0.5" href="#">
+            See all
+            <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+</a>
+</div>
+<div class="flex flex-col gap-3">
+<!-- Row 1: Contemporary Jazz -->
+<article class="flex items-center gap-3.5 p-3 rounded-xl bg-surface-container-low border border-outline-variant/30 hover:border-outline-variant/60 transition-colors group cursor-pointer">
+<div class="w-[80px] h-[96px] rounded-lg overflow-hidden flex-shrink-0 bg-surface-container">
+<img alt="Live contemporary jazz performance" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBnCiowFES6XnnHkta8FmysVW17VW10J-KvmQLb_YDxnoJfxE1w2BB03aDbp55J7MH4Uhm-gVABOTWDiqcf8iRqcEMMGantt5ssBCk7CBocH1DyMmuLxQEa4qM_tucL5gWysbUhCCZXaO3_PwAipmS_LVt-5wEqa1b9N893XmS8DWD1YgmrOKYYVStU6XNCsaZq2Hk3yequZmZBXS-r79PHBYks1Gz6vZp1h63Vqh2WT7w8Se469eaR3kMVCsFo_X9x65U5s4Rea-HM"/>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+<div class="flex flex-col gap-0.5">
+<span class="text-meta-sm font-meta-sm text-secondary tracking-wide uppercase">
+                  THU, OCT 24 • 20:00
+                </span>
+<h4 class="text-headline-md font-headline-md text-on-surface truncate">
+                  An evening of contemporary jazz
+                </h4>
+<p class="text-meta-sm font-meta-sm text-on-surface-variant truncate">
+                  Klarisky Concert Hall, Old Town
+                </p>
+</div>
+<div class="flex items-center justify-between mt-2 pt-1.5 border-t border-outline-variant/20">
+<span class="text-meta-sm font-meta-sm font-medium text-on-surface">
+                  €14 • Limited seating
+                </span>
+<span class="material-symbols-outlined text-[18px] text-outline group-hover:text-primary transition-colors">
+                  chevron_right
+                </span>
+</div>
+</div>
+</article>
+<!-- Row 2: Design Market -->
+<article class="flex items-center gap-3.5 p-3 rounded-xl bg-surface-container-low border border-outline-variant/30 hover:border-outline-variant/60 transition-colors group cursor-pointer">
+<div class="w-[80px] h-[96px] rounded-lg overflow-hidden flex-shrink-0 bg-surface-container">
+<img alt="Design market at the old refinery gallery space" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDkIuXkhfHUN8NGPgAUF4KZKiZKi7zK4_TBX4AWykvFHJVHwXhxqxUoGzO4Y9J9CN9mLiFB542GsNImEBsQONC-i7aXcbBMS0vv6Yl5ADXf3KBWiYg-8p-sZ3DFxnVQUBA83kunxFcxP9cmKiI20GdxxyebnuVcewUgowA6VWs3IxKmREsKDSq1a8-BD0otV-hzqsPWrJwhvwX6-vt972VMgXb2CjDf_OL63hn6Qati-hW7ZFMm7TRo-8VZR3WxW4AFxN8YU8-dC-Yz"/>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+<div class="flex flex-col gap-0.5">
+<span class="text-meta-sm font-meta-sm text-secondary tracking-wide uppercase">
+                  SAT, OCT 26 • 10:00 – 18:00
+                </span>
+<h4 class="text-headline-md font-headline-md text-on-surface truncate">
+                  Design market at the old refinery
+                </h4>
+<p class="text-meta-sm font-meta-sm text-on-surface-variant truncate">
+                  Nová Cvernovka, Račianska
+                </p>
+</div>
+<div class="flex items-center justify-between mt-2 pt-1.5 border-t border-outline-variant/20">
+<span class="text-meta-sm font-meta-sm font-medium text-on-surface">
+                  Free entry • 60+ makers
+                </span>
+<span class="material-symbols-outlined text-[18px] text-outline group-hover:text-primary transition-colors">
+                  chevron_right
+                </span>
+</div>
+</div>
+</article>
+</div>
+</section>
+<!-- Neighborhood Pulse Ticker / Micro-Module -->
+<section class="px-gutter pb-4">
+<div class="p-4 rounded-xl bg-surface-container border border-outline-variant/30 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-secondary-container/50 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[20px]">near_me</span>
+</div>
+<div class="flex flex-col">
+<span class="text-meta-sm font-meta-sm font-medium text-on-surface">Near Old Town</span>
+<span class="text-meta-sm font-meta-sm text-on-surface-variant">4 cultural venues open late tonight</span>
+</div>
+</div>
+<button class="text-action-sm font-action-sm text-primary hover:text-on-surface transition-colors min-h-[48px] min-w-[48px] flex items-center justify-center" type="button">
+            Map
+          </button>
+</div>
+</section>
+</div>
+<!-- Fixed Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around px-gutter h-16 max-w-[640px] mx-auto bg-surface-container-low/95 backdrop-blur-lg border-t border-outline-variant/30 pb-safe">
+<!-- Destination 1: Home (Active) -->
+<a class="flex flex-col items-center justify-center min-w-[48px] min-h-[48px] text-primary font-semibold active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="text-action-sm font-action-sm">Home</span>
+</a>
+<!-- Destination 2: Explore -->
+<a class="flex flex-col items-center justify-center min-w-[48px] min-h-[48px] text-on-surface-variant hover:text-primary transition-colors duration-150 active:scale-95" href="#">
+<span class="material-symbols-outlined text-[22px]">explore</span>
+<span class="text-action-sm font-action-sm">Explore</span>
+</a>
+<!-- Destination 3: Create -->
+<a class="flex flex-col items-center justify-center min-w-[48px] min-h-[48px] text-on-surface-variant hover:text-primary transition-colors duration-150 active:scale-95" href="#">
+<span class="material-symbols-outlined text-[22px]">add_circle</span>
+<span class="text-action-sm font-action-sm">Create</span>
+</a>
+<!-- Destination 4: Map -->
+<a class="flex flex-col items-center justify-center min-w-[48px] min-h-[48px] text-on-surface-variant hover:text-primary transition-colors duration-150 active:scale-95" href="#">
+<span class="material-symbols-outlined text-[22px]">map</span>
+<span class="text-action-sm font-action-sm">Map</span>
+</a>
+<!-- Destination 5: Profile -->
+<a class="flex flex-col items-center justify-center min-w-[48px] min-h-[48px] text-on-surface-variant hover:text-primary transition-colors duration-150 active:scale-95" href="#">
+<span class="material-symbols-outlined text-[22px]">person</span>
+<span class="text-action-sm font-action-sm">Profile</span>
+</a>
+</nav>
+</main>
+</body></html>

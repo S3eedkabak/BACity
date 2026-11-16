@@ -35,6 +35,36 @@ function render(element){let tree;act(()=>{tree=TestRenderer.create(element);});
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
 async function waitForButton(tree,label){ for(let step=0;step<100;step++){const found=button(tree,label);if(found)return found;await act(async()=>{await tick();});}assert.fail(`Button did not settle: ${label}`); }
 
+test('profile activity ignores late responses from a previous tab and account',async()=>{
+ const requests=[];
+ const e=environment({[root+'/api/community.ts']:{getProfileHistory:(owner,tab)=>new Promise(resolve=>requests.push({owner,tab,resolve}))},[root+'/api/client.ts']:{apiRequest:async()=>[]}});
+ const {useProfileActivity}=e.load('hooks/useProfileActivity.ts');let state;
+ function Activity({owner,tab}){state=useProfileActivity(owner,tab);return React.createElement('Text',null,state.items.map(item=>item.id).join(','));}
+ const t=render(React.createElement(Activity,{owner:'first',tab:'contributions'}));
+ act(()=>t.update(React.createElement(Activity,{owner:'first',tab:'reviews'})));
+ await act(async()=>{requests[1].resolve([{id:'current-review'}]);await tick();});
+ await act(async()=>{requests[0].resolve([{id:'stale-contribution'}]);await tick();});
+ assert.equal(state.items[0].id,'current-review');
+ act(()=>t.update(React.createElement(Activity,{owner:'second',tab:'reviews'})));
+ await act(async()=>{requests[2].resolve([{id:'second-owner-review'}]);await tick();});
+ assert.equal(state.items[0].id,'second-owner-review');assert.equal(state.loading,false);
+ act(()=>t.unmount());
+});
+
+test('discovery cancels superseded searches and late results cannot replace the active query',async()=>{
+ const requests=[];
+ const e=environment({[root+'/api/client.ts']:{apiRequest:(path,options)=>new Promise(resolve=>requests.push({path,options,resolve}))}});
+ const {useDiscoveryResults}=e.load('hooks/useDiscoveryResults.ts');let state;
+ function Results({term}){state=useDiscoveryResults({domain:'events',term,category:null,freeOnly:false,token:null});return React.createElement('Text',null,state.items.map(item=>item.id).join(','));}
+ const t=render(React.createElement(Results,{term:'jazz'}));
+ act(()=>t.update(React.createElement(Results,{term:'market'})));
+ assert.equal(requests[0].options.signal.aborted,true);
+ await act(async()=>{requests[1].resolve([{id:'market'}]);await tick();});
+ await act(async()=>{requests[0].resolve([{id:'late-jazz'}]);await tick();});
+ assert.equal(state.items[0].id,'market');assert.equal(state.loading,false);
+ act(()=>t.unmount());assert.equal(requests[1].options.signal.aborted,true);
+});
+
 test('save control has checked/disabled semantics and stops card navigation',()=>{
  const e=environment(),{LikeAction}=e.load('components/interactions/LikeAction.tsx');let calls=0,stopped=0;
  const t=render(React.createElement(LikeAction,{active:false,onPress:()=>calls++}));act(()=>button(t,'Save event').props.onPress({stopPropagation(){stopped++;}}));assert.equal(calls,1);assert.equal(stopped,1);

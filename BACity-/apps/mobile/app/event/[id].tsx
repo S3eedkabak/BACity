@@ -1,3 +1,4 @@
+import { tokens } from '../../src/theme/tokens';
 import { ContentStages } from "../../src/components/navigation/SceneMotion";
 import { themedStyles, useThemeRevision } from "../../src/theme/appearance";
 import { SaveEventAction } from "../../src/components/interactions/SaveEventAction";
@@ -35,7 +36,7 @@ import { useAuthStore } from "../../src/store/authStore";
 import { LoadingState } from "../../src/components/LoadingState";
 import { EmptyState } from "../../src/components/EmptyState";
 import { colors } from "../../src/theme/colors";
-import { fonts } from "../../src/theme/fonts";
+import { fontStyles } from "../../src/theme/fonts";
 import { PlusGateAction } from "../../src/plus/usePlusGate";
 import { eventChainsRoute } from "../../src/eventChains/presentation";
 import { useMeaningfulLoading } from "../../src/components/loading/LoadingExperience";
@@ -123,12 +124,12 @@ export default function EventDetailScreen() {
               <View style={styles.heroTop}>
                 <View style={styles.heroBadges}>
                   <View style={styles.categoryPill}>
-                    <Text style={styles.category}>{event.category}</Text>
+                    <Text maxFontSizeMultiplier={tokens.accessibility.navigationLabelMaxScale} style={styles.category}>{event.category}</Text>
                   </View>
 
                   {event.price === 0 && (
                     <View style={styles.freePill}>
-                      <Text style={styles.freeText}>FREE</Text>
+                      <Text maxFontSizeMultiplier={tokens.accessibility.navigationLabelMaxScale} style={styles.freeText}>FREE</Text>
                     </View>
                   )}
                 </View>
@@ -149,7 +150,7 @@ export default function EventDetailScreen() {
             </View>
           ) : (
             <View
-              style={{ paddingHorizontal: 20, paddingVertical: 16, gap: 8 }}
+              style={{ paddingHorizontal: tokens.layout.gutter, paddingVertical: 16, gap: 8 }}
             >
               <Text style={{ color: colors.primaryDark, fontSize: 13 }}>
                 {event.category}
@@ -369,19 +370,18 @@ const styles = themedStyles(() => ({
   container: { flex: 1, backgroundColor: colors.background },
   content: {
     width: "100%",
-    maxWidth: 760,
+    maxWidth: tokens.layout.maxWidth,
     alignSelf: "center",
-    paddingBottom: 45,
+    paddingBottom: tokens.layout.contentBottom,
   },
   hero: {
     minHeight: 220,
-    height: 250,
-    marginHorizontal: 14,
-    borderRadius: 28,
+    marginHorizontal: tokens.layout.gutter,
+    borderRadius: tokens.radius.card,
     overflow: "hidden",
     backgroundColor: colors.primarySoft,
   },
-  heroImage: { width: "100%", height: "100%" },
+  heroImage: { ...StyleSheet.absoluteFillObject },
   heroTop: {
     position: "absolute",
     top: 16,
@@ -397,14 +397,14 @@ const styles = themedStyles(() => ({
     alignItems: "center",
   },
   categoryPill: {
-    backgroundColor: "rgba(39,35,41,0.78)",
+    backgroundColor: colors.overlay,
     paddingHorizontal: 11,
     paddingVertical: 7,
     borderRadius: 99,
   },
   category: {
-    color: colors.white,
-    fontFamily: fonts.semibold,
+    color: colors.onMedia,
+    ...fontStyles.semibold,
     fontWeight: "600",
     fontSize: 12,
   },
@@ -416,18 +416,15 @@ const styles = themedStyles(() => ({
   },
   freeText: {
     color: colors.free,
-    fontFamily: fonts.black,
+    ...fontStyles.black,
     fontWeight: "800",
     fontSize: 12,
   },
-  heroText: { position: "absolute", left: 18, right: 18, bottom: 20 },
+  heroText: { paddingHorizontal: tokens.layout.gutter, paddingTop: 100, paddingBottom: tokens.space.lg },
   title: {
-    color: colors.white,
-    fontFamily: fonts.black,
-    fontWeight: "800",
-    fontSize: 25,
-    lineHeight: 33,
-    letterSpacing: -0.8,
+    color: colors.onMedia,
+    ...fontStyles.black,
+    ...tokens.type.featureTitle,
   },
   locationLine: {
     flexDirection: "row",
@@ -436,8 +433,8 @@ const styles = themedStyles(() => ({
     marginTop: 8,
   },
   location: {
-    color: colors.white,
-    fontFamily: fonts.medium,
+    color: colors.onMedia,
+    ...fontStyles.medium,
     fontSize: 12,
     flex: 1,
   },
@@ -445,7 +442,7 @@ const styles = themedStyles(() => ({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 16,
-    paddingHorizontal: 20,
+    paddingHorizontal: tokens.layout.gutter,
     marginTop: 20,
   },
   infoCard: {
@@ -464,29 +461,29 @@ const styles = themedStyles(() => ({
   },
   label: {
     color: colors.textMuted,
-    fontFamily: fonts.semibold,
+    ...fontStyles.semibold,
     fontWeight: "600",
     fontSize: 12,
     letterSpacing: 1,
   },
   value: {
     color: colors.text,
-    fontFamily: fonts.semibold,
+    ...fontStyles.semibold,
     fontWeight: "600",
     fontSize: 12,
     lineHeight: 18,
     marginTop: 4,
   },
-  section: { paddingHorizontal: 18, paddingTop: 22 },
+  section: { paddingHorizontal: tokens.layout.gutter, paddingTop: 22 },
   sectionTitle: {
     color: colors.text,
-    fontFamily: fonts.black,
+    ...fontStyles.black,
     fontWeight: "800",
     fontSize: 19,
   },
   description: {
     color: colors.textMuted,
-    fontFamily: fonts.regular,
+    ...fontStyles.regular,
     fontSize: 13,
     lineHeight: 21,
     marginTop: 8,
@@ -500,7 +497,7 @@ const styles = themedStyles(() => ({
   },
   sourceText: {
     color: colors.primaryDark,
-    fontFamily: fonts.semibold,
+    ...fontStyles.semibold,
     fontWeight: "600",
     fontSize: 12,
   },

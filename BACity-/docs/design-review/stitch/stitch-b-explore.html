@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<title>B Explore — compact utility | BACity</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "on-secondary-container": "#eb9fc0",
+            "primary-container": "#a93468",
+            "surface-bright": "#3b383d",
+            "secondary": "#ffb0d1",
+            "on-surface": "#e7e1e6",
+            "on-secondary-fixed-variant": "#6e3350",
+            "on-error-container": "#ffdad6",
+            "surface-variant": "#373438",
+            "primary-fixed": "#ffd9e3",
+            "on-tertiary-fixed-variant": "#00530a",
+            "surface-container": "#211f23",
+            "on-error": "#690005",
+            "on-secondary": "#531d39",
+            "on-primary": "#640036",
+            "surface-container-highest": "#373438",
+            "inverse-surface": "#e7e1e6",
+            "surface": "#151317",
+            "secondary-container": "#6e3350",
+            "on-primary-container": "#ffd0de",
+            "surface-tint": "#ffb0ca",
+            "on-primary-fixed-variant": "#87164d",
+            "on-tertiary": "#003a05",
+            "on-surface-variant": "#dbbfc7",
+            "on-background": "#e7e1e6",
+            "secondary-fixed-dim": "#ffb0d1",
+            "on-secondary-fixed": "#390723",
+            "surface-dim": "#151317",
+            "surface-container-low": "#1d1b1f",
+            "secondary-fixed": "#ffd8e6",
+            "error-container": "#93000a",
+            "background": "#151317",
+            "surface-container-high": "#2c292d",
+            "tertiary": "#7cdc71",
+            "primary-fixed-dim": "#ffb0ca",
+            "inverse-on-surface": "#322f34",
+            "on-tertiary-fixed": "#002202",
+            "outline-variant": "#554147",
+            "on-primary-fixed": "#3e001f",
+            "tertiary-container": "#017112",
+            "inverse-primary": "#a63165",
+            "tertiary-fixed-dim": "#7cdc71",
+            "outline": "#a38a91",
+            "error": "#ffb4ab",
+            "on-tertiary-container": "#91f385",
+            "primary": "#ffb0ca",
+            "surface-container-lowest": "#0f0d11",
+            "tertiary-fixed": "#97f98a"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-sm": "0.5rem",
+            "gutter": "1.25rem",
+            "space-xl": "1.5rem",
+            "margin": "1.25rem",
+            "space-lg": "1.25rem",
+            "space-md": "1rem",
+            "space-xs": "0.25rem"
+          },
+          "fontFamily": {
+            "body-lg": ["Inter", "sans-serif"],
+            "action-md": ["Inter", "sans-serif"],
+            "headline-xl": ["Inter", "sans-serif"],
+            "headline-lg": ["Inter", "sans-serif"],
+            "body-md": ["Inter", "sans-serif"],
+            "meta-md": ["Inter", "sans-serif"],
+            "headline-md": ["Inter", "sans-serif"],
+            "meta-sm": ["Inter", "sans-serif"],
+            "action-sm": ["Inter", "sans-serif"]
+          },
+          "fontSize": {
+            "body-lg": ["17px", { "lineHeight": "24px", "fontWeight": "400" }],
+            "action-md": ["15px", { "lineHeight": "20px", "fontWeight": "600" }],
+            "headline-xl": ["30px", { "lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+            "headline-lg": ["22px", { "lineHeight": "28px", "letterSpacing": "-0.015em", "fontWeight": "700" }],
+            "body-md": ["15px", { "lineHeight": "21px", "fontWeight": "400" }],
+            "meta-md": ["14px", { "lineHeight": "18px", "fontWeight": "400" }],
+            "headline-md": ["17px", { "lineHeight": "23px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+            "meta-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500" }],
+            "action-sm": ["13px", { "lineHeight": "18px", "letterSpacing": "0.01em", "fontWeight": "600" }]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    .scrollbar-none::-webkit-scrollbar {
+      display: none;
+    }
+    .scrollbar-none {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .pb-safe {
+      padding-bottom: env(safe-area-inset-bottom, 16px);
+    }
+  </style>
+</head>
+<body class="bg-surface-container-lowest text-on-surface antialiased min-h-screen selection:bg-primary-container selection:text-on-primary-container">
+<!-- Top App Bar (Shared Component Anchor) -->
+<header class="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-gutter h-14 max-w-[640px] mx-auto bg-surface-container-low border-b border-outline-variant/30">
+<div class="flex items-center gap-2">
+<button aria-label="City" class="w-10 h-10 flex items-center justify-center text-on-surface hover:text-primary transition-colors duration-150 active:opacity-80" type="button">
+<span class="material-symbols-outlined text-[22px]">location_city</span>
+</button>
+<span class="text-headline-md font-headline-md font-bold tracking-tight text-on-surface">BACity</span>
+</div>
+<div class="flex items-center gap-1">
+<button aria-label="Search" class="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors duration-150 active:opacity-80" type="button">
+<span class="material-symbols-outlined text-[22px]">search</span>
+</button>
+</div>
+</header>
+<!-- Main Viewport Canvas -->
+<main class="max-w-[640px] mx-auto pt-14 pb-24 min-h-screen flex flex-col bg-surface-container-lowest">
+<!-- Header Section: Compact Utility Explorer -->
+<section class="px-gutter pt-4 pb-2 bg-surface-container-lowest">
+<div class="flex items-baseline justify-between mb-3">
+<h1 class="text-headline-lg font-headline-lg text-on-surface tracking-tight">Explore</h1>
+<span class="text-meta-sm font-meta-sm text-on-surface-variant tracking-wider uppercase">Bratislava</span>
+</div>
+<!-- Search Input Container -->
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3.5 text-[20px] text-on-surface-variant pointer-events-none">search</span>
+<input class="w-full h-11 pl-11 pr-4 bg-surface-container-low border border-outline-variant/40 rounded-lg text-body-md font-body-md text-on-surface placeholder:text-on-surface-variant/70 focus:outline-none focus:border-primary transition-colors duration-150" placeholder="Search events, venues, topics..." type="text"/>
+<button aria-label="Clear or voice" class="absolute right-2 w-8 h-8 flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px]">tune</span>
+</button>
+</div>
+<!-- Underlined Category Navigation Tabs -->
+<div class="flex items-center gap-6 mt-4 border-b border-outline-variant/20 overflow-x-auto scrollbar-none">
+<button class="relative pb-2.5 text-action-md font-action-md text-primary font-semibold transition-colors shrink-0" type="button">
+          Events
+          <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full"></div>
+</button>
+<button class="relative pb-2.5 text-action-md font-action-md text-on-surface-variant hover:text-on-surface transition-colors shrink-0" type="button">
+          Places
+        </button>
+<button class="relative pb-2.5 text-action-md font-action-md text-on-surface-variant hover:text-on-surface transition-colors shrink-0" type="button">
+          People
+        </button>
+<button class="relative pb-2.5 text-action-md font-action-md text-on-surface-variant hover:text-on-surface transition-colors shrink-0" type="button">
+          Organizers
+        </button>
+</div>
+<!-- Filter Controls Strip -->
+<div class="flex items-center gap-2 py-3 overflow-x-auto scrollbar-none">
+<!-- Filter Toggle Button -->
+<button class="inline-flex items-center gap-1.5 px-3 h-9 min-h-[36px] bg-surface-container-low border border-outline-variant/40 rounded-lg text-action-sm font-action-sm text-on-surface shrink-0 hover:border-primary transition-colors active:scale-95" type="button">
+<span class="material-symbols-outlined text-[16px] text-primary">tune</span>
+<span>Filters</span>
+</button>
+<!-- Filter Chips -->
+<button class="inline-flex items-center px-3 h-9 min-h-[36px] bg-surface-container-high border border-primary-container rounded-lg text-action-sm font-action-sm text-on-surface shrink-0 active:scale-95 transition-all" type="button">
+          This weekend
+        </button>
+<button class="inline-flex items-center px-3 h-9 min-h-[36px] bg-surface-container-low border border-outline-variant/40 rounded-lg text-action-sm font-action-sm text-on-surface-variant hover:text-on-surface shrink-0 active:scale-95 transition-colors" type="button">
+          Free entry
+        </button>
+<button class="inline-flex items-center px-3 h-9 min-h-[36px] bg-surface-container-low border border-outline-variant/40 rounded-lg text-action-sm font-action-sm text-on-surface-variant hover:text-on-surface shrink-0 active:scale-95 transition-colors" type="button">
+          Near Old Town
+        </button>
+<button class="inline-flex items-center px-3 h-9 min-h-[36px] bg-surface-container-low border border-outline-variant/40 rounded-lg text-action-sm font-action-sm text-on-surface-variant hover:text-on-surface shrink-0 active:scale-95 transition-colors" type="button">
+          All categories
+        </button>
+</div>
+</section>
+<!-- Dense Divider-Based Event List -->
+<div class="flex flex-col divide-y divide-outline-variant/20 border-t border-outline-variant/20">
+<!-- Row Item 1 -->
+<article class="flex items-start gap-3.5 px-gutter py-4 transition-colors hover:bg-surface-container-low/40">
+<!-- Thumbnail -->
+<div class="relative w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-surface-container-high border border-outline-variant/30">
+<img alt="An Evening of Contemporary Chamber Jazz" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/ALJJyrCE_6hWE2kbyOXV9hoPVZEyUZ527OpDBNtaJRqkwLGkiEEi4ltSVFojaqFfFaQrcM7bfpqJvZmImeA0vPA1nJ_5edUNMDVrNZ3JfDl7iOZ2OYjJ0gNqicq-aEqZTT64E3CPuRhVLEKrTaRYSIl-nmjS2k84wQW5ABzwOmW-Ttxo0hbPY5sQDhU34nfAVxlEo3FDqliyONg6_5MToc6ZfzW1cViP9tBWbyxK7P51oNCzKDwhKJAOvDDpskch"/>
+</div>
+<!-- Meta & Titles -->
+<div class="flex-1 min-w-0 pr-1">
+<div class="text-meta-sm font-meta-sm text-on-surface-variant tracking-wider uppercase mb-0.5">
+            THU, OCT 24 • 20:00
+          </div>
+<h2 class="text-headline-md font-headline-md text-on-surface line-clamp-2 leading-snug">
+            An Evening of Contemporary Chamber Jazz
+          </h2>
+<div class="flex items-center gap-1.5 mt-1 text-meta-sm font-meta-sm text-on-surface-variant">
+<span class="truncate">Klarisky Concert Hall, Old Town</span>
+<span class="inline-block w-1 h-1 rounded-full bg-outline-variant"></span>
+<span class="text-primary font-semibold shrink-0">€14</span>
+</div>
+</div>
+<!-- Bookmark Action Target -->
+<button aria-label="Save event" class="min-w-[48px] min-h-[48px] -mr-2 -mt-1 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors active:scale-90" type="button">
+<span class="material-symbols-outlined text-[20px]">bookmark_border</span>
+</button>
+</article>
+<!-- Row Item 2 -->
+<article class="flex items-start gap-3.5 px-gutter py-4 transition-colors hover:bg-surface-container-low/40">
+<!-- Thumbnail -->
+<div class="relative w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-surface-container-high border border-outline-variant/30">
+<img alt="Autumn Design Market at the Old Refined Warehouse" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/ALJJyrBgwa3X3GXEayhu0Tbk71BhieepJ0E9-X4aXdtvhArsZmt4hTDqAJ_Z7A7lmJ0ZfVNtJVsEaXJgE0mOt_h0x3pkFzSoDVKWwtBPiXqkYPP-qDQZf4IRBExo5_pHaxOi33dy9UaaQRi800ZswbsEQy4Ai2LfOaHvgMz6cT5uHIVZ3DvT7uiKusa8922KZCbJ28c_bl62mxGjB5_Yr0B7KxmwGejVKUpmZBt9tTqKK3SPALTtF2kPedVR9RvK"/>
+</div>
+<!-- Meta & Titles -->
+<div class="flex-1 min-w-0 pr-1">
+<div class="text-meta-sm font-meta-sm text-on-surface-variant tracking-wider uppercase mb-0.5">
+            SAT, OCT 26 • 11:00
+          </div>
+<h2 class="text-headline-md font-headline-md text-on-surface line-clamp-2 leading-snug">
+            Autumn Design Market at the Old Refined Warehouse
+          </h2>
+<div class="flex items-center gap-1.5 mt-1 text-meta-sm font-meta-sm text-on-surface-variant">
+<span class="truncate">Nová Cvernovka, Račianska</span>
+<span class="inline-block w-1 h-1 rounded-full bg-outline-variant"></span>
+<span class="text-tertiary font-semibold shrink-0">Free entry</span>
+</div>
+</div>
+<!-- Bookmark Action Target -->
+<button aria-label="Save event" class="min-w-[48px] min-h-[48px] -mr-2 -mt-1 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors active:scale-90" type="button">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">bookmark</span>
+</button>
+</article>
+<!-- Row Item 3 -->
+<article class="flex items-start gap-3.5 px-gutter py-4 transition-colors hover:bg-surface-container-low/40">
+<!-- Thumbnail -->
+<div class="relative w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-surface-container-high border border-outline-variant/30">
+<img alt="A Slower Sunday Ceramics and Hand-building Workshop" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/ALJJyrBv6D0pRLOBDnVl7sHs01ushQCCWpfX1ec8aBmIPrDNhLmGzVORGEQ8opXHOsQSS-x-VqA3spiVnlTzFurjE85Zm2lURe-r82riPfrXdUyhZPzgZgQ72IPSBrXgH_p0xZwWSgMhNsmQK3PrhWBsE_4Mz2PhnyzZLJXXW_dquirVfy_5XzU_yzJadEgb30t1Ct_-ybV70Vlh5oXm9MFPrxob74CkaOjbu4h9HKX8a71iLwyZCLMPlBIsTpQp"/>
+</div>
+<!-- Meta & Titles -->
+<div class="flex-1 min-w-0 pr-1">
+<div class="text-meta-sm font-meta-sm text-on-surface-variant tracking-wider uppercase mb-0.5">
+            SUN, OCT 27 • 14:30
+          </div>
+<h2 class="text-headline-md font-headline-md text-on-surface line-clamp-2 leading-snug">
+            A Slower Sunday Ceramics and Hand-building Workshop
+          </h2>
+<div class="flex items-center gap-1.5 mt-1 text-meta-sm font-meta-sm text-on-surface-variant">
+<span class="truncate">Ateliér Mudroňova, Castle Hill</span>
+<span class="inline-block w-1 h-1 rounded-full bg-outline-variant"></span>
+<span class="text-primary font-semibold shrink-0">€32</span>
+</div>
+</div>
+<!-- Bookmark Action Target -->
+<button aria-label="Save event" class="min-w-[48px] min-h-[48px] -mr-2 -mt-1 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors active:scale-90" type="button">
+<span class="material-symbols-outlined text-[20px]">bookmark_border</span>
+</button>
+</article>
+<!-- Row Item 4 -->
+<article class="flex items-start gap-3.5 px-gutter py-4 transition-colors hover:bg-surface-container-low/40">
+<!-- Thumbnail -->
+<div class="relative w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-surface-container-high border border-outline-variant/30">
+<img alt="New Perspectives in Contemporary Slovak Photography" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/ALJJyrAYtU2M3xW6tYpv1SpObBsHgGyXpUpt_ZNoCKx2AxEsrsV_LCz4Wj6nJQxUez8brobmRSk3NL4xW5awQ5pbuH-teAWImip-Dv7zZH-hSnCXHXAOUfMIxknDPACI0uFmlM1v9ltuUl1sTYbhRde1uTAmhMWq1-iYEYZEjzkeVPHCXiMMCVd-FJVN9RXD30_NoE0Xezs6kjv79jWl57HoZ4t1Mafs3lhbUUSG9Pk11qPdw3RscVmWIlkZ0jL-"/>
+</div>
+<!-- Meta & Titles -->
+<div class="flex-1 min-w-0 pr-1">
+<div class="text-meta-sm font-meta-sm text-on-surface-variant tracking-wider uppercase mb-0.5">
+            WED, OCT 30 • 18:00
+          </div>
+<h2 class="text-headline-md font-headline-md text-on-surface line-clamp-2 leading-snug">
+            New Perspectives in Contemporary Slovak Photography
+          </h2>
+<div class="flex items-center gap-1.5 mt-1 text-meta-sm font-meta-sm text-on-surface-variant">
+<span class="truncate">Galéria Z, Ventúrska</span>
+<span class="inline-block w-1 h-1 rounded-full bg-outline-variant"></span>
+<span class="text-tertiary font-semibold shrink-0">Free admission</span>
+</div>
+</div>
+<!-- Bookmark Action Target -->
+<button aria-label="Save event" class="min-w-[48px] min-h-[48px] -mr-2 -mt-1 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors active:scale-90" type="button">
+<span class="material-symbols-outlined text-[20px]">bookmark_border</span>
+</button>
+</article>
+</div>
+<!-- Editorial Utility Secondary Status -->
+<div class="px-gutter py-8 text-center text-meta-sm font-meta-sm text-on-surface-variant/60">
+      Curated schedule updated 40 mins ago
+    </div>
+</main>
+<!-- Bottom Navigation Bar (Shared Component Anchor) -->
+<nav class="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around px-gutter h-16 max-w-[640px] mx-auto pb-safe bg-surface-container-low border-t border-outline-variant/30">
+<!-- Home (Inactive) -->
+<button class="flex flex-col items-center justify-center min-w-[48px] min-h-[48px] text-on-surface-variant hover:text-primary transition-colors duration-150 active:scale-95" type="button">
+<span class="material-symbols-outlined text-[22px]">home</span>
+<span class="text-action-sm font-action-sm mt-0.5">Home</span>
+</button>
+<!-- Explore (Active: matches current page intent) -->
+<button class="flex flex-col items-center justify-center min-w-[48px] min-h-[48px] text-primary font-semibold hover:text-primary transition-colors duration-150 active:scale-95" type="button">
+<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">explore</span>
+<span class="text-action-sm font-action-sm mt-0.5">Explore</span>
+</button>
+<!-- Create (Inactive) -->
+<button class="flex flex-col items-center justify-center min-w-[48px] min-h-[48px] text-on-surface-variant hover:text-primary transition-colors duration-150 active:scale-95" type="button">
+<span class="material-symbols-outlined text-[22px]">add_circle</span>
+<span class="text-action-sm font-action-sm mt-0.5">Create</span>
+</button>
+<!-- Map (Inactive) -->
+<button class="flex flex-col items-center justify-center min-w-[48px] min-h-[48px] text-on-surface-variant hover:text-primary transition-colors duration-150 active:scale-95" type="button">
+<span class="material-symbols-outlined text-[22px]">map</span>
+<span class="text-action-sm font-action-sm mt-0.5">Map</span>
+</button>
+<!-- Profile (Inactive) -->
+<button class="flex flex-col items-center justify-center min-w-[48px] min-h-[48px] text-on-surface-variant hover:text-primary transition-colors duration-150 active:scale-95" type="button">
+<span class="material-symbols-outlined text-[22px]">person</span>
+<span class="text-action-sm font-action-sm mt-0.5">Profile</span>
+</button>
+</nav>
+<script>
+    // Lightweight toggle for bookmark icons
+    document.querySelectorAll('button[aria-label="Save event"]').forEach(button => {
+      button.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const icon = button.querySelector('.material-symbols-outlined');
+        if (icon.innerText === 'bookmark_border') {
+          icon.innerText = 'bookmark';
+          icon.style.fontVariationSettings = "'FILL' 1";
+          button.classList.add('text-primary');
+          button.classList.remove('text-on-surface-variant');
+        } else {
+          icon.innerText = 'bookmark_border';
+          icon.style.fontVariationSettings = "'FILL' 0";
+          button.classList.remove('text-primary');
+          button.classList.add('text-on-surface-variant');
+        }
+      });
+    });
+  </script>
+</body></html>

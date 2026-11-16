@@ -4,6 +4,8 @@ import { AnimatedPressable } from './motion/Motion';
 import { SaveEventAction } from './interactions/SaveEventAction';
 import { AppIcon } from './AppIcon';
 import { EventMedia } from './EventMedia';
+import { EventMetadata } from './EventMetadata';
+import { eventPresentations, type EventPresentation, type EventCardVariant } from './eventPresentation';
 import { OverflowMenu, ListItem } from './SocialUI';
 import { eventCoordinates } from '../map/eventLocation';
 import { useViewOnMap } from '../map/eventTarget';
@@ -13,13 +15,13 @@ import { colors } from '../theme/colors';
 import { tokens } from '../theme/tokens';
 import { themedStyles, useThemeRevision } from '../theme/appearance';
 import { EventOut } from '../types/event';
-export type EventCardVariant = 'home' | 'hero' | 'feed' | 'horizontal' | 'compact' | 'map' | 'saved' | 'planner' | 'premium' | 'organizer';
-export function EventCard({ event, explanation, variant = 'feed' }: { event: EventOut; explanation?: string; variant?: EventCardVariant; entranceDelay?: number }) {
+export type { EventCardVariant } from './eventPresentation';
+export function EventCard({ event, explanation, variant = 'feed', presentation }: { event: EventOut; explanation?: string; variant?: EventCardVariant; presentation?: EventPresentation }) {
   useThemeRevision(); const openEvent = useEventNavigation(); const viewOnMap = useViewOnMap(); const [menu, setMenu] = useState(false);
-  const photoLed = variant === 'home';
-  const feature = photoLed || ((variant === 'hero' || variant === 'horizontal') && !!event.image_url);
-  const price = event.price === 0 ? 'Free' : event.price == null ? 'Price unknown' : `${event.price} ${event.currency || 'EUR'}`;
-  return <View style={[styles.wrap, variant === 'horizontal' && { width: 280, marginRight: 12 }, feature && styles.feature]}>
+  const layout = presentation ?? eventPresentations[variant];
+  const photoLed = layout === 'editorial';
+  const feature = photoLed || ((layout === 'feature' || layout === 'rail') && !!event.image_url);
+  return <View style={[styles.wrap, layout === 'rail' && styles.rail, feature && styles.feature]}>
     <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
       <AnimatedPressable accessibilityRole="button" accessibilityLabel={`Open ${event.title}`} onPress={() => openEvent(event.id)} onLongPress={() => setMenu(true)} style={[styles.card, feature && { flexDirection: 'column' }]}>
         <EventMedia uri={event.image_url} category={event.category} style={photoLed ? styles.homeImage : feature ? styles.featureImage : styles.image} />
@@ -27,7 +29,7 @@ export function EventCard({ event, explanation, variant = 'feed' }: { event: Eve
           <Text style={styles.when}>{availabilityLabel(event)}</Text>
           <Text style={[styles.title, photoLed && styles.homeTitle]} numberOfLines={3}>{event.title}</Text>
           <Text style={styles.location} numberOfLines={2}>{event.venue?.name || event.address || 'Bratislava'}</Text>
-          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}><Text style={styles.meta}>{event.category}</Text><Text style={[styles.meta, { color: event.price === 0 ? colors.free : colors.textMuted }]}>{price}</Text></View>
+          <EventMetadata event={event} />
           {!!explanation && <Text style={styles.reason} numberOfLines={1}>{explanation}</Text>}
         </View>
       </AnimatedPressable>
@@ -43,12 +45,13 @@ export function EventCard({ event, explanation, variant = 'feed' }: { event: Eve
   </View>;
 }
 const styles = themedStyles(() => ({
-  wrap: { paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  feature: { borderBottomWidth: 0, backgroundColor: colors.surface, borderRadius: 16, overflow: 'hidden', paddingVertical: 0, marginBottom: 8 },
-  card: { flex: 1, flexDirection: 'row', gap: 12, minWidth: 0 },
-  image: { width: 88, height: 104, borderRadius: 12 }, featureImage: { width: '100%', height: 168 },
-  homeImage: { width: '100%', aspectRatio: tokens.image.feed }, homeTitle: { fontSize: 22, lineHeight: 27, fontWeight: '700' },
-  body: { flex: 1, gap: 4, minWidth: 0 }, title: { fontSize: 17, lineHeight: 23, fontWeight: '600', color: colors.text, letterSpacing: -.3 },
+  wrap: { paddingVertical: tokens.space.control, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  rail: { width: 280, marginRight: tokens.space.md },
+  feature: { borderBottomWidth: 0, backgroundColor: colors.surface, borderRadius: tokens.radius.card, overflow: 'hidden', paddingVertical: 0, marginBottom: tokens.space.sm },
+  card: { flex: 1, flexDirection: 'row', gap: tokens.space.md, minWidth: 0 },
+  image: { width: tokens.layout.compactImageWidth, height: tokens.layout.compactImageHeight, borderRadius: tokens.radius.sm }, featureImage: { width: '100%', height: 168 },
+  homeImage: { width: '100%', aspectRatio: tokens.image.feed }, homeTitle: { ...tokens.type.section },
+  body: { flex: 1, gap: tokens.space.xs, minWidth: 0 }, title: { ...tokens.type.eventTitle, color: colors.text },
   when: { ...tokens.type.caption, color: colors.primaryDark }, location: { ...tokens.type.metadata, color: colors.textMuted }, meta: { ...tokens.type.caption, color: colors.textMuted }, reason: { ...tokens.type.caption, color: colors.primaryDark },
   actions: { width: 48, alignItems: 'center', gap: 4 }, more: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
 }));

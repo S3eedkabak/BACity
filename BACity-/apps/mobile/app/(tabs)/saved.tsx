@@ -1,3 +1,4 @@
+import { tokens } from '../../src/theme/tokens';
 import { usePullRefresh } from "../../src/hooks/usePullRefresh";
 import { ContentEntrance } from "../../src/components/navigation/SceneMotion";
 import { TabScene } from '../../src/components/navigation/SceneMotion';
@@ -13,7 +14,7 @@ import { EmptyState } from "../../src/components/EmptyState";
 import { LoadingState } from "../../src/components/LoadingState";
 import { useMeaningfulLoading } from '../../src/components/loading/LoadingExperience';
 import { colors } from "../../src/theme/colors";
-import { fonts } from "../../src/theme/fonts";
+import { fontStyles } from "../../src/theme/fonts";
 import { router } from "expo-router";
 import { SafeAreaView } from '../../src/components/navigation/ContentSafeArea';
 
@@ -90,18 +91,18 @@ function SavedScreen() {
 const styles = themedStyles(() => ({
   safe: { flex: 1, backgroundColor: colors.background },
   container: { flex: 1, backgroundColor: colors.background },
-  content: { width: '100%', maxWidth: 760, alignSelf: 'center', padding: 18, paddingTop: 12, paddingBottom: 108 },
+  content: { width: '100%', maxWidth: tokens.layout.maxWidth, alignSelf: 'center', padding: 18, paddingTop: 12, paddingBottom: 108 },
   header: { paddingBottom: 18 },
   eyebrow: {
     color: colors.primaryDark,
-    fontFamily: fonts.semibold, fontWeight: '600',
+    ...fontStyles.semibold, fontWeight: '600',
     fontSize: 12,
     letterSpacing: 1.4,
   },
   headingRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   heading: {
     color: colors.text,
-    fontFamily: fonts.black, fontWeight: '800',
+    ...fontStyles.black, fontWeight: '800',
     fontSize: 26,
     letterSpacing: -1.1,
     marginTop: 2,
@@ -116,10 +117,10 @@ const styles = themedStyles(() => ({
     justifyContent: "center",
     marginTop: 6,
   },
-  count: { color: colors.white, fontFamily: fonts.black, fontWeight: '800', fontSize: 12 },
+  count: { color: colors.white, ...fontStyles.black, fontWeight: '800', fontSize: 12 },
   headerText: {
     color: colors.textMuted,
-    fontFamily: fonts.regular,
+    ...fontStyles.regular,
     fontSize: 12,
     marginTop: 2,
   },
@@ -151,14 +152,14 @@ const styles = themedStyles(() => ({
   },
   title: {
     color: colors.text,
-    fontFamily: fonts.black, fontWeight: '800',
+    ...fontStyles.black, fontWeight: '800',
     fontSize: 29,
     textAlign: "center",
     letterSpacing: -0.8,
   },
   subtitle: {
     color: colors.textMuted,
-    fontFamily: fonts.regular,
+    ...fontStyles.regular,
     textAlign: "center",
     lineHeight: 21,
     marginTop: 9,
@@ -169,13 +170,13 @@ const styles = themedStyles(() => ({
     height: 52,
     borderRadius: 17,
     backgroundColor: colors.primary,
-    paddingHorizontal: 18,
+    paddingHorizontal: tokens.layout.gutter,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     marginTop: 24,
   },
-  loginText: { color: colors.white, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
+  loginText: { color: colors.white, ...fontStyles.semibold, fontWeight: '600', fontSize: 12 },
   emptyWrap: { alignItems: "center" },
   emptyIcon: {
     width: 48,

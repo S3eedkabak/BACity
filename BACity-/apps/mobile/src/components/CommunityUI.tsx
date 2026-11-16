@@ -23,7 +23,7 @@ import { AppIcon } from "./AppIcon";
 import { router } from "expo-router";
 import { BrandMark } from "./BrandMark";
 import { colors } from "../theme/colors";
-import { fonts } from "../theme/fonts";
+import { fontStyles } from "../theme/fonts";
 import { tokens } from '../theme/tokens';
 
 export function Page({ title, children }: PropsWithChildren<{ title: string }>) {
@@ -53,9 +53,9 @@ export function Card({ children }: PropsWithChildren) {
 export function Disclosure({ title, icon = 'options-outline', initiallyOpen = false, children }: PropsWithChildren<{ title: string; icon?: ComponentProps<typeof AppIcon>['name']; initiallyOpen?: boolean }>) {
   useThemeRevision();
   const [open, setOpen] = useState(initiallyOpen); const reduced=useMotionPreference(); const rotation=useSharedValue(initiallyOpen?180:0);
-  useEffect(()=>{rotation.value=withTiming(open?180:0,{duration:reduced?0:240});},[open,reduced,rotation]);
+  useEffect(()=>{rotation.value=withTiming(open?180:0,{duration:reduced?0:tokens.motion.disclosure});},[open,reduced,rotation]);
   const chevron=useAnimatedStyle(()=>({transform:[{rotate:`${rotation.value}deg`}]}));
-  return <Animated.View layout={reduced?undefined:LinearTransition.duration(240)} style={ui.disclosure}><Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={title} onPress={() => setOpen(value => !value)} style={ui.disclosureHeader}><AppIcon name={icon} size={24} color={colors.primaryDark} /><Text style={ui.disclosureTitle}>{title}</Text><Animated.View style={chevron}><AppIcon name="chevron-down" size={18} color={colors.textMuted} /></Animated.View></Pressable>{open && <View style={ui.disclosureBody}>{children}</View>}</Animated.View>;
+  return <Animated.View layout={reduced?undefined:LinearTransition.duration(tokens.motion.disclosure)} style={ui.disclosure}><Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={title} onPress={() => setOpen(value => !value)} style={ui.disclosureHeader}><AppIcon name={icon} size={24} color={colors.primaryDark} /><Text style={ui.disclosureTitle}>{title}</Text><Animated.View style={chevron}><AppIcon name="chevron-down" size={18} color={colors.textMuted} /></Animated.View></Pressable>{open && <View style={ui.disclosureBody}>{children}</View>}</Animated.View>;
 }
 
 export function Button({
@@ -132,7 +132,7 @@ export const ui = themedStyles(() => ({
   disclosure: { borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   disclosureHeader: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 16 },
   disclosureTitle: { ...tokens.type.action, flex: 1, color: colors.text },
-  disclosureBody: { gap: 14, paddingBottom: 24 },
+  disclosureBody: { gap: tokens.space.control, paddingBottom: 24 },
   buttonSecondary: { backgroundColor: colors.surfaceAlt, shadowOpacity: 0 },
   buttonSecondaryText: { color: colors.primaryDark },
   buttonDanger: { backgroundColor: colors.danger },
@@ -141,11 +141,11 @@ export const ui = themedStyles(() => ({
     width: '100%',
     maxWidth: tokens.layout.maxWidth,
     alignSelf: 'center',
-    paddingHorizontal: 18,
-    gap: 14,
+    paddingHorizontal: tokens.layout.gutter,
+    gap: tokens.space.control,
     backgroundColor: colors.background,
     flexGrow: 1,
-    paddingBottom: 112,
+    paddingBottom: tokens.layout.contentBottom,
   },
   topbar: {
     minHeight: 52,
@@ -166,37 +166,29 @@ export const ui = themedStyles(() => ({
   pressed: { opacity: 0.7 },
   topbarSpacer: { width: 40 },
   title: {
-    ...tokens.type.hero,
-    fontWeight: '800',
-    fontSize: 24,
-    lineHeight: 30,
-    letterSpacing: -1,
-    fontFamily: fonts.black,
+    ...tokens.type.pageTitle,
     color: colors.text,
     marginTop: 4,
     marginBottom: 2,
   },
   heading: {
-    fontWeight: '700',
-    fontSize: 18,
-    lineHeight: 22,
-    fontFamily: fonts.black,
+    ...tokens.type.section,
     color: colors.text,
     letterSpacing: -0.35,
   },
   text: {
     ...tokens.type.body,
-    fontFamily: fonts.regular,
+    ...fontStyles.regular,
     color: colors.text,
   },
   muted: {
     ...tokens.type.metadata,
-    fontFamily: fonts.regular,
+    ...fontStyles.regular,
     color: colors.textMuted,
   },
   card: {
     padding: 20,
-    borderRadius: 20,
+    borderRadius: tokens.radius.card,
     backgroundColor: colors.surface,
     gap: 11,
     shadowColor: colors.shadow,
@@ -208,7 +200,7 @@ export const ui = themedStyles(() => ({
   field: { gap: 7 },
   label: {
     color: colors.textMuted,
-    fontFamily: fonts.semibold,
+    ...fontStyles.semibold,
     fontSize: 12,
     letterSpacing: 0.65,
     textTransform: "uppercase",
@@ -222,7 +214,7 @@ export const ui = themedStyles(() => ({
     paddingVertical: 13,
     color: colors.text,
     backgroundColor: colors.surfaceAlt,
-    fontFamily: fonts.regular,
+    ...fontStyles.regular,
     fontSize: 14,
   },
   inputMultiline: { minHeight: 110, textAlignVertical: "top" },
@@ -242,9 +234,8 @@ export const ui = themedStyles(() => ({
   buttonPressed: { opacity: 0.92 },
   disabled: { opacity: 0.55 },
   buttonText: {
-    fontWeight: '600',
     color: colors.white,
-    fontFamily: fonts.semibold,
+    ...fontStyles.semibold,
     fontSize: 15,
     textAlign: "center",
   },
@@ -263,9 +254,8 @@ export const ui = themedStyles(() => ({
     borderColor: colors.primary,
   },
   chipText: {
-    fontWeight: '600',
     color: colors.textMuted,
-    fontFamily: fonts.semibold,
+    ...fontStyles.semibold,
     fontSize: 13,
   },
   chipTextActive: { color: colors.white },
@@ -280,7 +270,7 @@ export const ui = themedStyles(() => ({
   notice: {
     flex: 1,
     color: colors.primaryDark,
-    fontFamily: fonts.medium,
+    ...fontStyles.medium,
     fontSize: 12,
     lineHeight: 18,
   },

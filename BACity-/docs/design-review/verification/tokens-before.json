@@ -1,0 +1,284 @@
+{
+  "sourceCommit": "0e957d090992c3e0ee6fceb2ab9adcfabf5ee245",
+  "status": "extracted-current-source-not-proposed",
+  "palettes": {
+    "dark": {
+      "background": "#100E12",
+      "surface": "#1C191F",
+      "surfaceAlt": "#28232C",
+      "border": "#3A333F",
+      "text": "#F6F1F3",
+      "textMuted": "#B7ADB9",
+      "primary": "#A93468",
+      "primaryDark": "#E69ABB",
+      "primarySoft": "#35202D",
+      "accent": "#CF7EA5",
+      "free": "#96CBB0",
+      "danger": "#EFA0AD",
+      "white": "#FFF8FB",
+      "black": "#100E12",
+      "shadow": "#000000",
+      "mapWater": "#182E38",
+      "textInverse": "#100E12",
+      "dangerSurface": "#422330",
+      "successSurface": "#20392E",
+      "warning": "#DBC092",
+      "overlay": "rgba(10,8,12,.78)",
+      "mediaOverlay": "rgba(16,14,18,.86)",
+      "skeleton": "#332D37",
+      "mapLand": "#211F27",
+      "mapPark": "#25352D",
+      "mapRoad": "#544A58"
+    },
+    "light": {
+      "background": "#FFF8FB",
+      "surface": "#FFFFFF",
+      "surfaceAlt": "#F4EAF0",
+      "border": "#D9C7D1",
+      "text": "#24141E",
+      "textMuted": "#6F5664",
+      "primary": "#A93468",
+      "primaryDark": "#8B2452",
+      "primarySoft": "#F7E4EE",
+      "accent": "#8B2452",
+      "free": "#285D42",
+      "danger": "#9B263E",
+      "white": "#FFF8FB",
+      "black": "#100E12",
+      "shadow": "#000000",
+      "mapWater": "#D0E6ED",
+      "textInverse": "#FFF8FB",
+      "dangerSurface": "#FCE7ED",
+      "successSurface": "#E5F2EB",
+      "warning": "#725317",
+      "overlay": "rgba(10,8,12,.78)",
+      "mediaOverlay": "rgba(255,248,251,.94)",
+      "skeleton": "#E6D6DF",
+      "mapLand": "#F6EEF2",
+      "mapPark": "#DCEBDD",
+      "mapRoad": "#B7A7B0"
+    }
+  },
+  "tokens": {
+    "color": {
+      "background": "#100E12",
+      "surface": "#1C191F",
+      "surfaceAlt": "#28232C",
+      "border": "#3A333F",
+      "text": "#F6F1F3",
+      "textMuted": "#B7ADB9",
+      "primary": "#A93468",
+      "primaryDark": "#E69ABB",
+      "primarySoft": "#35202D",
+      "accent": "#CF7EA5",
+      "free": "#96CBB0",
+      "danger": "#EFA0AD",
+      "white": "#FFF8FB",
+      "black": "#100E12",
+      "shadow": "#000000",
+      "mapWater": "#182E38",
+      "textInverse": "#100E12",
+      "dangerSurface": "#422330",
+      "successSurface": "#20392E",
+      "warning": "#DBC092",
+      "overlay": "rgba(10,8,12,.78)",
+      "mediaOverlay": "rgba(16,14,18,.86)",
+      "skeleton": "#332D37",
+      "mapLand": "#211F27",
+      "mapPark": "#25352D",
+      "mapRoad": "#544A58"
+    },
+    "space": {
+      "xs": 4,
+      "sm": 8,
+      "md": 12,
+      "lg": 20,
+      "xl": 28,
+      "xxl": 40,
+      "section": 48
+    },
+    "radius": {
+      "sm": 12,
+      "md": 20,
+      "lg": 28,
+      "hero": 36,
+      "pill": 999
+    },
+    "type": {
+      "display": {
+        "fontSize": 44,
+        "lineHeight": 48,
+        "fontWeight": "800",
+        "letterSpacing": -1.8
+      },
+      "hero": {
+        "fontSize": 34,
+        "lineHeight": 38,
+        "fontWeight": "800",
+        "letterSpacing": -1.2
+      },
+      "title": {
+        "fontSize": 26,
+        "lineHeight": 32,
+        "fontWeight": "700",
+        "letterSpacing": -0.7
+      },
+      "section": {
+        "fontSize": 22,
+        "lineHeight": 28,
+        "fontWeight": "700",
+        "letterSpacing": -0.5
+      },
+      "body": {
+        "fontSize": 16,
+        "lineHeight": 24,
+        "fontWeight": "400"
+      },
+      "metadata": {
+        "fontSize": 13,
+        "lineHeight": 19,
+        "fontWeight": "500"
+      },
+      "caption": {
+        "fontSize": 12,
+        "lineHeight": 17,
+        "fontWeight": "500"
+      },
+      "action": {
+        "fontSize": 15,
+        "lineHeight": 20,
+        "fontWeight": "600"
+      }
+    },
+    "icon": {
+      "small": 18,
+      "standard": 24,
+      "feature": 32,
+      "touch": 48
+    },
+    "image": {
+      "hero": 1,
+      "feed": 1.45,
+      "rail": 0.9,
+      "compact": 1
+    },
+    "layout": {
+      "maxWidth": 760,
+      "gutter": 20,
+      "bottomInset": 104
+    },
+    "motion": {
+      "hold": 1200,
+      "press": 120,
+      "fast": 180,
+      "transition": 260,
+      "sheet": 320,
+      "loadingReveal": 450,
+      "stagger": 40,
+      "pulse": 850,
+      "startupTimeout": 15000,
+      "spring": {
+        "damping": 28,
+        "stiffness": 260,
+        "mass": 0.7,
+        "overshootClamping": true
+      }
+    },
+    "opacity": {
+      "disabled": 0.5,
+      "pressed": 0.82,
+      "skeletonLow": 0.45,
+      "skeletonHigh": 0.8
+    },
+    "elevation": {
+      "flat": 0,
+      "raised": 2,
+      "overlay": 8
+    },
+    "border": {
+      "subtle": 1,
+      "selected": 2
+    },
+    "scrim": "rgba(10,8,12,.78)",
+    "premium": {
+      "background": "#100E12",
+      "surface": "#28232C",
+      "accent": "#E69ABB",
+      "text": "#F6F1F3",
+      "muted": "#B7ADB9"
+    }
+  },
+  "fonts": {
+    "regular": "System",
+    "medium": "System",
+    "semibold": "System",
+    "black": "System",
+    "fallback": "System"
+  },
+  "staffPanel": {
+    "variables": {
+      "bg": "#100e12",
+      "surface": "#1c191f",
+      "raised": "#252128",
+      "border": "#373039",
+      "text": "#f6f1f3",
+      "muted": "#b7adb9",
+      "pink": "#e69abb",
+      "primary": "#a93468",
+      "soft": "#35202d",
+      "green": "#96cbb0",
+      "amber": "#dbc092",
+      "red": "#efa0ad",
+      "radius": "16px"
+    },
+    "breakpoints": [
+      1100,
+      760
+    ]
+  },
+  "interactionMotion": {
+    "press": {
+      "duration": 100,
+      "scale": 0.98
+    },
+    "spring": {
+      "stiffness": 500,
+      "damping": 45,
+      "mass": 1,
+      "overshootClamping": true
+    },
+    "surfaceSpring": {
+      "stiffness": 260,
+      "damping": 33,
+      "mass": 1,
+      "overshootClamping": true
+    },
+    "badgeSpring": {
+      "stiffness": 420,
+      "damping": 42,
+      "mass": 1,
+      "overshootClamping": true
+    },
+    "label": 300,
+    "icon": 150,
+    "check": 300,
+    "intent": 120,
+    "pop": [
+      112,
+      158,
+      180
+    ],
+    "burst": 550,
+    "bell": 420,
+    "hold": 1200,
+    "ringReset": 300,
+    "screen": 300,
+    "tab": 180,
+    "sheet": {
+      "stiffness": 300,
+      "damping": 35,
+      "mass": 1,
+      "overshootClamping": true
+    }
+  }
+}

@@ -1,3 +1,4 @@
+import { tokens } from '../../theme/tokens';
 import { useEffect, useRef, useState } from "react";
 import { StyleProp, TextStyle, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
@@ -108,9 +109,9 @@ export function RollingLabel({
       }}
     >
       {outgoing && (
-        <Animated.Text style={[style, exit]}>{outgoing}</Animated.Text>
+        <Animated.Text maxFontSizeMultiplier={tokens.accessibility.actionLabelMaxScale} style={[style, exit]}>{outgoing}</Animated.Text>
       )}
-      <Animated.Text style={[style, enter]}>{label}</Animated.Text>
+      <Animated.Text maxFontSizeMultiplier={tokens.accessibility.actionLabelMaxScale} style={[style, enter]}>{label}</Animated.Text>
     </View>
   );
 }
