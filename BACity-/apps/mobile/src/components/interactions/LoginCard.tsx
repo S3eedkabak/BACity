@@ -25,7 +25,7 @@ function Stage({
     previousIdentity.current = identity;
     progress.value = reduced
       ? 1
-      : withDelay(Math.min(index, 5) * tokens.motion.stagger, withTiming(1, { duration: tokens.motion.authStage }));
+      : withDelay(Math.min(index, 5) * 100, withTiming(1, { duration: 600 }));
     return () => cancelAnimation(progress);
   }, [identity, reduced, index, progress]);
   const style = useAnimatedStyle(() => ({
@@ -44,7 +44,7 @@ export function LoginCard({
   const reduced = useMotionPreference(),
     entrance = useSharedValue(reduced ? 1 : 0);
   useEffect(() => {
-    entrance.value = reduced ? 1 : withTiming(1, { duration: tokens.motion.authEntrance });
+    entrance.value = reduced ? 1 : withTiming(1, { duration: 800 });
     return () => cancelAnimation(entrance);
   }, [reduced, entrance]);
   const entering = useAnimatedStyle(() => ({
@@ -62,7 +62,7 @@ export function LoginCard({
           gap: 20,
           padding: 20,
           marginTop: 20,
-          borderRadius: tokens.radius.card,
+          borderRadius: 28,
           backgroundColor: colors.surface,
         },
         entering,

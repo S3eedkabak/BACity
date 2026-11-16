@@ -15,7 +15,7 @@ import { usePlusGate } from "../src/plus/usePlusGate";
 import { useRecommendationLocation } from "../src/recommendations/useRecommendationLocation";
 import { groupTonightItems, resolveTonightView, tonightLocationCopy } from "../src/tonight/presentation";
 import { colors } from "../src/theme/colors";
-import { fontStyles } from "../src/theme/fonts";
+import { fonts } from "../src/theme/fonts";
 import { PremiumIntro } from "../src/components/PremiumUI";
 
 export default function TonightScreen() {
@@ -83,12 +83,12 @@ export default function TonightScreen() {
 const styles = themedStyles(() => ({
   safe: { flex: 1, backgroundColor: colors.background }, guard: { flex: 1, alignItems: "center", justifyContent: "center" },
   content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 36, flexGrow: 1 },
-  intro: { paddingTop: 16, paddingBottom: 18 }, kicker: { color: colors.primaryDark, ...fontStyles.black, fontWeight: '800', fontSize: 12, letterSpacing: 1.5 },
-  title: { color: colors.text, ...fontStyles.black, fontWeight: '800', fontSize: 29, lineHeight: 33, letterSpacing: -1, marginTop: 7 },
-  subtitle: { color: colors.textMuted, ...fontStyles.regular, fontSize: 13, lineHeight: 19, marginTop: 8 },
+  intro: { paddingTop: 16, paddingBottom: 18 }, kicker: { color: colors.primaryDark, fontFamily: fonts.black, fontWeight: '800', fontSize: 12, letterSpacing: 1.5 },
+  title: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 29, lineHeight: 33, letterSpacing: -1, marginTop: 7 },
+  subtitle: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, marginTop: 8 },
   location: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 8, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border, marginBottom: 8 },
-  locationText: { flex: 1, color: colors.textMuted, ...fontStyles.regular, fontSize: 12 },
-  locationAction: { color: colors.primaryDark, ...fontStyles.semibold, fontWeight: '600', fontSize: 12, paddingVertical: 10 },
-  section: { color: colors.text, backgroundColor: colors.background, ...fontStyles.black, fontWeight: '800', fontSize: 19, paddingTop: 20, paddingBottom: 10 },
-  allEvents: { minHeight: 48, alignItems: "center", justifyContent: "center", marginTop: 8 }, allEventsText: { color: colors.primaryDark, ...fontStyles.semibold, fontWeight: '600', fontSize: 12 },
+  locationText: { flex: 1, color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12 },
+  locationAction: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12, paddingVertical: 10 },
+  section: { color: colors.text, backgroundColor: colors.background, fontFamily: fonts.black, fontWeight: '800', fontSize: 19, paddingTop: 20, paddingBottom: 10 },
+  allEvents: { minHeight: 48, alignItems: "center", justifyContent: "center", marginTop: 8 }, allEventsText: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
 }));

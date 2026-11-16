@@ -1,4 +1,3 @@
-import { tokens } from '../../theme/tokens';
 import { Children, PropsWithChildren, useEffect, useLayoutEffect, useRef } from "react";
 import { View } from "react-native";
 import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
@@ -17,7 +16,7 @@ export function ContentEntrance({ children, index = 0 }: PropsWithChildren<{ ind
   useLayoutEffect(() => {
     if (reduced) { cancelAnimation(progress); progress.value = 1; }
     else if (!started.current) {
-      progress.value = withDelay(Math.min(index, 4) * tokens.motion.stagger, withTiming(1, { duration: tokens.motion.transition, easing: Easing.out(Easing.cubic) }));
+      progress.value = withDelay(Math.min(index, 4) * 25, withTiming(1, { duration: 260, easing: Easing.out(Easing.cubic) }));
     }
     started.current = true;
     // Preference/app-state changes settle content; they never restart it.
@@ -47,7 +46,7 @@ export function SectionTransition({ children, identity }: PropsWithChildren<{ id
     if (reduced) { cancelAnimation(progress); progress.value = 1; }
     else if (changed) {
       progress.value = 0;
-      progress.value = withTiming(1, { duration: tokens.motion.disclosure, easing: Easing.out(Easing.cubic) });
+      progress.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) });
     }
   }, [identity, reduced, progress]);
   useEffect(() => () => cancelAnimation(progress), [progress]);

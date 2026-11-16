@@ -39,7 +39,7 @@ import {
 import { useDistrictMorph } from "../src/map/districtMorphState";
 import { useAuthStore } from "../src/store/authStore";
 import { colors } from "../src/theme/colors";
-import { fontStyles } from "../src/theme/fonts";
+import { fonts } from "../src/theme/fonts";
 
 export default function AreaEvents() {
   useThemeRevision();
@@ -163,7 +163,7 @@ export default function AreaEvents() {
             <Text
               style={{
                 marginTop: 4,
-                ...fontStyles.black,
+                fontFamily: fonts.black,
                 fontSize: 30,
                 lineHeight: 36,
                 color: colors.black,
@@ -176,7 +176,7 @@ export default function AreaEvents() {
               accessibilityLiveRegion="polite"
               style={{
                 marginTop: 4,
-                ...fontStyles.semibold,
+                fontFamily: fonts.semibold,
                 fontSize: 13,
                 lineHeight: 18,
                 color: colors.black,
@@ -211,7 +211,7 @@ export default function AreaEvents() {
                 <>
                   <Text
                     style={{
-                      ...fontStyles.black,
+                      fontFamily: fonts.black,
                       fontSize: 26,
                       color: colors.text,
                     }}

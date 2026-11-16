@@ -14,7 +14,7 @@ import { useAuthStore } from '../src/store/authStore';
 import { Page, Card, Disclosure, Field, Button, Notice, ui } from '../src/components/CommunityUI';
 import { uploadAvatar } from '../src/api/profile';
 import { colors } from '../src/theme/colors';
-import { fontStyles } from '../src/theme/fonts';
+import { fonts } from '../src/theme/fonts';
 import { InterestPicker } from '../src/components/InterestPicker';
 const INTERESTS = ['Music', 'Culture', 'Nightlife', 'Arts', 'Family', 'Community', 'Sports', 'Food & Drink'] as const;
 
@@ -239,5 +239,5 @@ export default function Account() {
 const styles = themedStyles(() => ({
   loading: { minHeight: 92, alignItems: 'center', justifyContent: 'center', gap: 12 },
   textAction: { minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
-  textActionLabel: { color: colors.primaryDark, ...fontStyles.semibold, fontWeight: '600', fontSize: 12 },
+  textActionLabel: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
 }));

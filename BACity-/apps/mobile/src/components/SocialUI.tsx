@@ -10,7 +10,7 @@ import { AnimatedPressable as Pressable } from './motion/Motion';
 import { AppIcon } from "./AppIcon";
 import { router } from "expo-router";
 import { colors } from "../theme/colors";
-import { fontStyles } from "../theme/fonts";
+import { fonts } from "../theme/fonts";
 import { tokens } from "../theme/tokens";
 import { SkeletonPulse } from './motion/Motion';
 import { useReducedMotion } from 'react-native-reanimated';
@@ -94,7 +94,7 @@ export function OverflowMenu({ visible, title = "More", onClose, children }: Pro
 
 const styles = themedStyles(() => ({
   avatar: { backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
-  avatarText: { color: colors.white, ...fontStyles.black },
+  avatarText: { color: colors.white, fontFamily: fonts.black },
   iconButton: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center" },
   pressed: { opacity: .68 },
   badge: { position: "absolute", right: 7, top: 7, width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary, borderWidth: 2, borderColor: colors.background },
@@ -103,7 +103,7 @@ const styles = themedStyles(() => ({
   headerTitle: { flex: 1, textAlign: "center", color: colors.text, ...tokens.type.action },
   sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 20, marginBottom: 10 },
   sectionTitle: { color: colors.text, ...tokens.type.section, flexShrink: 1 },
-  sectionAction: { color: colors.primaryDark, ...fontStyles.semibold, fontSize: 12 },
+  sectionAction: { color: colors.primaryDark, fontFamily: fonts.semibold, fontSize: 12 },
   stat: { flex: 1, minWidth: 64, alignItems: "center", paddingVertical: 8 },
   statValue: { color: colors.text, ...tokens.type.action, fontSize: 19 },
   statLabel: { color: colors.textMuted, ...tokens.type.caption, marginTop: 2 },
@@ -121,9 +121,9 @@ const styles = themedStyles(() => ({
   skeletonWide: { width: "62%", height: 12, borderRadius: 6, backgroundColor: colors.primarySoft },
   skeletonShort: { width: "38%", height: 9, borderRadius: 5, backgroundColor: colors.surfaceAlt },
   overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: tokens.scrim },
-  sheet: { maxHeight: "78%", backgroundColor: colors.background, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: tokens.layout.gutter, paddingBottom: 30 },
+  sheet: { maxHeight: "78%", backgroundColor: colors.background, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 18, paddingBottom: 30 },
   sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: "center", marginTop: 9 },
   sheetTitleRow: { minHeight: 58, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  sheetTitle: { color: colors.text, ...fontStyles.black, fontSize: 20 },
+  sheetTitle: { color: colors.text, fontFamily: fonts.black, fontSize: 20 },
   sheetContent: { paddingBottom: 10 },
 }));

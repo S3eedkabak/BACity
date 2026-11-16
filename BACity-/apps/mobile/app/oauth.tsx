@@ -7,7 +7,7 @@ import { AnimatedPressable as Pressable } from '../src/components/motion/Motion'
 import { AppLoadingScreen } from "../src/components/AppLoadingScreen";
 import { useAuthStore } from "../src/store/authStore";
 import { colors } from "../src/theme/colors";
-import { fontStyles } from "../src/theme/fonts";
+import { fonts } from "../src/theme/fonts";
 
 export default function OAuthScreen() {
   useThemeRevision();
@@ -58,13 +58,13 @@ const styles = themedStyles(() => ({
   },
   title: {
     color: colors.text,
-    ...fontStyles.black,
+    fontFamily: fonts.black,
     fontSize: 24,
     textAlign: "center",
   },
   message: {
     color: colors.textMuted,
-    ...fontStyles.regular,
+    fontFamily: fonts.regular,
     fontSize: 13,
     lineHeight: 20,
     textAlign: "center",
@@ -79,5 +79,5 @@ const styles = themedStyles(() => ({
     alignItems: "center",
     justifyContent: "center",
   },
-  buttonText: { color: colors.white, ...fontStyles.semibold, fontSize: 13 },
+  buttonText: { color: colors.white, fontFamily: fonts.semibold, fontSize: 13 },
 }));

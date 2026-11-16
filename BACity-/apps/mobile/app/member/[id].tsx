@@ -29,7 +29,7 @@ import {
 } from "../../src/components/SocialUI";
 import { useAuthStore } from "../../src/store/authStore";
 import { colors } from "../../src/theme/colors";
-import { fontStyles } from "../../src/theme/fonts";
+import { fonts } from "../../src/theme/fonts";
 
 type Tab = "contributions" | "reviews";
 export default function MemberScreen() {
@@ -333,7 +333,7 @@ const styles = themedStyles(() => ({
   },
   name: {
     color: colors.text,
-    ...fontStyles.black,
+    fontFamily: fonts.black,
     fontWeight: "800",
     fontSize: 26,
     letterSpacing: -0.7,
@@ -342,20 +342,20 @@ const styles = themedStyles(() => ({
   },
   location: {
     color: colors.textMuted,
-    ...fontStyles.regular,
+    fontFamily: fonts.regular,
     fontSize: 12,
     marginTop: 5,
   },
   reputation: {
     color: colors.primaryDark,
-    ...fontStyles.semibold,
+    fontFamily: fonts.semibold,
     fontWeight: "600",
     fontSize: 12,
     marginTop: 4,
   },
   bio: {
     color: colors.text,
-    ...fontStyles.regular,
+    fontFamily: fonts.regular,
     fontSize: 13,
     lineHeight: 19,
     textAlign: "center",
@@ -380,7 +380,7 @@ const styles = themedStyles(() => ({
   },
   primaryText: {
     color: colors.white,
-    ...fontStyles.semibold,
+    fontFamily: fonts.semibold,
     fontWeight: "600",
     fontSize: 12,
   },
@@ -396,7 +396,7 @@ const styles = themedStyles(() => ({
   },
   secondaryText: {
     color: colors.text,
-    ...fontStyles.semibold,
+    fontFamily: fonts.semibold,
     fontWeight: "600",
     fontSize: 12,
   },
@@ -415,7 +415,7 @@ const styles = themedStyles(() => ({
   },
   adminTitle: {
     color: colors.text,
-    ...fontStyles.black,
+    fontFamily: fonts.black,
     fontWeight: "800",
     fontSize: 15,
     marginTop: 16,

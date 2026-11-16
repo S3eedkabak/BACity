@@ -1,7 +1,7 @@
 import { themedStyles, useThemeRevision } from '../theme/appearance';
 import { StyleProp, StyleSheet, Text, TextStyle, View } from "react-native";
 import { colors } from "../theme/colors";
-import { fontStyles } from "../theme/fonts";
+import { fonts } from "../theme/fonts";
 
 export function BrandMark({
   light = false,
@@ -16,7 +16,6 @@ export function BrandMark({
   return (
     <View style={styles.row} accessibilityLabel="BACity">
       <Text
-        allowFontScaling={false}
         style={[
           styles.wordmark,
           compact && styles.compact,
@@ -35,7 +34,7 @@ const styles = themedStyles(() => ({
   row: { flexDirection: "row", alignItems: "center" },
   wordmark: {
     color: colors.text,
-    ...fontStyles.black,
+    fontFamily: fonts.black,
     fontWeight: '800',
     fontSize: 44,
     letterSpacing: -2,

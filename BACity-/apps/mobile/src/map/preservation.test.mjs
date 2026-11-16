@@ -5,9 +5,8 @@ const read=path=>readFile(new URL(path,import.meta.url),'utf8');
 
 test('map cleanup retains caching, utility clustering and accessible icon controls',async()=>{
   const source=await read('./MapScreen.tsx');
-  const tray=await read('./MapBrowseTray.tsx');
   assert.match(source,/https:\/\/tiles.openfreemap.org\/styles\/liberty/);
-  for(const label of ['Show public toilet map layer','Hide public toilet map layer','Browse all city utilities','Map event filters and area events','Recenter map to show all Bratislava'])assert.ok((source + tray).includes(label),label);
+  for(const label of ['Show public toilet map layer','Hide public toilet map layer','Browse all city utilities','Map event filters and area events','Recenter map to show all Bratislava'])assert.ok(source.includes(label),label);
   for(const removed of ['Show events near me','Zoom in','Zoom out','events on the map','Find events','Filters / Area'])assert.ok(!source.includes(removed),removed);
   assert.match(source,/accessibilityState=\{\{ selected: showUtilities \}\}/);
   assert.match(source,/iconImage: "restroom"/);

@@ -14,7 +14,7 @@ import { useEventChains } from "../src/hooks/useEventChains";
 import { plusPaywallRoute } from "../src/plus/policy";
 import { usePlusGate } from "../src/plus/usePlusGate";
 import { colors } from "../src/theme/colors";
-import { fontStyles } from "../src/theme/fonts";
+import { fonts } from "../src/theme/fonts";
 import { PremiumIntro, PlanStop } from "../src/components/PremiumUI";
 
 const MODES: { value: EventChainMode; label: string }[] = [
@@ -85,17 +85,17 @@ export default function EventChainsScreen() {
 const styles = themedStyles(() => ({
   safe: { flex: 1, backgroundColor: colors.background }, guard: { flex: 1, alignItems: "center", justifyContent: "center" },
   content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 40, flexGrow: 1 },
-  kicker: { color: colors.primaryDark, ...fontStyles.black, fontWeight: '800', fontSize: 12, letterSpacing: 1.5, marginTop: 10 },
-  heading: { color: colors.text, ...fontStyles.black, fontWeight: '800', fontSize: 28, letterSpacing: -1, marginTop: 6 },
-  subtitle: { color: colors.textMuted, ...fontStyles.regular, fontSize: 12, lineHeight: 18, marginTop: 7 },
+  kicker: { color: colors.primaryDark, fontFamily: fonts.black, fontWeight: '800', fontSize: 12, letterSpacing: 1.5, marginTop: 10 },
+  heading: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 28, letterSpacing: -1, marginTop: 6 },
+  subtitle: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, marginTop: 7 },
   modes: { flexDirection: "row", gap: 8, marginVertical: 20 }, mode: { flex: 1, minHeight: 44, borderRadius: 15, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface },
-  modeActive: { backgroundColor: colors.primary, borderColor: colors.primary }, modeText: { color: colors.textMuted, ...fontStyles.semibold, fontWeight: '600', fontSize: 12 }, modeTextActive: { color: colors.white },
+  modeActive: { backgroundColor: colors.primary, borderColor: colors.primary }, modeText: { color: colors.textMuted, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 }, modeTextActive: { color: colors.white },
   alternatives: { flexDirection: "row", gap: 8, marginBottom: 12 }, alternative: { minHeight: 44, paddingHorizontal: 14, borderRadius: 13, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" },
-  alternativeActive: { backgroundColor: colors.primary }, alternativeText: { color: colors.primaryDark, ...fontStyles.semibold, fontWeight: '600', fontSize: 12 }, alternativeTextActive: { color: colors.white },
+  alternativeActive: { backgroundColor: colors.primary }, alternativeText: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 }, alternativeTextActive: { color: colors.white },
   timeline: { gap: 10 }, eventRow: { minHeight: 112, flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   anchorRow: { borderColor: colors.primary, backgroundColor: colors.primarySoft }, pressed: { opacity: .72 },
   timelineDot: { width: 38, height: 38, borderRadius: 14, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" }, anchorDot: { backgroundColor: colors.primary },
-  eventCopy: { flex: 1, minWidth: 0 }, eventTop: { flexDirection: "row", alignItems: "center", gap: 8 }, eventTime: { color: colors.primaryDark, ...fontStyles.semibold, fontWeight: '600', fontSize: 12 },
-  anchorBadge: { color: colors.primaryDark, ...fontStyles.black, fontWeight: '800', fontSize: 7, letterSpacing: .8 }, eventTitle: { color: colors.text, ...fontStyles.black, fontWeight: '800', fontSize: 15, lineHeight: 19, marginTop: 4 },
-  eventVenue: { color: colors.textMuted, ...fontStyles.regular, fontSize: 12, marginTop: 3 }, reason: { color: colors.primaryDark, ...fontStyles.medium, fontSize: 12, marginTop: 6 },
+  eventCopy: { flex: 1, minWidth: 0 }, eventTop: { flexDirection: "row", alignItems: "center", gap: 8 }, eventTime: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12 },
+  anchorBadge: { color: colors.primaryDark, fontFamily: fonts.black, fontWeight: '800', fontSize: 7, letterSpacing: .8 }, eventTitle: { color: colors.text, fontFamily: fonts.black, fontWeight: '800', fontSize: 15, lineHeight: 19, marginTop: 4 },
+  eventVenue: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, marginTop: 3 }, reason: { color: colors.primaryDark, fontFamily: fonts.medium, fontSize: 12, marginTop: 6 },
 }));

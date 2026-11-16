@@ -9,7 +9,7 @@ import { EmptyState } from "../src/components/EmptyState";
 import { ListItem, ScreenHeader, SkeletonList } from "../src/components/SocialUI";
 import { useAuthStore } from "../src/store/authStore";
 import { colors } from "../src/theme/colors";
-import { fontStyles } from "../src/theme/fonts";
+import { fonts } from "../src/theme/fonts";
 
 type Mode = "submissions" | "reports" | "audit" | "sources" | "learning";
 const PATHS: Record<Mode, string> = {
@@ -86,4 +86,4 @@ export default function ModeratorScreen() {
   </SafeAreaView>;
 }
 
-const styles = themedStyles(() => ({ safe: { flex: 1, backgroundColor: colors.background }, chips: { flexDirection: "row", flexWrap: "wrap", gap: 7, paddingHorizontal: 18, paddingBottom: 10 }, content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 28, flexGrow: 1 }, error: { color: colors.danger, paddingHorizontal: 18 }, input: { minHeight: 80, borderWidth: 1, borderColor: colors.border, borderRadius: 17, backgroundColor: colors.surface, padding: 12, color: colors.text, textAlignVertical: "top", marginVertical: 10 }, item: { paddingBottom: 18 }, detail: { color: colors.textMuted, ...fontStyles.regular, fontSize: 12, lineHeight: 18, marginLeft: 56 }, history: { color: colors.textMuted, ...fontStyles.regular, fontSize: 12, lineHeight: 18, marginLeft: 56, marginTop: 5 }, link: { color: colors.primaryDark, ...fontStyles.semibold, fontWeight: '600', fontSize: 12, marginLeft: 56, marginTop: 6 }, actions: { flexDirection: "row", gap: 8, marginTop: 10 }, action: { flex: 1 } }));
+const styles = themedStyles(() => ({ safe: { flex: 1, backgroundColor: colors.background }, chips: { flexDirection: "row", flexWrap: "wrap", gap: 7, paddingHorizontal: 18, paddingBottom: 10 }, content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 28, flexGrow: 1 }, error: { color: colors.danger, paddingHorizontal: 18 }, input: { minHeight: 80, borderWidth: 1, borderColor: colors.border, borderRadius: 17, backgroundColor: colors.surface, padding: 12, color: colors.text, textAlignVertical: "top", marginVertical: 10 }, item: { paddingBottom: 18 }, detail: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, marginLeft: 56 }, history: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, marginLeft: 56, marginTop: 5 }, link: { color: colors.primaryDark, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12, marginLeft: 56, marginTop: 6 }, actions: { flexDirection: "row", gap: 8, marginTop: 10 }, action: { flex: 1 } }));

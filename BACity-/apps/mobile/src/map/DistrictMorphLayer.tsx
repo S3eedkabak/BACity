@@ -9,7 +9,7 @@ import Animated, {
   useAnimatedStyle, useReducedMotion, useSharedValue, withTiming,
 } from 'react-native-reanimated';
 import { colors } from '../theme/colors';
-import { fontStyles } from '../theme/fonts';
+import { fonts } from '../theme/fonts';
 import { districtHeaderHeight, interpolateRingPath } from './districtMorphGeometry';
 import { useDistrictMorph } from './districtMorphState';
 
@@ -138,8 +138,8 @@ export function DistrictMorphLayer() {
           <AnimatedPath animatedProps={path} fill={DISTRICT_SURFACE}/>
         </Svg>
       </Animated.View>
-      <Animated.Text numberOfLines={1} style={[{position:'absolute',maxWidth:viewport.width-44,color:colors.black,...fontStyles.black,fontSize:30,lineHeight:36},label]}>{entry.name}</Animated.Text>
-      <Animated.Text style={[{position:'absolute',color:colors.black,...fontStyles.semibold,fontSize:13,lineHeight:18},countStyle]}>{entry.count} {entry.count===1?'event':'events'} in this area</Animated.Text>
+      <Animated.Text numberOfLines={1} style={[{position:'absolute',maxWidth:viewport.width-44,color:colors.black,fontFamily:fonts.black,fontSize:30,lineHeight:36},label]}>{entry.name}</Animated.Text>
+      <Animated.Text style={[{position:'absolute',color:colors.black,fontFamily:fonts.semibold,fontSize:13,lineHeight:18},countStyle]}>{entry.count} {entry.count===1?'event':'events'} in this area</Animated.Text>
     </>}
   </View>;
 }

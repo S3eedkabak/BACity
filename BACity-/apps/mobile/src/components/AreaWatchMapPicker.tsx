@@ -1,7 +1,7 @@
 import { themedStyles, useThemeRevision } from '../theme/appearance';
 import { Platform, StyleSheet, Text, View } from "react-native";
 import { colors } from "../theme/colors";
-import { fontStyles } from "../theme/fonts";
+import { fonts } from "../theme/fonts";
 
 const nativeMapLibre = Platform.OS === "web" ? null : require("@maplibre/maplibre-react-native") as typeof import("@maplibre/maplibre-react-native");
 const { Camera, CircleLayer, MapView, ShapeSource } = nativeMapLibre ?? ({} as typeof import("@maplibre/maplibre-react-native"));
@@ -14,4 +14,4 @@ export function AreaWatchMapPicker({ latitude, longitude, radiusKm: _radiusKm, o
   return <View style={styles.mapWrap}><MapView style={styles.map} mapStyle={STYLE} attributionEnabled logoEnabled={false} onPress={(event: GeoJSON.Feature) => { if (event.geometry.type !== "Point") return; const coordinates = event.geometry.coordinates; if (coordinates.length === 2) onChange(coordinates[1], coordinates[0]); }}><Camera centerCoordinate={[longitude, latitude]} zoomLevel={12} /><ShapeSource id="watch-center" shape={point}><CircleLayer id="watch-point" style={{ circleRadius: 7, circleColor: colors.primary, circleStrokeColor: colors.white, circleStrokeWidth: 2 }} /></ShapeSource></MapView><Text style={styles.hint}>{hint}</Text></View>;
 }
 
-const styles = themedStyles(() => ({ mapWrap: { height: 220, borderRadius: 24, overflow: "hidden", backgroundColor: colors.surfaceAlt }, map: { flex: 1 }, hint: { position: "absolute", left: 10, right: 10, bottom: 8, textAlign: "center", color: colors.text, backgroundColor: colors.mediaOverlay, borderRadius: 12, padding: 8, ...fontStyles.medium, fontSize: 12 }, fallback: { minHeight: 90, borderRadius: 20, backgroundColor: colors.surfaceAlt, alignItems: "center", justifyContent: "center", padding: 16 }, fallbackText: { color: colors.textMuted, textAlign: "center", ...fontStyles.regular, fontSize: 14, lineHeight: 21 } }));
+const styles = themedStyles(() => ({ mapWrap: { height: 220, borderRadius: 24, overflow: "hidden", backgroundColor: colors.surfaceAlt }, map: { flex: 1 }, hint: { position: "absolute", left: 10, right: 10, bottom: 8, textAlign: "center", color: colors.text, backgroundColor: colors.mediaOverlay, borderRadius: 12, padding: 8, fontFamily: fonts.medium, fontSize: 12 }, fallback: { minHeight: 90, borderRadius: 20, backgroundColor: colors.surfaceAlt, alignItems: "center", justifyContent: "center", padding: 16 }, fallbackText: { color: colors.textMuted, textAlign: "center", fontFamily: fonts.regular, fontSize: 14, lineHeight: 21 } }));

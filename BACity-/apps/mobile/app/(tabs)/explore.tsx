@@ -1,5 +1,3 @@
-import { useDiscoveryResults } from '../../src/hooks/useDiscoveryResults';
-import { tokens } from '../../src/theme/tokens';
 import { ContentStages } from "../../src/components/navigation/SceneMotion";
 import { MapFilters } from "../../src/map/MapFilters";
 import { SegmentedControl } from "../../src/components/interactions/SegmentedControl";
@@ -7,13 +5,14 @@ import { SectionTransition } from "../../src/components/navigation/SceneMotion";
 import { TabScene } from "../../src/components/navigation/SceneMotion";
 import { themedStyles, useThemeRevision } from "../../src/theme/appearance";
 import { FollowAction } from "../../src/components/interactions/FollowAction";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { FlatList, StyleSheet, Text, TextInput, View } from "react-native";
 import { AnimatedPressable as Pressable } from "../../src/components/motion/Motion";
 import { externalLinking as Linking } from "../../src/api/externalLinking";
 import { SafeAreaView } from "../../src/components/navigation/ContentSafeArea";
 import { AppIcon } from "../../src/components/AppIcon";
 import { router, useLocalSearchParams } from "expo-router";
+import { apiRequest } from "../../src/api/client";
 import { EventCard } from "../../src/components/EventCard";
 import { EmptyState } from "../../src/components/EmptyState";
 import {
@@ -27,7 +26,7 @@ import { Chip } from "../../src/components/CommunityUI";
 import { EventMedia } from "../../src/components/EventMedia";
 import { useAuthStore } from "../../src/store/authStore";
 import { colors } from "../../src/theme/colors";
-import { fontStyles } from "../../src/theme/fonts";
+import { fonts } from "../../src/theme/fonts";
 import type { EventCategory, EventListResponse } from "../../src/types/event";
 import { useMeaningfulLoading } from "../../src/components/loading/LoadingExperience";
 
@@ -72,7 +71,12 @@ function ExploreScreen() {
   const [query, setQuery] = useState("");
   const [term, setTerm] = useState("");
   const [category, setCategory] = useState<EventCategory | null>(null);
-  const { items, loading, error, more, load } = useDiscoveryResults({ domain, term, category, freeOnly, token });
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [more, setMore] = useState(false);
+  const request = useRef(0);
+  const abort = useRef<AbortController | null>(null);
   const initialFinished = useRef(false);
   useEffect(() => {
     if (!loading) initialFinished.current = true;
@@ -103,6 +107,80 @@ function ExploreScreen() {
     const timer = setTimeout(() => setTerm(query.trim()), 300);
     return () => clearTimeout(timer);
   }, [query]);
+  const load = useCallback(
+    async (append = false) => {
+      const id = ++request.current;
+      abort.current?.abort();
+      const controller = new AbortController();
+      abort.current = controller;
+      const signal = controller.signal;
+      const offset = append ? items.length : 0;
+      setLoading(true);
+      setError("");
+      try {
+        let result: any[];
+        if (domain === "events") {
+          if (term)
+            result = await apiRequest<any[]>("/events/search", {
+              signal,
+              params: { q: term, limit: 50 },
+            });
+          else
+            result = (
+              await apiRequest<EventListResponse>("/events", {
+                signal,
+                params: {
+                  category: category || undefined,
+                  free_only: freeOnly || undefined,
+                  offset,
+                  limit: 20,
+                },
+              })
+            ).items;
+        } else if (domain === "places")
+          result = await apiRequest<any[]>("/community/places", {
+            signal,
+            params: { q: term, offset },
+          });
+        else if (domain === "people")
+          result = token
+            ? await apiRequest<any[]>("/community/people", {
+                auth: true,
+                signal,
+                params: { q: term, offset, limit: 20 },
+              })
+            : [];
+        else
+          result = await apiRequest<any[]>("/community/organizations", {
+            signal,
+            params: { q: term },
+          });
+        if (id === request.current) {
+          setItems((current) => (append ? [...current, ...result] : result));
+          setMore(
+            ((domain === "events" && !term) || domain === "people") &&
+              result.length === 20,
+          );
+        }
+      } catch (e: any) {
+        if (id === request.current) setError(e.message);
+      } finally {
+        if (id === request.current) setLoading(false);
+      }
+    },
+    [category, freeOnly, domain, items.length, term, token],
+  );
+  useEffect(() => {
+    setItems([]);
+    void load(false);
+  }, [domain, term, category, freeOnly, token]);
+  useEffect(
+    () => () => {
+      ++request.current;
+      abort.current?.abort();
+    },
+    [],
+  );
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -373,22 +451,24 @@ const styles = themedStyles(() => ({
   safe: { flex: 1, backgroundColor: colors.background },
   content: {
     width: "100%",
-    maxWidth: tokens.layout.maxWidth,
+    maxWidth: 760,
     alignSelf: "center",
-    paddingHorizontal: tokens.layout.gutter,
+    paddingHorizontal: 18,
     paddingTop: 12,
-    paddingBottom: tokens.layout.contentBottom,
+    paddingBottom: 92,
     flexGrow: 1,
   },
   heading: {
     color: colors.text,
-    ...fontStyles.black,
-    ...tokens.type.pageTitle,
+    fontFamily: fonts.black,
+    fontWeight: "800",
+    fontSize: 23,
+    letterSpacing: -0.5,
   },
   search: {
     minHeight: 48,
     marginTop: 12,
-    borderRadius: tokens.radius.field,
+    borderRadius: 14,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -400,12 +480,12 @@ const styles = themedStyles(() => ({
   input: {
     flex: 1,
     color: colors.text,
-    ...fontStyles.regular,
-    ...tokens.type.body,
+    fontFamily: fonts.regular,
+    fontSize: 14,
   },
   domainText: {
     color: colors.textMuted,
-    ...fontStyles.semibold,
+    fontFamily: fonts.semibold,
     fontWeight: "600",
     fontSize: 12,
   },
@@ -417,13 +497,13 @@ const styles = themedStyles(() => ({
   },
   resultTitle: {
     color: colors.text,
-    ...fontStyles.black,
+    fontFamily: fonts.black,
     fontWeight: "800",
     fontSize: 18,
   },
   count: {
     color: colors.textMuted,
-    ...fontStyles.semibold,
+    fontFamily: fonts.semibold,
     fontWeight: "600",
     fontSize: 12,
   },
@@ -439,19 +519,19 @@ const styles = themedStyles(() => ({
   placeCopy: { flex: 1 },
   placeTitle: {
     color: colors.text,
-    ...fontStyles.semibold,
+    fontFamily: fonts.semibold,
     fontWeight: "600",
     fontSize: 14,
   },
   placeCategory: {
     color: colors.primaryDark,
-    ...fontStyles.medium,
+    fontFamily: fonts.medium,
     fontSize: 12,
     marginTop: 2,
   },
   placeAddress: {
     color: colors.textMuted,
-    ...fontStyles.regular,
+    fontFamily: fonts.regular,
     fontSize: 12,
     marginTop: 3,
   },
@@ -471,7 +551,7 @@ const styles = themedStyles(() => ({
   },
   orgDescription: {
     color: colors.textMuted,
-    ...fontStyles.regular,
+    fontFamily: fonts.regular,
     fontSize: 12,
     lineHeight: 18,
     marginTop: 9,
@@ -484,7 +564,7 @@ const styles = themedStyles(() => ({
   },
   link: {
     color: colors.primaryDark,
-    ...fontStyles.semibold,
+    fontFamily: fonts.semibold,
     fontWeight: "600",
     fontSize: 12,
   },

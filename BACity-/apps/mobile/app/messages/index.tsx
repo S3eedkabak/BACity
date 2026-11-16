@@ -11,7 +11,7 @@ import { getConversation, getNotifications, getConversationProfile } from "../..
 import { Avatar, ScreenHeader, SkeletonList } from "../../src/components/SocialUI";
 import { EmptyState } from "../../src/components/EmptyState";
 import { colors } from "../../src/theme/colors";
-import { fontStyles } from "../../src/theme/fonts";
+import { fonts } from "../../src/theme/fonts";
 
 function when(value?: string) {
   if (!value) return "";
@@ -71,7 +71,7 @@ const styles = themedStyles(() => ({
   row: { minHeight: 88, flexDirection: "row", alignItems: "center", gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   pressed: { backgroundColor: colors.surfaceAlt },
   copy: { flex: 1, minWidth: 0 }, titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
-  name: { flex: 1, color: colors.text, ...fontStyles.semibold, fontWeight: "600", fontSize: 16 }, unread: { fontWeight: "800" },
-  preview: { color: colors.textMuted, ...fontStyles.regular, fontSize: 14, marginTop: 6 }, previewUnread: { color: colors.text, fontWeight: "600" },
-  time: { color: colors.textMuted, ...fontStyles.regular, fontSize: 12 }, dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.primary },
+  name: { flex: 1, color: colors.text, fontFamily: fonts.semibold, fontWeight: "600", fontSize: 16 }, unread: { fontWeight: "800" },
+  preview: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 14, marginTop: 6 }, previewUnread: { color: colors.text, fontWeight: "600" },
+  time: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 12 }, dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.primary },
 }));

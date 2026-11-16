@@ -8,8 +8,7 @@
         "./src/*"
       ]
     },
-    "jsx": "react-native",
-    "allowImportingTsExtensions": true
+    "jsx": "react-native"
   },
   "include": [
     "**/*.ts",

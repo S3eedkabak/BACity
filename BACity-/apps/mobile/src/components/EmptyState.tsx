@@ -3,7 +3,7 @@ import { AppIcon } from "./AppIcon";
 import { StyleSheet, Text, View } from "react-native";
 import { AnimatedPressable as Pressable } from './motion/Motion';
 import { colors } from "../theme/colors";
-import { fontStyles } from "../theme/fonts";
+import { fonts } from "../theme/fonts";
 import { tokens } from '../theme/tokens';
 import { CharacterScene, CharacterMood } from './illustrations/CharacterScene';
 import { Reveal } from './motion/Motion';
@@ -59,7 +59,7 @@ const styles = themedStyles(() => ({
   title: {
     ...tokens.type.section,
     color: colors.text,
-    ...fontStyles.black,
+    fontFamily: fonts.black,
     fontSize: 18,
     letterSpacing: -0.5,
     textAlign: "center",
@@ -67,7 +67,7 @@ const styles = themedStyles(() => ({
   subtitle: {
     ...tokens.type.body,
     color: colors.textMuted,
-    ...fontStyles.regular,
+    fontFamily: fonts.regular,
     fontSize: 13,
     lineHeight: 19,
     textAlign: "center",
@@ -82,5 +82,5 @@ const styles = themedStyles(() => ({
     alignItems: "center",
     justifyContent: "center",
   },
-  buttonText: { color: colors.white, ...fontStyles.semibold, fontSize: 13 },
+  buttonText: { color: colors.white, fontFamily: fonts.semibold, fontSize: 13 },
 }));
