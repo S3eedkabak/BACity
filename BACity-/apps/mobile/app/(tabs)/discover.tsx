@@ -226,6 +226,7 @@ function HomeScreen() {
         <Text style={styles.headline}>Bratislava,<Text style={styles.headlineAccent}>{'\n'}what’s happening?</Text></Text>
         <Text style={styles.subtitle}>{user ? "A feed shaped by your interests, saves and local follows." : "Fresh events around Bratislava, with or without an account."}</Text>
       </View></ContentEntrance>
+      <PlusEntry onOpen={() => router.push("/plus-experience")} />
       <SegmentedControl
         label="Event interests"
         options={FILTERS.map((id) => ({ id, label: id }))}
@@ -286,12 +287,6 @@ function HomeScreen() {
 
   const footer = (
     <>
-      <PlusEntry
-        onOpen={() => {
-          router.push("/plus-experience");
-        }}
-      />
-
       {recommendations.isFetchingNextPage ? (
         <ActivityIndicator style={styles.pageLoader} color={colors.primary} />
       ) : null}

@@ -79,7 +79,10 @@ test('Home retains hero and feed while premium tools are consolidated behind one
   for (const name of ['FeaturedEvent', 'excludeFeaturedEvent', 'useRecommendations', 'PlusEntry']) assert.ok(source.includes(name));
   assert.match(source, /router.push\(["']\/plus-experience["']\)/);
   for (const name of ['TonightEntry', 'EveningPlanEntry', 'WeekendPlanEntry', 'GroupsEntry', 'AreaWatchEntry', 'premiumRail']) assert.ok(!source.includes(name));
-  assert.ok(source.indexOf('<FeaturedEvent') < source.indexOf('<PlusEntry'));
+  const header = source.slice(source.indexOf('  const header ='), source.indexOf('  const footer ='));
+  const footer = source.slice(source.indexOf('  const footer ='), source.indexOf('  return (\n    <SafeAreaView'));
+  assert.ok(header.indexOf('<PlusEntry') >= 0 && header.indexOf('<PlusEntry') < header.indexOf('<FeaturedEvent'));
+  assert.ok(!footer.includes('<PlusEntry'));
   assert.doesNotMatch(source, /if \(fallback.isLoading\) return/);
 });
 test('BACity Plus is a closable story with real feature routes, segmented progress and directional taps', () => {
